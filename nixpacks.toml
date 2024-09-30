@@ -1,0 +1,34 @@
+# Nixpacks configuration file
+
+[variables]
+    YARN_CACHE_FOLDER = '/tmp/.yarn-cache'  # Optional: Specify a cache folder for Yarn
+    NPM_CONFIG_UPDATE_NOTIFIER = 'false'
+    NPM_CONFIG_FUND = 'false'
+
+[tools]
+    node = "16.x"      # Specify the Node.js version
+    yarn = "1.22"      # Specify a valid Yarn version
+
+[phases.setup]
+    cmds = [
+        "yarn cache clean --all",  # Clear the Yarn cache
+        "yarn"                      # Install dependencies with a fresh cache
+    ]
+
+[phases.build]
+    cmds = [
+        "yarn build",               # Build the project with Yarn
+        "yarn cache clean"          # Clean Yarn cache to minimize the final image size (optional)
+    ]
+
+[phases.caddy]
+    dependsOn = ['build']
+    nixpkgsArchive = 'ba913eda2df8eb72147259189d55932012df6301'
+    nixPkgs = ['caddy', 'yarn']  # Include Yarn alongside Caddy
+
+[phases.fmt]
+    dependsOn = ['caddy']
+    cmds = ['caddy fmt --overwrite Caddyfile']  # Format the Caddyfile
+
+[start]
+    cmd = 'exec caddy run --config Caddyfile --adapter caddyfile 2>&1'  # Start Caddy
