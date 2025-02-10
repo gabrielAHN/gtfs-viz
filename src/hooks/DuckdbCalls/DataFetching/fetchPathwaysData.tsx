@@ -1,16 +1,16 @@
-import { ColorsRanges } from "@/util/colorUtil";
-import { executeQuery, buildAndQuery } from "@/hooks/DuckdbCalls/QueryHelper";
+import { ColorsRanges } from "@/components/colorUtil";
+import { executeQuery, buildAndQuery, executeColumnQuery } from "@/hooks/DuckdbCalls/QueryHelper";
 
 
 export const fetchPathwaysData = async (props) => {
-  const { conn, StationView, ToStop, FromStop, EmptyArcs, TimeRange, DirectionTypes, PathwayTypes } = props;
+  const { conn, table, StationView, ToStop, FromStop, EmptyArcs, TimeRange, DirectionTypes, PathwayTypes } = props;
 
   let StationInfoQuery = `
       SELECT
         *
-      FROM stops
+      FROM ${table}
       WHERE 
-        parent_station = '${StationView.stopId}'
+        parent_station = '${StationView.stop_id}'
     `;
 
   let ConnectionQuery = `
@@ -36,8 +36,8 @@ export const fetchPathwaysData = async (props) => {
         LEAST(from_stop_id, to_stop_id) AS stop_a,
         GREATEST(from_stop_id, to_stop_id) AS stop_b
     FROM pathways
-    WHERE from_parent_station = '${StationView.stopId}'
-      AND to_parent_station = '${StationView.stopId}'
+    WHERE from_parent_station = '${StationView.stop_id}'
+      AND to_parent_station = '${StationView.stop_id}'
       AND from_lat IS NOT NULL
       AND from_lon IS NOT NULL
       AND to_lat IS NOT NULL
@@ -112,14 +112,14 @@ export const fetchPathwaysData = async (props) => {
   }
   
   if (PathwayTypes.length > 0) {
-    const PathwayTypeCondition = PathwayTypes.map((type) => `pathway_mode_name = '${type.pathway_mode_name}'`).join(" OR ");
-    conditions.push(`(${PathwayTypeCondition})`);
+    conditions.push(`
+      pathway_mode_name IN (${PathwayTypes.map(loc => `'${loc}'`).join(", ")})
+    `);
   }
 
   const ConditionsQuery = buildAndQuery(ConnectionQuery, conditions);
   const StopsResults = await executeQuery(conn, StationInfoQuery);
   const ConnectionResults = await executeQuery(conn, ConditionsQuery);
-
   return {
     stops: StopsResults,
     connections: ConnectionResults,
@@ -127,14 +127,14 @@ export const fetchPathwaysData = async (props) => {
 };
 
 export const fetchToStopsData = async (props) => {
-  const { conn, StationView, FromStop, TimeRange } = props;
+  const { conn, table, StationView, FromStop, TimeRange } = props;
 
   let ToStopsQuery = `
     SELECT
       DISTINCT
       to_stop_id
-    FROM pathways
-    WHERE to_parent_station = '${StationView.stopId}'
+    FROM ${table}
+    WHERE to_parent_station = '${StationView.stop_id}'
     AND to_lat IS NOT NULL
     AND to_lon IS NOT NULL
     AND from_lat IS NOT NULL
@@ -151,20 +151,19 @@ export const fetchToStopsData = async (props) => {
     const [minTime, maxTime] = TimeRange;
     ToStopsQuery += ` AND traversal_time >= ${minTime} AND traversal_time <= ${maxTime}`;
   }
-
-  const ToStopsResults = await executeQuery(conn, ToStopsQuery);
-  return ToStopsResults.map((row: any) => row["to_stop_id"]);
+  const ToStopsResults = executeColumnQuery(conn, ToStopsQuery, "to_stop_id")
+  return ToStopsResults
 };
 
 export const fetchfromStopsData = async (props) => {
-  const { conn, StationView, ToStop, TimeRange } = props;
+  const { conn, table, StationView, ToStop, TimeRange } = props;
 
   let fromStopsQuery = `
     SELECT
       DISTINCT
       from_stop_id
-    FROM pathways
-    WHERE from_parent_station = '${StationView.stopId}'
+    FROM ${table}
+    WHERE from_parent_station = '${StationView.stop_id}'
     AND to_lat IS NOT NULL
     AND to_lon IS NOT NULL
     AND from_lat IS NOT NULL
@@ -181,21 +180,20 @@ export const fetchfromStopsData = async (props) => {
     const [minTime, maxTime] = TimeRange;
     fromStopsQuery += ` AND traversal_time >= ${minTime} AND traversal_time <= ${maxTime}`;
   }
-
-  const fromStopsResults = await executeQuery(conn, fromStopsQuery);
-  return fromStopsResults.map((row: any) => row["from_stop_id"]);
+  const fromStopsResults = executeColumnQuery(conn, fromStopsQuery, "from_stop_id")
+  return fromStopsResults
 };
 
 export const fetchDirectionTypes = async (props) => {
-  const { conn, StationView, ToStop, FromStop, EmptyArcs, TimeRange } = props;
+  const { conn, table, StationView, ToStop, FromStop, EmptyArcs, TimeRange } = props;
 
   let DirectionQuery = `
     SELECT
       DISTINCT
       direction_type
-    FROM pathways
-    WHERE from_parent_station = '${StationView.stopId}'
-    AND to_parent_station = '${StationView.stopId}'
+    FROM ${table}
+    WHERE from_parent_station = '${StationView.stop_id}'
+    AND to_parent_station = '${StationView.stop_id}'
     AND to_lat IS NOT NULL
     AND to_lon IS NOT NULL
     AND from_lat IS NOT NULL
@@ -217,19 +215,19 @@ export const fetchDirectionTypes = async (props) => {
 
     DirectionQuery += `AND (traversal_time >= ${minTime} AND traversal_time <= ${maxTime} ${nullCondition})`;
   }
-  const DirectionResults = await executeQuery(conn, DirectionQuery);
-  return DirectionResults.map((row: any) => row["direction_type"]);
+  const DirectionResults = executeColumnQuery(conn, DirectionQuery, "direction_type")
+  return DirectionResults
 };
 
 export const fetchtimeIntervalRanges = async (props) => {
-  const { conn, StationView, ToStop, FromStop } = props;
+  const { conn, table, StationView, ToStop, FromStop } = props;
 
   let validTraversalsQuery = `
     SELECT
       traversal_time
-    FROM pathways
-    WHERE from_parent_station = '${StationView.stopId}'
-      AND to_parent_station = '${StationView.stopId}'
+    FROM ${table}
+    WHERE from_parent_station = '${StationView.stop_id}'
+      AND to_parent_station = '${StationView.stop_id}'
       AND from_lat IS NOT NULL
       AND from_lon IS NOT NULL
       AND to_lat IS NOT NULL
@@ -322,15 +320,15 @@ export const fetchtimeIntervalRanges = async (props) => {
 };
 
 export const fetchPathwayType = async (props) => {
-  const { conn, StationView, ToStop, FromStop  } = props;
+  const { conn, table, StationView, ToStop, FromStop  } = props;
 
   let PathwayTypeQuery = `
     SELECT
       DISTINCT
       pathway_mode_name
-    FROM pathways
-    WHERE from_parent_station = '${StationView.stopId}'
-    AND to_parent_station = '${StationView.stopId}'
+    FROM ${table}
+    WHERE from_parent_station = '${StationView.stop_id}'
+    AND to_parent_station = '${StationView.stop_id}'
     AND to_lat IS NOT NULL
     AND to_lon IS NOT NULL
     AND from_lat IS NOT NULL
@@ -345,7 +343,6 @@ export const fetchPathwayType = async (props) => {
   if (FromStop) {
     PathwayTypeQuery += ` AND from_stop_id = '${FromStop}'`;
   }
-
-  const PathwayTypeResults = await executeQuery(conn, PathwayTypeQuery);
+  const PathwayTypeResults = executeColumnQuery(conn, PathwayTypeQuery, "pathway_mode_name")
   return PathwayTypeResults
 };

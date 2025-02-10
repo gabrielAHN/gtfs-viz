@@ -8,7 +8,7 @@ export const fetchRouteData = async (props) => {
       CREATE TEMPORARY TABLE StationStops AS
       SELECT stop_id
       FROM stops
-      WHERE parent_station = '${StationView.stopId}';
+      WHERE parent_station = '${StationView.stop_id}';
     `;
     await executeQuery(conn, stationStopsQuery);
 
