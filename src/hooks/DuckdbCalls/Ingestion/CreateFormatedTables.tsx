@@ -1,11 +1,23 @@
-import { CreateStationsTable } from "@/hooks/DuckdbCalls/Ingestion/CreateStationTable";
+import { 
+  CreateEditStopTable,
+  CreateStationsTable, 
+  CreateStationView 
+} from "@/hooks/DuckdbCalls/Ingestion/CreateStationTable";
 import { ReformatStopsTable, ReformatPathwaysTable } from "@/hooks/DuckdbCalls/Ingestion/ReformatTable";
 
-export default async function createFormatedTables(db, conn: any) {
+export default async function createFormattedTables(conn) {
+  const queries = [
+    ReformatStopsTable,
+    ReformatPathwaysTable,
+    CreateEditStopTable,
+    CreateStationView,
+    CreateStationsTable,
+  ];
+
   try {
-    await conn.query(ReformatStopsTable);
-    await conn.query(ReformatPathwaysTable);
-    await conn.query(CreateStationsTable);
+    for (const query of queries) {
+      await conn.query(query);
+    }
     return "Success";
   } catch (error) {
     console.error("Error creating formatted tables:", error);

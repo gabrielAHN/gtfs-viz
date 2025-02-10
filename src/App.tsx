@@ -1,13 +1,15 @@
 import { CombinedProvider } from "./context/combinedContext";
-import 'tailwindcss/tailwind.css'
 import Routes from "./routes";
+
+import 'tailwindcss/tailwind.css'
 import "./index.css";
+
 
 function App() {
   return (
-    <CombinedProvider>
-        <Routes />
-    </CombinedProvider>
+      <CombinedProvider>
+          <Routes />
+      </CombinedProvider>
   );
 }
 

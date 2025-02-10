@@ -1,12 +1,11 @@
-import { FetchProps } from "@/types/objectTypes";
 import {
+  executeQuery,
   buildAndQuery,
   executeColumnQuery,
 } from "@/hooks/DuckdbCalls/QueryHelper";
 
 const addConditions = (
-  props: FetchProps,
-  include: Partial<Record<keyof FetchProps, boolean>>
+  props
 ): string[] => {
   const {
     SearchText,
@@ -18,17 +17,17 @@ const addConditions = (
 
   const conditions: string[] = [];
 
-  if (include.SearchText && SearchText) {
+  if (SearchText) {
     conditions.push(`LOWER(stop_name) LIKE '%${SearchText.toLowerCase()}%'`);
   }
-  if (include.StopIdDropdown && StopIdDropdown) {
+  if (StopIdDropdown) {
     conditions.push(`LOWER(stop_id) = LOWER('${StopIdDropdown}')`);
   }
-  if (include.StopNameDropDown && StopNameDropDown) {
+  if (StopNameDropDown) {
     conditions.push(`LOWER(stop_name) = LOWER('${StopNameDropDown}')`);
   }
+
   if (
-    include.PathwaysStatusDropDown &&
     PathwaysStatusDropDown &&
     PathwaysStatusDropDown.length > 0
   ) {
@@ -38,8 +37,8 @@ const addConditions = (
       ).join(", ")})`
     );
   }
+
   if (
-    include.WheelChairStatusDropDown &&
     WheelChairStatusDropDown &&
     WheelChairStatusDropDown.length > 0
   ) {
@@ -49,22 +48,30 @@ const addConditions = (
       ).join(", ")})`
     );
   }
-
   return conditions;
 };
 
-export const fetchStationsData = async (
-  props: FetchProps
+export const fetchTableData = async (
+  props
 ): Promise<string[]> => {
-  const { conn } = props;
-  let baseQuery = `SELECT * FROM StationsTable`;
-  const conditions = addConditions(props, {
-    SearchText: true,
-    StopIdDropdown: true,
-    StopNameDropDown: true,
-    PathwaysStatusDropDown: true,
-    WheelChairStatusDropDown: true,
-  });
+  const { conn, table } = props;
+  let baseQuery = `SELECT * FROM ${table}`;
+
+  try {
+    const result = await executeQuery(conn, baseQuery);
+    return result;
+  } catch (error) {
+    console.error(`Error fetching data table`, error);
+    return [];
+  }
+};
+
+export const fetchStationsData = async (
+  props
+): Promise<string[]> => {
+  const { conn, table } = props;
+  let baseQuery = `SELECT * FROM ${table}`;
+  const conditions = addConditions(props);
 
   const query = buildAndQuery(baseQuery, conditions);
 
@@ -78,16 +85,11 @@ export const fetchStationsData = async (
 };
 
 export const fetchPathwaysStatusData = async (
-  props: FetchProps
+  props
 ): Promise<string[]> => {
-  const { conn } = props;
-  let baseQuery = `SELECT DISTINCT pathways_status FROM StationsTable`;
-  const conditions = addConditions(props, {
-    SearchText: true,
-    StopIdDropdown: true,
-    StopNameDropDown: true,
-    WheelChairStatusDropDown: true,
-  });
+  const { conn, table } = props;
+  let baseQuery = `SELECT DISTINCT pathways_status FROM ${table}`;
+  const conditions = addConditions(props);
 
   const query = buildAndQuery(baseQuery, conditions);
 
@@ -95,33 +97,22 @@ export const fetchPathwaysStatusData = async (
 };
 
 export const fetchStopsIdData = async (
-  props: FetchProps
+  props
 ): Promise<string[]> => {
-  const { conn } = props;
-  let baseQuery = `SELECT DISTINCT stop_id FROM StationsTable`;
-  const conditions = addConditions(props, {
-    SearchText: true,
-    StopNameDropDown: true,
-    PathwaysStatusDropDown: true,
-    WheelChairStatusDropDown: true,
-  });
+  const { conn, table } = props;
+  let baseQuery = `SELECT DISTINCT stop_id FROM ${table}`;
+  const conditions = addConditions(props);
 
   const query = buildAndQuery(baseQuery, conditions);
-
   return executeColumnQuery(conn, query, "stop_id");
 };
 
 export const fetchStopsNamesData = async (
-  props: FetchProps
+  props
 ): Promise<string[]> => {
-  const { conn } = props;
-  let baseQuery = `SELECT DISTINCT stop_name FROM StationsTable`;
-  const conditions = addConditions(props, {
-    SearchText: true,
-    StopIdDropdown: true,
-    PathwaysStatusDropDown: true,
-    WheelChairStatusDropDown: true,
-  });
+  const { conn, table } = props;
+  let baseQuery = `SELECT DISTINCT stop_name FROM ${table}`;
+  const conditions = addConditions(props);
 
   const query = buildAndQuery(baseQuery, conditions);
 
@@ -129,16 +120,11 @@ export const fetchStopsNamesData = async (
 };
 
 export const fetchWheelchairStatusData = async (
-  props: FetchProps
+  props
 ): Promise<string[]> => {
-  const { conn } = props;
-  let baseQuery = `SELECT DISTINCT wheelchair_status FROM StationsTable`;
-  const conditions = addConditions(props, {
-    SearchText: true,
-    StopIdDropdown: true,
-    StopNameDropDown: true,
-    PathwaysStatusDropDown: true,
-  });
+  const { conn, table } = props;
+  let baseQuery = `SELECT DISTINCT wheelchair_status FROM ${table}`;
+  const conditions = addConditions(props);
 
   const query = buildAndQuery(baseQuery, conditions);
 

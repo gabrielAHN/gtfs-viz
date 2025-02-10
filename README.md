@@ -12,7 +12,7 @@ Feel free to contribute to the project by making a PR or opening an issue.
 ![GTFS Viz](https://github.com/gabrielAHN/gtfs-viz/blob/main/images/gtfs-viz.gif?raw=true)
 
 
-> **Requirements:** Need newer browsers and good CPU computer to run.
+> **Requirements:** Need newer browsers and good GPU computer to run.
 
 ### Running Locally
 ```
@@ -21,14 +21,14 @@ yarn dev
 ```
 
 #### Features
-- [x] All Stations Maps
-- [x] All Stations Data Filtering
-- [x] Station Info
-- [x] Station Parts Pathways Maps nd Table
-- [x] Station Shortest Table Connections
+- [x] View Stations in Table and Map
+- [x] See Details like Station Pathways and Exit Counts
+- [x] Add and Edit Station(s)
+- [x] Add and Edit Station parts like exits, pathways,and 
+- [x] Export Edited Stops File
 
 ### Coming Soon
-- [ ] Station Pathways Editing ✍️
+- [ ] Station Pathway Editing
 - [ ] GTFS routes Viz 📈
 
 ### Stack
@@ -38,6 +38,6 @@ Data Processing ⚙️⚙️
 
 Style 🎨
 - [Tailwindcss](https://tailwindcss.com/)
-- [Material UI](https://material-ui.com/)
+- [Shadcn](https://ui.shadcn.com/)
 - [Vite](https://vitejs.dev/)
 

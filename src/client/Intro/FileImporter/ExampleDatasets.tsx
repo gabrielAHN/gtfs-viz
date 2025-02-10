@@ -1,4 +1,10 @@
-import { InputLabel, MenuItem, FormControl, Select } from "@mui/material";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const ExampleDataDict = [
   {
@@ -21,19 +27,29 @@ export const ExampleDataDict = [
 
 export default function ExampleDatasets({ handleExampleFileUpload }) {
   return (
-    <FormControl fullWidth>
-      <InputLabel>Example Datasets</InputLabel>
-      <Select
-        label="Example Datasets"
-        value=""
-        onChange={handleExampleFileUpload}
-      >
+    <Select
+      onValueChange={(value) => {
+        const selectedItem = ExampleDataDict.find(
+          (item) => item.name === value
+        );
+        if (selectedItem) {
+          handleExampleFileUpload(selectedItem.url);
+        }
+      }}
+    >
+      <SelectTrigger className="min-w-[15em] text-center">
+        <SelectValue
+          placeholder="Example Datasets"
+          className="text-center text-gray-500"
+        />
+      </SelectTrigger>
+      <SelectContent>
         {ExampleDataDict.map((item, index) => (
-          <MenuItem key={index} value={item}>
+          <SelectItem key={index} value={item.name}>
             {item.name}
-          </MenuItem>
+          </SelectItem>
         ))}
-      </Select>
-    </FormControl>
+      </SelectContent>
+    </Select>
   );
 }

@@ -1,13 +1,14 @@
 import { useEffect } from "react";
 
 import { ScatterplotLayer } from "@deck.gl/layers";
-import { StopTypeColors } from "@/util/gtfsStyling";
-import { getMapsFunction } from "@/components/mapComponent/MapFunctions";
-import DeckglMap from "@/components/mapComponent/DeckglMap";
+import { StopTypeColors } from "@/components/style";
+import { useThemeContext } from "@/context/combinedContext";
+import { getMapsFunction } from "@/functions/mapComponent/MapFunctions";
+import DeckglMap from "@/components/maps/DeckglMap"
 
 function MapSection({
   MapLayers,
-  StationData,
+  Data,
   setMapLayers,
   ClickInfo,
   setClickInfo,
@@ -16,11 +17,12 @@ function MapSection({
   setBoundBox,
   BoundBox,
 }) {
+  const { theme } = useThemeContext();
 
   useEffect(() => {
-    if (!StationData || StationData.StationData === undefined) return;
+    if (!Data ||Data.length === 0) return;
 
-    const mapPoints = StationData.StationData.filter(
+    const mapPoints = Data.filter(
       (row) => row.stop_lon !== null && row.stop_lat !== null
     );
     if (mapPoints.length === 0) {
@@ -42,7 +44,7 @@ function MapSection({
     setBoundBox(mapBoundBox);
 
     const baseLayer = new ScatterplotLayer({
-      id: "table-view",
+      id: "station-table-view",
       data: mapPoints,
       getFillColor: (row) => StopTypeColors[row["location_type_name"]]?.color,
       pickable: true,
@@ -57,42 +59,45 @@ function MapSection({
 
     if (ClickInfo) {
       setViewState({
-        longitude: ClickInfo.object.stop_lon,
-        latitude: ClickInfo.object.stop_lat,
-        zoom: 18,
+        longitude: ClickInfo.stop_lon,
+        latitude: ClickInfo.stop_lat,
+        zoom: 19,
       });
 
       const highlightedPoint = new ScatterplotLayer({
         id: "highlighted-point",
-        data: [ClickInfo.object],
-        getFillColor: [0, 0, 0],
+        data: [{ 'coordinates': [ClickInfo.stop_lon, ClickInfo.stop_lat] }],
+        getFillColor: theme === "dark" ? [255, 255, 255] : [0, 0, 0],
+        getPosition: (d) => d.coordinates,
         pickable: true,
         lineWidthUnits: "pixels",
-        getLineWidth: 4,
-        lineWidthMinPixels: 5,
-        stroked: true,
+        getLineWidth: 1,
         radiusUnits: "pixels",
-        radiusMinPixels: 20,
-        getPosition: (d) => d.coordinates,
+        radiusMaxPixels: 10,
+        radiusMinPixels: 10,
       });
       layers.unshift(highlightedPoint);
     }
 
     setMapLayers(layers);
-  }, [StationData, ClickInfo, setViewState, setMapLayers, setBoundBox]);
+  }, [Data, ClickInfo, setViewState, setMapLayers, setBoundBox, theme]);
 
   if (!viewState || !BoundBox) return null;
+  
+  const handleMapClick = (info: any) => {
+    setClickInfo(info?.object)
+  };
 
   return (
     <div className="relative h-[70vh] w-full overflow-hidden">
       <DeckglMap
-        MinZoom={14}
+        MinZoom={10}
         dragRotate={false}
         MapLayers={MapLayers}
         BoundBox={BoundBox}
         viewState={viewState}
         setViewState={setViewState}
-        setClickInfo={setClickInfo}
+        setClickInfo={handleMapClick}
       />
     </div>
   );

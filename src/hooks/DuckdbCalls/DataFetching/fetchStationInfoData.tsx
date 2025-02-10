@@ -1,5 +1,5 @@
 import { FetchProps } from "@/types/objectTypes";
-import { buildAndQuery, executeQuery } from "@/hooks/DuckdbCalls/QueryHelper";
+import { buildAndQuery, executeQuery, executeColumnQuery } from "@/hooks/DuckdbCalls/QueryHelper";
 
 
 const addConditions = (props: FetchProps): string[] => {
@@ -44,13 +44,13 @@ export const fetchStationInfoData = async (props: FetchProps): Promise<{ Station
 
 export const fetchCheckPathways = async (props: FetchProps): Promise<{ success: boolean; error?: string; StationParts?: string[]; }> => {
   const { conn, StationView } = props;
-  
+
   const PathwaysQuery = `
     SELECT * FROM StationsTable
     WHERE stop_id = '${StationView.stopId}'
     AND pathways_status = '✅'
   `;
-  
+
   try {
     const PathwatsData = await executeQuery(conn, PathwaysQuery);
 
@@ -65,21 +65,21 @@ export const fetchCheckPathways = async (props: FetchProps): Promise<{ success: 
 };
 
 export const fetchCheckStationData = async (props: any) => {
-  const { conn, StationView, SearchText, LocationsList, StopsID } = props;
+  const { conn, table, StationView, LocationsList, StopsID } = props;
 
   let StationDataQuery = `
   WITH StopsViewTable AS (
     SELECT
       *
-    FROM stops
+    FROM ${table}
     WHERE 
-      parent_station = '${StationView.stopId}'
+      parent_station = '${StationView.stop_id}'
     UNION ALL
     SELECT
       *
-    FROM stops
+    FROM ${table}
     WHERE 
-      stop_id = '${StationView.stopId}'
+      stop_id = '${StationView.stop_id}'
   )
   SELECT
     *
@@ -87,18 +87,9 @@ export const fetchCheckStationData = async (props: any) => {
   `;
   const conditions: string[] = [];
 
-  if (SearchText) {
-    conditions.push(`
-      (
-        LOWER(stop_name) LIKE LOWER('%${SearchText}%') 
-        OR LOWER(stop_id) LIKE LOWER('%${SearchText}%')
-      )
-    `);
-  }
-
   if (LocationsList && LocationsList.length > 0) {
     conditions.push(`
-      location_type_name IN (${LocationsList.map(loc => `'${loc.location_type_name}'`).join(", ")})
+      location_type_name IN (${LocationsList.map(loc => `'${loc}'`).join(", ")})
     `);
   }
 
@@ -111,7 +102,7 @@ export const fetchCheckStationData = async (props: any) => {
   try {
     const ConditionsQuery = buildAndQuery(StationDataQuery, conditions);
     const StationData = await executeQuery(conn, ConditionsQuery);
-    return { StationData: StationData };
+    return StationData
   } catch (error) {
     return { error: 'Error executing query.' };
   }
@@ -119,16 +110,63 @@ export const fetchCheckStationData = async (props: any) => {
 
 
 export const fetchCheckStationInfo = async (props) => {
-  const { conn, StationView } = props;
+  const { conn, table, stop_id } = props;
 
   let StationInfoQuery = `
-    SELECT
-      *
-    FROM StationsTable
-    WHERE 
-      stop_id = '${StationView.stopId}'
-  `;
-  
+    WITH exit_counts AS (
+      SELECT
+          parent_station,
+          COUNT(*) AS exit_count
+      FROM ${table}
+      WHERE location_type_name = 'Exit/Entrance'
+      AND parent_station = '${stop_id}'
+      GROUP BY parent_station
+    ),
+    all_pathways AS (
+        SELECT 
+            s.stop_id AS station_id, 
+            p.pathway_id
+        FROM ${table} s
+        LEFT JOIN pathways p
+            ON p.from_parent_station = '${stop_id}'
+            OR p.to_parent_station = '${stop_id}'
+    ),
+    pathway_counts AS (
+        SELECT
+            station_id,
+            COUNT(DISTINCT pathway_id) AS pathway_count
+        FROM all_pathways
+        GROUP BY station_id
+    )
+      SELECT
+        s.row_id,
+        s.stop_id,
+        s.stop_name,
+        s.stop_lat,
+        s.stop_lon,
+        s.status,
+        COALESCE(e.exit_count, 0) AS exit_count,
+        s.location_type_name,
+        s.parent_station,
+        s.wheelchair_status,
+        pc.pathway_count,
+        CASE
+            WHEN COALESCE(pc.pathway_count, 0) = 0 THEN '❌'
+            WHEN COALESCE(pc.pathway_count, 0) > 0 THEN '✅'
+            WHEN COALESCE(pc.pathway_count, 0) = 0
+                AND COALESCE(e.exit_count, 0) > 0
+            THEN '🟡'
+            ELSE '❌'
+        END AS pathways_status
+    FROM ${table} s
+    LEFT JOIN exit_counts e
+        ON e.parent_station = s.stop_id
+    LEFT JOIN pathway_counts pc
+        ON pc.station_id = s.stop_id
+    WHERE s.location_type_name = 'Station'
+    AND s.stop_id = '${stop_id}';
+  `
+
   try {
     const StationInfoData = await executeQuery(conn, StationInfoQuery);
     if (StationInfoData && StationInfoData.length > 0) {
@@ -142,21 +180,21 @@ export const fetchCheckStationInfo = async (props) => {
 };
 
 export const fetchStationPartTypes = async (props) => {
-  const { conn, StationView, SearchText, StopsID  } = props;
+  const { conn, table, StationView, StopsID } = props;
 
   let StationPartsQuery = `
     WITH StopsTypeTable AS (
       SELECT
         *
-      FROM stops
+      FROM ${table}
       WHERE 
-        parent_station = '${StationView.stopId}'
+        parent_station = '${StationView.stop_id}'
       UNION ALL
       SELECT
         *
-      FROM stops
+      FROM ${table}
       WHERE 
-        stop_id = '${StationView.stopId}'
+        stop_id = '${StationView.stop_id}'
     )
   SELECT
     DISTINCT location_type_name
@@ -165,15 +203,6 @@ export const fetchStationPartTypes = async (props) => {
 
 
   const conditions: string[] = [];
-
-  if (SearchText) {
-    conditions.push(`
-      (
-        LOWER(stop_name) LIKE LOWER('%${SearchText}%') 
-        OR LOWER(stop_id) LIKE LOWER('%${SearchText}%')
-      )
-    `);
-  }
 
   if (StopsID) {
     conditions.push(`
@@ -184,58 +213,47 @@ export const fetchStationPartTypes = async (props) => {
   const ConditionsQuery = buildAndQuery(StationPartsQuery, conditions);
 
   try {
-    const StationPartsData = await executeQuery(conn, ConditionsQuery);
-    return { StationPartsData: StationPartsData };
+    return executeColumnQuery(conn, ConditionsQuery, "location_type_name");
   } catch (error) {
     return { error: 'Error executing query.' };
   }
 };
 
 export const fetchStationStopIds = async (props) => {
-    const { conn, StationView, SearchText, LocationsList } = props;
-  
-    let StopIdsQuery = `
+  const { conn, table, StationView, LocationsList } = props;
+
+  let StopIdsQuery = `
     WITH StopsIDTable AS (
       SELECT
         *
-      FROM stops
+      FROM ${table}
       WHERE 
-        parent_station = '${StationView.stopId}'
+        parent_station = '${StationView.stop_id}'
       UNION ALL
       SELECT
         *
-      FROM stops
+      FROM ${table}
       WHERE 
-        stop_id = '${StationView.stopId}'
+        stop_id = '${StationView.stop_id}'
     )
     SELECT
       DISTINCT stop_id
     FROM StopsIDTable
     `;
-    const conditions: string[] = [];
+  const conditions: string[] = [];
 
-    
-    if (SearchText) {
-      conditions.push(`
-        (
-          LOWER(stop_name) LIKE LOWER('%${SearchText}%') 
-          OR LOWER(stop_id) LIKE LOWER('%${SearchText}%')
-        )
-      `);
-    }
-  
-    if (LocationsList && LocationsList.length > 0) {
-      conditions.push(`
+
+  if (LocationsList && LocationsList.length > 0) {
+    conditions.push(`
         location_type_name IN (${LocationsList.map(loc => `'${loc.location_type_name}'`).join(", ")})
       `);
-    }
-  
-    try {
-      const conditionsQuery = buildAndQuery(StopIdsQuery, conditions);
-      const StopIdsData = await executeQuery(conn, conditionsQuery);
-      return { StopIdsData: StopIdsData };
-    } catch (error) {
-      return { error: 'Error executing query.' };
-    }
-  };
+  }
+
+  try {
+    const conditionsQuery = buildAndQuery(StopIdsQuery, conditions);
+    return executeColumnQuery(conn, conditionsQuery, "stop_id");
+  } catch (error) {
+    return { error: 'Error executing query.' };
+  }
+};
 

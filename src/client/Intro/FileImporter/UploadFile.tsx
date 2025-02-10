@@ -1,17 +1,17 @@
 import React from "react";
-import LoadingButton from "@mui/lab/LoadingButton";
-import FileUploadOutlined from "@mui/icons-material/FileUploadOutlined";
+
+import { Upload } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+
 
 interface UploadFileProps {
   handleFileUpload: (file: File) => void;
-  fetchFormatedTables: { isLoading: boolean };
 }
 
 export default function UploadFile({
   handleFileUpload,
-  fetchFormatedTables,
 }: UploadFileProps) {
-  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const fileInputRef = React.useRef < HTMLInputElement | null > (null);
 
   const onButtonClick = () => {
     if (fileInputRef.current) {
@@ -20,7 +20,7 @@ export default function UploadFile({
   };
 
   return (
-    <>
+    <div className="mb-2">
       <input
         type="file"
         accept=".zip"
@@ -28,17 +28,13 @@ export default function UploadFile({
         hidden
         onChange={handleFileUpload}
       />
-      <LoadingButton
-        size="large"
-        fullWidth
-        variant="outlined"
-        loading={fetchFormatedTables.isLoading}
-        endIcon={<FileUploadOutlined />}
+      <Button
+        variant={"outline"}
+        className="w-[30vh]"
         onClick={onButtonClick}
-        className="w-full max-w-xs"
       >
-        <span>Upload GTFS Zip File</span>
-      </LoadingButton>
-    </>
+        <Upload /> Upload GTFS Zip File
+      </Button>
+    </div>
   );
 }

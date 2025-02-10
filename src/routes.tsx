@@ -1,44 +1,53 @@
 import { usePageViewContext } from "./context/combinedContext";
-import SelectedStations from "./client/Stations/SelectedStations/main";
-import AllStations from "@/client/Stations/AllStations/main";
-import Header from "./client/Header/Header";
-import Intro from "./client/Intro/main";
-import "./App.css";
+import { GhnWebsite } from "@/components/contact";
+import SelectedStations from "./client/Stations/SelectedStations";
+import AllStations from "@/client/Stations/AllStations";
+import Header from "./client/Header";
+import Export from "./client/Export";
+import Intro from "./client/Intro";
 
-function Routes() {
+const Routes: React.FC = () => {
   const { PageState } = usePageViewContext();
-
 
   switch (PageState) {
     case "intro":
+      return <Intro />;
+      
+    case "export":
       return (
-      <Intro />
+        <>
+          <Header />
+          <div className="p-4">
+            <Export />
+          </div>
+        </>
       );
+
     case "dashboard":
       return (
         <>
           <Header />
-          <AllStations />
-          <div className="flex justify-center m-4">
-            <a href="/" className="hover:text-yellow-400">
-              Created by gabrielhn.com
-            </a>
+          <div className="p-4">
+            <AllStations />
+            <GhnWebsite />
           </div>
         </>
       );
+
     case "stationView":
       return (
         <>
           <Header />
-          <SelectedStations />
-          <div className="flex justify-center m-4">
-            <a href="/" className="hover:text-yellow-400">
-              Created by gabrielhn.com
-            </a>
+          <div className="p-4">
+            <SelectedStations />
+            <GhnWebsite />
           </div>
         </>
       );
+
+    default:
+      return null;
   }
-}
+};
 
 export default Routes;
