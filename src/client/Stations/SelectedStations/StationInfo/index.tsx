@@ -13,7 +13,8 @@ function StationInfo({ Data }) {
   const router = useRouter();
   const { conn } = useDuckDB();
   const [Open, setOpen] = useState({ formType: null, state: false });
-  
+  const [isFormMutating, setIsFormMutating] = useState(false);
+
   const mutation = useMutation({
     mutationFn: async () => {
       await mutationDeleteStationFn({
@@ -37,14 +38,17 @@ function StationInfo({ Data }) {
             ClickInfo={Data}
             setClickInfo={() => {}}
             type="station"
+            onFormMutatingChange={setIsFormMutating}
           />
           <EditButton
             onClick={() => setOpen({ formType: "edit", state: true })}
+            disabled={isFormMutating || mutation.isPending}
             className="w-full md:w-auto"
           />
           <DeleteButton
             onClick={() => mutation.mutate()}
             isPending={mutation.isPending}
+            disabled={isFormMutating || mutation.isPending}
             className="w-full md:w-auto"
           />
         </div>

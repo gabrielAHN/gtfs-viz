@@ -11,6 +11,7 @@ type StopStationFormProps = {
   type: "station" | "stop";
   parentStation?: string;
   onZoomToLocation?: (lat: number, lon: number) => void;
+  onFormMutatingChange?: (isMutating: boolean) => void;
 };
 
 function StopStationForm({
@@ -22,6 +23,7 @@ function StopStationForm({
   type,
   parentStation,
   onZoomToLocation,
+  onFormMutatingChange,
 }: StopStationFormProps) {
   const mode = OpenValue.formType as "add" | "edit";
 
@@ -36,6 +38,7 @@ function StopStationForm({
       setClickInfo();
     },
     onZoomToLocation,
+    onFormMutatingChange,
   });
 
   if (!OpenValue.state || !mode) return null;

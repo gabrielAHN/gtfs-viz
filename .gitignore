@@ -1,0 +1,48 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# TanStack build artifacts
+.tanstack/
+
+# MCP and environment files
+.mcp.json
+.nvmrc
+.claude/
+
+# Railway local configuration
+.railway/
+
+# Package manager lock files (keep yarn.lock, ignore npm)
+package-lock.json
+
+# GTFS sample data (zip files)
+public/extensions/sample-data/*.zip
+
+# Extensions directory (separate project - root level only)
+/extensions/
+
+# Documentation files in public/extensions (not needed for deployment)
+public/extensions/**/*.md
+public/extensions/**/README.md

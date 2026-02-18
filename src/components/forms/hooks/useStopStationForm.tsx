@@ -34,6 +34,7 @@ type UseStopStationFormProps = {
   parentStation?: string;
   onSuccess?: () => void;
   onZoomToLocation?: (lat: number, lon: number) => void;
+  onFormMutatingChange?: (isMutating: boolean) => void;
 };
 
 export function useStopStationForm({
@@ -44,6 +45,7 @@ export function useStopStationForm({
   parentStation,
   onSuccess,
   onZoomToLocation,
+  onFormMutatingChange,
 }: UseStopStationFormProps) {
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -167,6 +169,14 @@ export function useStopStationForm({
   );
 
   const [isFormMutating, setIsFormMutating] = useState(false);
+
+  const handleMutationStateChange = useCallback(
+    (isPending: boolean) => {
+      setIsFormMutating(isPending);
+      onFormMutatingChange?.(isPending);
+    },
+    [onFormMutatingChange]
+  );
 
   const upgradeMutation = useMutation({
     mutationFn: async () => {
@@ -463,6 +473,6 @@ export function useStopStationForm({
     disableInputs: upgradeMutation.isPending || downgradeMutation.isPending || isFormMutating,
     locationType: isAddMode ? locationTypeConfig : undefined,
     validationMode: "onChange" as const,
-    onMutationStateChange: setIsFormMutating,
+    onMutationStateChange: handleMutationStateChange,
   };
 }

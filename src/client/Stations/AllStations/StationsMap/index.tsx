@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { BiPencil, BiTrash, BiRightArrow, BiReset } from "react-icons/bi";
@@ -6,7 +6,13 @@ import { useDuckDB } from "@/context/duckdb.client";
 import { useRouter } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { mutationDeleteStationFn } from "@/lib/duckdb/DataEditing/editingFn";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DATA_STATUS } from "@/components/style";
 import { rgbToHex } from "@/components/colorUtil";
 import {
@@ -17,13 +23,19 @@ import {
 } from "@/components/ui/tooltip";
 import { EditIndicator } from "@/components/ui/EditIndicator";
 
-import MapSection from './Components/MapSection';
-import MapClickPopup from '@/components/maps/MapClickPopup';
-import MapContainer from '@/components/maps/MapContainer';
-import MapLegend from '@/components/maps/MapLegend';
+import MapSection from "./Components/MapSection";
+import MapClickPopup from "@/components/maps/MapClickPopup";
+import MapContainer from "@/components/maps/MapContainer";
+import MapLegend from "@/components/maps/MapLegend";
 import { createStationsTable, createStopsView } from "@/lib/extensions";
 
-function StationsMap({ data, setOpen, ClickInfo, setClickInfo, externalViewState }) {
+function StationsMap({
+  data,
+  setOpen,
+  ClickInfo,
+  setClickInfo,
+  externalViewState,
+}) {
   const { conn } = useDuckDB();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -71,9 +83,11 @@ function StationsMap({ data, setOpen, ClickInfo, setClickInfo, externalViewState
   const legendItems = useMemo(() => {
     if (!data || data.length === 0) return [];
 
-    const statusSet = new Set(data.map(row => row[DataColor]).filter(Boolean));
+    const statusSet = new Set(
+      data.map((row) => row[DataColor]).filter(Boolean),
+    );
 
-    return Array.from(statusSet).map(status => ({
+    return Array.from(statusSet).map((status) => ({
       label: DATA_STATUS[status]?.name || status,
       color: rgbToHex(DATA_STATUS[status]?.color || [128, 128, 128]),
     }));
@@ -108,7 +122,9 @@ function StationsMap({ data, setOpen, ClickInfo, setClickInfo, externalViewState
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="pathways_status">Pathways Status</SelectItem>
-              <SelectItem value="wheelchair_status">Wheelchair Status</SelectItem>
+              <SelectItem value="wheelchair_status">
+                Wheelchair Status
+              </SelectItem>
             </SelectContent>
           </Select>
         </MapLegend>
@@ -156,8 +172,8 @@ function StationsMap({ data, setOpen, ClickInfo, setClickInfo, externalViewState
                     className="w-full"
                     onClick={() => {
                       router.navigate({
-                        to: "/stations/parts/map",
-                        search: { selectedStationId: clickData.stop_id }
+                        to: "/stations/info",
+                        search: { selectedStationId: clickData.stop_id },
                       });
                     }}
                   >
@@ -171,7 +187,9 @@ function StationsMap({ data, setOpen, ClickInfo, setClickInfo, externalViewState
                           size="sm"
                           variant="outline"
                           className="w-full"
-                          onClick={() => setOpen({ formType: "edit", state: true })}
+                          onClick={() =>
+                            setOpen({ formType: "edit", state: true })
+                          }
                         >
                           <BiPencil className="mr-2 h-5 w-5" />
                           Edit
