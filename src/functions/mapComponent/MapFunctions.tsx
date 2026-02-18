@@ -1,4 +1,5 @@
 import { findCenter, getBoundingBox } from "@/functions/mapComponent/components/geo";
+import { logger } from "@/lib/logger";
 
 export function getMapsFunction(data) {
   let Coordinates = Object.values(data.data)
@@ -9,7 +10,10 @@ export function getMapsFunction(data) {
     }));
 
   if (Coordinates.length === 0) {
-    return { lat: 0, lon: 0 };
+    return {
+      CenterData: { lat: 0, lon: 0 },
+      BoundBox: null,
+    };
   }
 
   const CenterData = findCenter(Coordinates);

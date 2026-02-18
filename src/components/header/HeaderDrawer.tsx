@@ -6,16 +6,17 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { GithubButton, GhnWebsite } from "@/components/contact";
+import { GithubButton } from "@/components/contact";
+import UpcomingFeatures from "@/components/UpcomingFeatures";
 import { Button } from "@/components/ui/button";
-import { Menu } from "lucide-react";
+import { BiMenu } from "react-icons/bi";
 
 function HeaderDrawer({ TabList }) {
   return (
     <Sheet>
       <SheetTrigger asChild>
         <Button variant="icon" className="lg:hidden">
-          <Menu />
+          <BiMenu />
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="bg-inherit">
@@ -76,8 +77,8 @@ function HeaderDrawer({ TabList }) {
           ))}
           <div className="flex justify-center mt-4 gap-2">
             <GithubButton />
+            <UpcomingFeatures />
           </div>
-          <GhnWebsite />
         </nav>
       </SheetContent>
     </Sheet>

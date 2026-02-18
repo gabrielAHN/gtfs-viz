@@ -1,53 +1,57 @@
 import { useState } from "react";
 
 import { useQuery } from "@tanstack/react-query";
-import { useStationViewContext, useDuckDB } from "@/context/combinedContext";
+import { useDuckDB } from "@/context/duckdb.client";
 import {
   fetchCheckStationData,
   fetchStationPartTypes,
   fetchStationStopIds,
-} from "@/hooks/DuckdbCalls/DataFetching/fetchStationInfoData";
+} from "@/lib/duckdb/DataFetching/fetchStationInfoData";
 
-import { Map, Table } from "lucide-react";
+import { BiMap, BiTable } from "react-icons/bi";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import Header from "./Header";
-import Form from "./Components/Form"
+import Form from "./Components/Form";
 import MapView from "./MapView";
 import TableView from "./TableView";
 
 export const ToggleTabs = [
-  { value: "map", label: "Map", icon: <Map className="w-5" /> },
-  { value: "table", label: "Table", icon: <Table className="w-5" /> }
+  { value: "map", label: "Map", icon: <BiMap className="w-5" /> },
+  { value: "table", label: "Table", icon: <BiTable className="w-5" /> },
 ];
 
-function StationParts() {
+interface StationPartsProps {
+  StationView: any;
+}
+
+function StationParts({ StationView }: StationPartsProps) {
   const { conn } = useDuckDB();
-  const { StationView } = useStationViewContext();
 
   const [StopsID, setStopsID] = useState();
-  const [Open, setOpen] = useState({ 'formType': null, 'state': false });
+  const [Open, setOpen] = useState({ formType: null, state: false });
   const [ClickInfo, setClickInfo] = useState();
   const [LocationsList, setLocationsList] = useState([]);
 
   const { data: StationPartTypes } = useQuery({
     queryKey: ["fetchStationPartTypes", StopsID],
     queryFn: () =>
-      fetchStationPartTypes({ conn, table: 'StopsView', StationView, StopsID }),
+      fetchStationPartTypes({ conn, table: "StopsView", StationView, StopsID }),
   });
 
   const { data: StationStopIds } = useQuery({
     queryKey: ["fetchStationStopIds", LocationsList],
     queryFn: () =>
-      fetchStationStopIds({ conn, table: 'StopsView', StationView, LocationsList }),
+      fetchStationStopIds({
+        conn,
+        table: "StopsView",
+        StationView,
+        LocationsList,
+      }),
   });
 
   const { data } = useQuery({
-    queryKey: [
-      "fetchStationData",
-      LocationsList,
-      StopsID,
-    ],
+    queryKey: ["fetchStationData", LocationsList, StopsID],
     queryFn: () =>
       fetchCheckStationData({
         conn,
@@ -60,16 +64,14 @@ function StationParts() {
 
   return (
     <div className="relative flex flex-col space-y-4">
-      <Tabs defaultValue="map" >
-        <TabsList className="h-9 mb-2" >
-          {
-            ToggleTabs.map((tab) => (
-              <TabsTrigger className="h-7" key={tab.value} value={tab.value} >
-                {tab.icon}
-                <span className="ml-2" > {tab.label} </span>
-              </TabsTrigger>
-            ))
-          }
+      <Tabs defaultValue="map">
+        <TabsList className="h-9 mb-2">
+          {ToggleTabs.map((tab) => (
+            <TabsTrigger className="h-7" key={tab.value} value={tab.value}>
+              {tab.icon}
+              <span className="ml-2"> {tab.label} </span>
+            </TabsTrigger>
+          ))}
         </TabsList>
         <Header
           setOpen={setOpen}
@@ -87,7 +89,7 @@ function StationParts() {
           ClickInfo={ClickInfo}
           setClickInfo={setClickInfo}
         />
-        <TabsContent value="map" >
+        <TabsContent value="map">
           <MapView
             data={data}
             setOpen={setOpen}
@@ -95,8 +97,8 @@ function StationParts() {
             setClickInfo={setClickInfo}
           />
         </TabsContent>
-        <TabsContent value="table" >
-          <TableView 
+        <TabsContent value="table">
+          <TableView
             data={data}
             setOpen={setOpen}
             ClickInfo={ClickInfo}

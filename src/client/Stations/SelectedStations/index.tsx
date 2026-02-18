@@ -1,46 +1,37 @@
-import { useEffect, useState } from "react";
-import { useStationViewContext, useDuckDB } from "@/context/combinedContext";
+import { useState } from "react";
+import { useDuckDB } from "@/context/duckdb.client";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Info, Waypoints, Grip } from "lucide-react";
+import { BiInfoCircle, BiMapAlt, BiGridAlt } from "react-icons/bi";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { fetchCheckStationInfo } from "@/hooks/DuckdbCalls/DataFetching/fetchStationInfoData";
+import { fetchCheckStationInfo } from "@/lib/duckdb/DataFetching/fetchStationInfoData";
+import { EditIndicator } from "@/components/ui/EditIndicator";
 
 import StationInfo from "./StationInfo";
 import StationParts from "./StationParts";
-import StationPathways from "./StationPathways"
+import StationPathways from "./StationPathways";
 
-function SelectedStations() {
-  const { StationView, setStationView } = useStationViewContext();
+interface SelectedStationsProps {
+  stationId: string;
+}
+
+function SelectedStations({ stationId }: SelectedStationsProps) {
   const [tabValue, setTabValue] = useState("StationInfo");
-  const { conn } = useDuckDB();
-  const {
-    data,
-    error,
-    isLoading,
-    isFetching,
-    isSuccess
-  } = useQuery({
-    queryKey: ["fetchStationInfoData"],
+  const { conn, initialized } = useDuckDB();
+  const { data, error, isLoading, isFetching } = useQuery({
+    queryKey: ["fetchStationInfoData", stationId],
     queryFn: async () => {
-      // await conn.query(CreateStationsTable);
+
       return fetchCheckStationInfo({
         conn,
         table: "StopsView",
-        stop_id: StationView.stop_id
+        stop_id: stationId,
       });
-    }
+    },
+    enabled: !!conn && !!stationId && initialized,
+    retry: false,
   });
 
-  // 1. Call useEffect at the top level
-  useEffect(() => {
-    // Only update context when data is successfully fetched
-    if (isSuccess && data) {
-      setStationView(data);
-    }
-  }, [isSuccess, data, setStationView]);
-
-  // 2. Then do your conditional returns
   if (isLoading || isFetching) {
     return (
       <>
@@ -60,23 +51,26 @@ function SelectedStations() {
   }
 
   const ToggleTabs = [
-    { value: "StationInfo", label: "Info", icon: <Info /> },
-    { value: "StationParts", label: "Parts", icon: <Grip /> }
+    { value: "StationInfo", label: "Info", icon: <BiInfoCircle /> },
+    { value: "StationParts", label: "Parts", icon: <BiGridAlt /> },
   ];
 
   if (data.pathways_status === "✅") {
     ToggleTabs.push({
       value: "StationPathways",
       label: "Pathways",
-      icon: <Waypoints />
+      icon: <BiMapAlt />,
     });
   }
 
-  const TabChange = (e)=>{setTabValue(e)}
+  const TabChange = (e) => {
+    setTabValue(e);
+  };
 
   return (
     <div>
-      <div className="text-4xl font-bold flex justify-center mb-6">
+      <div className="text-4xl font-bold flex justify-center items-center gap-3 mb-6">
+        <EditIndicator status={data?.status} className="h-8 w-8" />
         {data.stop_name}
       </div>
       <Tabs value={tabValue} onValueChange={TabChange}>
@@ -92,10 +86,10 @@ function SelectedStations() {
           <StationInfo Data={data} />
         </TabsContent>
         <TabsContent value="StationParts">
-          <StationParts />
+          <StationParts StationView={data} />
         </TabsContent>
         <TabsContent value="StationPathways">
-          <StationPathways />
+          <StationPathways StationView={data} />
         </TabsContent>
       </Tabs>
     </div>

@@ -1,0 +1,626 @@
+
+
+import { Route as rootRouteImport } from './../routes/__root'
+import { Route as LayoutRouteImport } from './../routes/_layout'
+import { Route as IndexRouteImport } from './../routes/index'
+import { Route as LayoutStopsIndexRouteImport } from './../routes/_layout/stops/index'
+import { Route as LayoutStationsIndexRouteImport } from './../routes/_layout/stations/index'
+import { Route as LayoutExportIndexRouteImport } from './../routes/_layout/export/index'
+import { Route as LayoutStopsTableRouteImport } from './../routes/_layout/stops/table'
+import { Route as LayoutStopsMapRouteImport } from './../routes/_layout/stops/map'
+import { Route as LayoutStationsTableRouteImport } from './../routes/_layout/stations/table'
+import { Route as LayoutStationsPathwaysRouteImport } from './../routes/_layout/stations/pathways'
+import { Route as LayoutStationsPartsRouteImport } from './../routes/_layout/stations/parts'
+import { Route as LayoutStationsMapRouteImport } from './../routes/_layout/stations/map'
+import { Route as LayoutStationsInfoRouteImport } from './../routes/_layout/stations/info'
+import { Route as LayoutStationsStationStationIdRouteImport } from './../routes/_layout/stations/station/$stationId'
+import { Route as LayoutStationsPartsTableRouteImport } from './../routes/_layout/stations/parts/table'
+import { Route as LayoutStationsPartsMapRouteImport } from './../routes/_layout/stations/parts/map'
+import { Route as LayoutStationsStationStationIdIndexRouteImport } from './../routes/_layout/stations/station/$stationId/index'
+import { Route as LayoutStationsStationStationIdPathwaysRouteImport } from './../routes/_layout/stations/station/$stationId/pathways'
+import { Route as LayoutStationsStationStationIdPartsRouteImport } from './../routes/_layout/stations/station/$stationId/parts'
+import { Route as LayoutStationsStationStationIdInfoRouteImport } from './../routes/_layout/stations/station/$stationId/info'
+import { Route as LayoutStationsPathwaysTableStartRouteImport } from './../routes/_layout/stations/pathways/table/start'
+import { Route as LayoutStationsPathwaysTableEndRouteImport } from './../routes/_layout/stations/pathways/table/end'
+import { Route as LayoutStationsPathwaysMapTimeIntervalRouteImport } from './../routes/_layout/stations/pathways/map/timeInterval'
+import { Route as LayoutStationsPathwaysMapPathwayTypesRouteImport } from './../routes/_layout/stations/pathways/map/pathwayTypes'
+import { Route as LayoutStationsPathwaysMapDirectionalRouteImport } from './../routes/_layout/stations/pathways/map/directional'
+import { Route as LayoutStationsStationStationIdPartsIndexRouteImport } from './../routes/_layout/stations/station/$stationId/parts/index'
+
+const LayoutRoute = LayoutRouteImport.update({
+  id: '/_layout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LayoutStopsIndexRoute = LayoutStopsIndexRouteImport.update({
+  id: '/stops/',
+  path: '/stops/',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutStationsIndexRoute = LayoutStationsIndexRouteImport.update({
+  id: '/stations/',
+  path: '/stations/',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutExportIndexRoute = LayoutExportIndexRouteImport.update({
+  id: '/export/',
+  path: '/export/',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutStopsTableRoute = LayoutStopsTableRouteImport.update({
+  id: '/stops/table',
+  path: '/stops/table',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutStopsMapRoute = LayoutStopsMapRouteImport.update({
+  id: '/stops/map',
+  path: '/stops/map',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutStationsTableRoute = LayoutStationsTableRouteImport.update({
+  id: '/stations/table',
+  path: '/stations/table',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutStationsPathwaysRoute = LayoutStationsPathwaysRouteImport.update({
+  id: '/stations/pathways',
+  path: '/stations/pathways',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutStationsPartsRoute = LayoutStationsPartsRouteImport.update({
+  id: '/stations/parts',
+  path: '/stations/parts',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutStationsMapRoute = LayoutStationsMapRouteImport.update({
+  id: '/stations/map',
+  path: '/stations/map',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutStationsInfoRoute = LayoutStationsInfoRouteImport.update({
+  id: '/stations/info',
+  path: '/stations/info',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutStationsStationStationIdRoute =
+  LayoutStationsStationStationIdRouteImport.update({
+    id: '/stations/station/$stationId',
+    path: '/stations/station/$stationId',
+    getParentRoute: () => LayoutRoute,
+  } as any)
+const LayoutStationsPartsTableRoute =
+  LayoutStationsPartsTableRouteImport.update({
+    id: '/table',
+    path: '/table',
+    getParentRoute: () => LayoutStationsPartsRoute,
+  } as any)
+const LayoutStationsPartsMapRoute = LayoutStationsPartsMapRouteImport.update({
+  id: '/map',
+  path: '/map',
+  getParentRoute: () => LayoutStationsPartsRoute,
+} as any)
+const LayoutStationsStationStationIdIndexRoute =
+  LayoutStationsStationStationIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => LayoutStationsStationStationIdRoute,
+  } as any)
+const LayoutStationsStationStationIdPathwaysRoute =
+  LayoutStationsStationStationIdPathwaysRouteImport.update({
+    id: '/pathways',
+    path: '/pathways',
+    getParentRoute: () => LayoutStationsStationStationIdRoute,
+  } as any)
+const LayoutStationsStationStationIdPartsRoute =
+  LayoutStationsStationStationIdPartsRouteImport.update({
+    id: '/parts',
+    path: '/parts',
+    getParentRoute: () => LayoutStationsStationStationIdRoute,
+  } as any)
+const LayoutStationsStationStationIdInfoRoute =
+  LayoutStationsStationStationIdInfoRouteImport.update({
+    id: '/info',
+    path: '/info',
+    getParentRoute: () => LayoutStationsStationStationIdRoute,
+  } as any)
+const LayoutStationsPathwaysTableStartRoute =
+  LayoutStationsPathwaysTableStartRouteImport.update({
+    id: '/table/start',
+    path: '/table/start',
+    getParentRoute: () => LayoutStationsPathwaysRoute,
+  } as any)
+const LayoutStationsPathwaysTableEndRoute =
+  LayoutStationsPathwaysTableEndRouteImport.update({
+    id: '/table/end',
+    path: '/table/end',
+    getParentRoute: () => LayoutStationsPathwaysRoute,
+  } as any)
+const LayoutStationsPathwaysMapTimeIntervalRoute =
+  LayoutStationsPathwaysMapTimeIntervalRouteImport.update({
+    id: '/map/timeInterval',
+    path: '/map/timeInterval',
+    getParentRoute: () => LayoutStationsPathwaysRoute,
+  } as any)
+const LayoutStationsPathwaysMapPathwayTypesRoute =
+  LayoutStationsPathwaysMapPathwayTypesRouteImport.update({
+    id: '/map/pathwayTypes',
+    path: '/map/pathwayTypes',
+    getParentRoute: () => LayoutStationsPathwaysRoute,
+  } as any)
+const LayoutStationsPathwaysMapDirectionalRoute =
+  LayoutStationsPathwaysMapDirectionalRouteImport.update({
+    id: '/map/directional',
+    path: '/map/directional',
+    getParentRoute: () => LayoutStationsPathwaysRoute,
+  } as any)
+const LayoutStationsStationStationIdPartsIndexRoute =
+  LayoutStationsStationStationIdPartsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => LayoutStationsStationStationIdPartsRoute,
+  } as any)
+
+export interface FileRoutesByFullPath {
+  '/': typeof IndexRoute
+  '/stations/info': typeof LayoutStationsInfoRoute
+  '/stations/map': typeof LayoutStationsMapRoute
+  '/stations/parts': typeof LayoutStationsPartsRouteWithChildren
+  '/stations/pathways': typeof LayoutStationsPathwaysRouteWithChildren
+  '/stations/table': typeof LayoutStationsTableRoute
+  '/stops/map': typeof LayoutStopsMapRoute
+  '/stops/table': typeof LayoutStopsTableRoute
+  '/export/': typeof LayoutExportIndexRoute
+  '/stations/': typeof LayoutStationsIndexRoute
+  '/stops/': typeof LayoutStopsIndexRoute
+  '/stations/parts/map': typeof LayoutStationsPartsMapRoute
+  '/stations/parts/table': typeof LayoutStationsPartsTableRoute
+  '/stations/station/$stationId': typeof LayoutStationsStationStationIdRouteWithChildren
+  '/stations/pathways/map/directional': typeof LayoutStationsPathwaysMapDirectionalRoute
+  '/stations/pathways/map/pathwayTypes': typeof LayoutStationsPathwaysMapPathwayTypesRoute
+  '/stations/pathways/map/timeInterval': typeof LayoutStationsPathwaysMapTimeIntervalRoute
+  '/stations/pathways/table/end': typeof LayoutStationsPathwaysTableEndRoute
+  '/stations/pathways/table/start': typeof LayoutStationsPathwaysTableStartRoute
+  '/stations/station/$stationId/info': typeof LayoutStationsStationStationIdInfoRoute
+  '/stations/station/$stationId/parts': typeof LayoutStationsStationStationIdPartsRouteWithChildren
+  '/stations/station/$stationId/pathways': typeof LayoutStationsStationStationIdPathwaysRoute
+  '/stations/station/$stationId/': typeof LayoutStationsStationStationIdIndexRoute
+  '/stations/station/$stationId/parts/': typeof LayoutStationsStationStationIdPartsIndexRoute
+}
+export interface FileRoutesByTo {
+  '/': typeof IndexRoute
+  '/stations/info': typeof LayoutStationsInfoRoute
+  '/stations/map': typeof LayoutStationsMapRoute
+  '/stations/parts': typeof LayoutStationsPartsRouteWithChildren
+  '/stations/pathways': typeof LayoutStationsPathwaysRouteWithChildren
+  '/stations/table': typeof LayoutStationsTableRoute
+  '/stops/map': typeof LayoutStopsMapRoute
+  '/stops/table': typeof LayoutStopsTableRoute
+  '/export': typeof LayoutExportIndexRoute
+  '/stations': typeof LayoutStationsIndexRoute
+  '/stops': typeof LayoutStopsIndexRoute
+  '/stations/parts/map': typeof LayoutStationsPartsMapRoute
+  '/stations/parts/table': typeof LayoutStationsPartsTableRoute
+  '/stations/pathways/map/directional': typeof LayoutStationsPathwaysMapDirectionalRoute
+  '/stations/pathways/map/pathwayTypes': typeof LayoutStationsPathwaysMapPathwayTypesRoute
+  '/stations/pathways/map/timeInterval': typeof LayoutStationsPathwaysMapTimeIntervalRoute
+  '/stations/pathways/table/end': typeof LayoutStationsPathwaysTableEndRoute
+  '/stations/pathways/table/start': typeof LayoutStationsPathwaysTableStartRoute
+  '/stations/station/$stationId/info': typeof LayoutStationsStationStationIdInfoRoute
+  '/stations/station/$stationId/pathways': typeof LayoutStationsStationStationIdPathwaysRoute
+  '/stations/station/$stationId': typeof LayoutStationsStationStationIdIndexRoute
+  '/stations/station/$stationId/parts': typeof LayoutStationsStationStationIdPartsIndexRoute
+}
+export interface FileRoutesById {
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/_layout': typeof LayoutRouteWithChildren
+  '/_layout/stations/info': typeof LayoutStationsInfoRoute
+  '/_layout/stations/map': typeof LayoutStationsMapRoute
+  '/_layout/stations/parts': typeof LayoutStationsPartsRouteWithChildren
+  '/_layout/stations/pathways': typeof LayoutStationsPathwaysRouteWithChildren
+  '/_layout/stations/table': typeof LayoutStationsTableRoute
+  '/_layout/stops/map': typeof LayoutStopsMapRoute
+  '/_layout/stops/table': typeof LayoutStopsTableRoute
+  '/_layout/export/': typeof LayoutExportIndexRoute
+  '/_layout/stations/': typeof LayoutStationsIndexRoute
+  '/_layout/stops/': typeof LayoutStopsIndexRoute
+  '/_layout/stations/parts/map': typeof LayoutStationsPartsMapRoute
+  '/_layout/stations/parts/table': typeof LayoutStationsPartsTableRoute
+  '/_layout/stations/station/$stationId': typeof LayoutStationsStationStationIdRouteWithChildren
+  '/_layout/stations/pathways/map/directional': typeof LayoutStationsPathwaysMapDirectionalRoute
+  '/_layout/stations/pathways/map/pathwayTypes': typeof LayoutStationsPathwaysMapPathwayTypesRoute
+  '/_layout/stations/pathways/map/timeInterval': typeof LayoutStationsPathwaysMapTimeIntervalRoute
+  '/_layout/stations/pathways/table/end': typeof LayoutStationsPathwaysTableEndRoute
+  '/_layout/stations/pathways/table/start': typeof LayoutStationsPathwaysTableStartRoute
+  '/_layout/stations/station/$stationId/info': typeof LayoutStationsStationStationIdInfoRoute
+  '/_layout/stations/station/$stationId/parts': typeof LayoutStationsStationStationIdPartsRouteWithChildren
+  '/_layout/stations/station/$stationId/pathways': typeof LayoutStationsStationStationIdPathwaysRoute
+  '/_layout/stations/station/$stationId/': typeof LayoutStationsStationStationIdIndexRoute
+  '/_layout/stations/station/$stationId/parts/': typeof LayoutStationsStationStationIdPartsIndexRoute
+}
+export interface FileRouteTypes {
+  fileRoutesByFullPath: FileRoutesByFullPath
+  fullPaths:
+    | '/'
+    | '/stations/info'
+    | '/stations/map'
+    | '/stations/parts'
+    | '/stations/pathways'
+    | '/stations/table'
+    | '/stops/map'
+    | '/stops/table'
+    | '/export/'
+    | '/stations/'
+    | '/stops/'
+    | '/stations/parts/map'
+    | '/stations/parts/table'
+    | '/stations/station/$stationId'
+    | '/stations/pathways/map/directional'
+    | '/stations/pathways/map/pathwayTypes'
+    | '/stations/pathways/map/timeInterval'
+    | '/stations/pathways/table/end'
+    | '/stations/pathways/table/start'
+    | '/stations/station/$stationId/info'
+    | '/stations/station/$stationId/parts'
+    | '/stations/station/$stationId/pathways'
+    | '/stations/station/$stationId/'
+    | '/stations/station/$stationId/parts/'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/stations/info'
+    | '/stations/map'
+    | '/stations/parts'
+    | '/stations/pathways'
+    | '/stations/table'
+    | '/stops/map'
+    | '/stops/table'
+    | '/export'
+    | '/stations'
+    | '/stops'
+    | '/stations/parts/map'
+    | '/stations/parts/table'
+    | '/stations/pathways/map/directional'
+    | '/stations/pathways/map/pathwayTypes'
+    | '/stations/pathways/map/timeInterval'
+    | '/stations/pathways/table/end'
+    | '/stations/pathways/table/start'
+    | '/stations/station/$stationId/info'
+    | '/stations/station/$stationId/pathways'
+    | '/stations/station/$stationId'
+    | '/stations/station/$stationId/parts'
+  id:
+    | '__root__'
+    | '/'
+    | '/_layout'
+    | '/_layout/stations/info'
+    | '/_layout/stations/map'
+    | '/_layout/stations/parts'
+    | '/_layout/stations/pathways'
+    | '/_layout/stations/table'
+    | '/_layout/stops/map'
+    | '/_layout/stops/table'
+    | '/_layout/export/'
+    | '/_layout/stations/'
+    | '/_layout/stops/'
+    | '/_layout/stations/parts/map'
+    | '/_layout/stations/parts/table'
+    | '/_layout/stations/station/$stationId'
+    | '/_layout/stations/pathways/map/directional'
+    | '/_layout/stations/pathways/map/pathwayTypes'
+    | '/_layout/stations/pathways/map/timeInterval'
+    | '/_layout/stations/pathways/table/end'
+    | '/_layout/stations/pathways/table/start'
+    | '/_layout/stations/station/$stationId/info'
+    | '/_layout/stations/station/$stationId/parts'
+    | '/_layout/stations/station/$stationId/pathways'
+    | '/_layout/stations/station/$stationId/'
+    | '/_layout/stations/station/$stationId/parts/'
+  fileRoutesById: FileRoutesById
+}
+export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
+  LayoutRoute: typeof LayoutRouteWithChildren
+}
+
+declare module '@tanstack/react-router' {
+  interface FileRoutesByPath {
+    '/_layout': {
+      id: '/_layout'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof LayoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_layout/stops/': {
+      id: '/_layout/stops/'
+      path: '/stops'
+      fullPath: '/stops/'
+      preLoaderRoute: typeof LayoutStopsIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/stations/': {
+      id: '/_layout/stations/'
+      path: '/stations'
+      fullPath: '/stations/'
+      preLoaderRoute: typeof LayoutStationsIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/export/': {
+      id: '/_layout/export/'
+      path: '/export'
+      fullPath: '/export/'
+      preLoaderRoute: typeof LayoutExportIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/stops/table': {
+      id: '/_layout/stops/table'
+      path: '/stops/table'
+      fullPath: '/stops/table'
+      preLoaderRoute: typeof LayoutStopsTableRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/stops/map': {
+      id: '/_layout/stops/map'
+      path: '/stops/map'
+      fullPath: '/stops/map'
+      preLoaderRoute: typeof LayoutStopsMapRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/stations/table': {
+      id: '/_layout/stations/table'
+      path: '/stations/table'
+      fullPath: '/stations/table'
+      preLoaderRoute: typeof LayoutStationsTableRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/stations/pathways': {
+      id: '/_layout/stations/pathways'
+      path: '/stations/pathways'
+      fullPath: '/stations/pathways'
+      preLoaderRoute: typeof LayoutStationsPathwaysRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/stations/parts': {
+      id: '/_layout/stations/parts'
+      path: '/stations/parts'
+      fullPath: '/stations/parts'
+      preLoaderRoute: typeof LayoutStationsPartsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/stations/map': {
+      id: '/_layout/stations/map'
+      path: '/stations/map'
+      fullPath: '/stations/map'
+      preLoaderRoute: typeof LayoutStationsMapRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/stations/info': {
+      id: '/_layout/stations/info'
+      path: '/stations/info'
+      fullPath: '/stations/info'
+      preLoaderRoute: typeof LayoutStationsInfoRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/stations/station/$stationId': {
+      id: '/_layout/stations/station/$stationId'
+      path: '/stations/station/$stationId'
+      fullPath: '/stations/station/$stationId'
+      preLoaderRoute: typeof LayoutStationsStationStationIdRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/stations/parts/table': {
+      id: '/_layout/stations/parts/table'
+      path: '/table'
+      fullPath: '/stations/parts/table'
+      preLoaderRoute: typeof LayoutStationsPartsTableRouteImport
+      parentRoute: typeof LayoutStationsPartsRoute
+    }
+    '/_layout/stations/parts/map': {
+      id: '/_layout/stations/parts/map'
+      path: '/map'
+      fullPath: '/stations/parts/map'
+      preLoaderRoute: typeof LayoutStationsPartsMapRouteImport
+      parentRoute: typeof LayoutStationsPartsRoute
+    }
+    '/_layout/stations/station/$stationId/': {
+      id: '/_layout/stations/station/$stationId/'
+      path: '/'
+      fullPath: '/stations/station/$stationId/'
+      preLoaderRoute: typeof LayoutStationsStationStationIdIndexRouteImport
+      parentRoute: typeof LayoutStationsStationStationIdRoute
+    }
+    '/_layout/stations/station/$stationId/pathways': {
+      id: '/_layout/stations/station/$stationId/pathways'
+      path: '/pathways'
+      fullPath: '/stations/station/$stationId/pathways'
+      preLoaderRoute: typeof LayoutStationsStationStationIdPathwaysRouteImport
+      parentRoute: typeof LayoutStationsStationStationIdRoute
+    }
+    '/_layout/stations/station/$stationId/parts': {
+      id: '/_layout/stations/station/$stationId/parts'
+      path: '/parts'
+      fullPath: '/stations/station/$stationId/parts'
+      preLoaderRoute: typeof LayoutStationsStationStationIdPartsRouteImport
+      parentRoute: typeof LayoutStationsStationStationIdRoute
+    }
+    '/_layout/stations/station/$stationId/info': {
+      id: '/_layout/stations/station/$stationId/info'
+      path: '/info'
+      fullPath: '/stations/station/$stationId/info'
+      preLoaderRoute: typeof LayoutStationsStationStationIdInfoRouteImport
+      parentRoute: typeof LayoutStationsStationStationIdRoute
+    }
+    '/_layout/stations/pathways/table/start': {
+      id: '/_layout/stations/pathways/table/start'
+      path: '/table/start'
+      fullPath: '/stations/pathways/table/start'
+      preLoaderRoute: typeof LayoutStationsPathwaysTableStartRouteImport
+      parentRoute: typeof LayoutStationsPathwaysRoute
+    }
+    '/_layout/stations/pathways/table/end': {
+      id: '/_layout/stations/pathways/table/end'
+      path: '/table/end'
+      fullPath: '/stations/pathways/table/end'
+      preLoaderRoute: typeof LayoutStationsPathwaysTableEndRouteImport
+      parentRoute: typeof LayoutStationsPathwaysRoute
+    }
+    '/_layout/stations/pathways/map/timeInterval': {
+      id: '/_layout/stations/pathways/map/timeInterval'
+      path: '/map/timeInterval'
+      fullPath: '/stations/pathways/map/timeInterval'
+      preLoaderRoute: typeof LayoutStationsPathwaysMapTimeIntervalRouteImport
+      parentRoute: typeof LayoutStationsPathwaysRoute
+    }
+    '/_layout/stations/pathways/map/pathwayTypes': {
+      id: '/_layout/stations/pathways/map/pathwayTypes'
+      path: '/map/pathwayTypes'
+      fullPath: '/stations/pathways/map/pathwayTypes'
+      preLoaderRoute: typeof LayoutStationsPathwaysMapPathwayTypesRouteImport
+      parentRoute: typeof LayoutStationsPathwaysRoute
+    }
+    '/_layout/stations/pathways/map/directional': {
+      id: '/_layout/stations/pathways/map/directional'
+      path: '/map/directional'
+      fullPath: '/stations/pathways/map/directional'
+      preLoaderRoute: typeof LayoutStationsPathwaysMapDirectionalRouteImport
+      parentRoute: typeof LayoutStationsPathwaysRoute
+    }
+    '/_layout/stations/station/$stationId/parts/': {
+      id: '/_layout/stations/station/$stationId/parts/'
+      path: '/'
+      fullPath: '/stations/station/$stationId/parts/'
+      preLoaderRoute: typeof LayoutStationsStationStationIdPartsIndexRouteImport
+      parentRoute: typeof LayoutStationsStationStationIdPartsRoute
+    }
+  }
+}
+
+interface LayoutStationsPartsRouteChildren {
+  LayoutStationsPartsMapRoute: typeof LayoutStationsPartsMapRoute
+  LayoutStationsPartsTableRoute: typeof LayoutStationsPartsTableRoute
+}
+
+const LayoutStationsPartsRouteChildren: LayoutStationsPartsRouteChildren = {
+  LayoutStationsPartsMapRoute: LayoutStationsPartsMapRoute,
+  LayoutStationsPartsTableRoute: LayoutStationsPartsTableRoute,
+}
+
+const LayoutStationsPartsRouteWithChildren =
+  LayoutStationsPartsRoute._addFileChildren(LayoutStationsPartsRouteChildren)
+
+interface LayoutStationsPathwaysRouteChildren {
+  LayoutStationsPathwaysMapDirectionalRoute: typeof LayoutStationsPathwaysMapDirectionalRoute
+  LayoutStationsPathwaysMapPathwayTypesRoute: typeof LayoutStationsPathwaysMapPathwayTypesRoute
+  LayoutStationsPathwaysMapTimeIntervalRoute: typeof LayoutStationsPathwaysMapTimeIntervalRoute
+  LayoutStationsPathwaysTableEndRoute: typeof LayoutStationsPathwaysTableEndRoute
+  LayoutStationsPathwaysTableStartRoute: typeof LayoutStationsPathwaysTableStartRoute
+}
+
+const LayoutStationsPathwaysRouteChildren: LayoutStationsPathwaysRouteChildren =
+  {
+    LayoutStationsPathwaysMapDirectionalRoute:
+      LayoutStationsPathwaysMapDirectionalRoute,
+    LayoutStationsPathwaysMapPathwayTypesRoute:
+      LayoutStationsPathwaysMapPathwayTypesRoute,
+    LayoutStationsPathwaysMapTimeIntervalRoute:
+      LayoutStationsPathwaysMapTimeIntervalRoute,
+    LayoutStationsPathwaysTableEndRoute: LayoutStationsPathwaysTableEndRoute,
+    LayoutStationsPathwaysTableStartRoute:
+      LayoutStationsPathwaysTableStartRoute,
+  }
+
+const LayoutStationsPathwaysRouteWithChildren =
+  LayoutStationsPathwaysRoute._addFileChildren(
+    LayoutStationsPathwaysRouteChildren,
+  )
+
+interface LayoutStationsStationStationIdPartsRouteChildren {
+  LayoutStationsStationStationIdPartsIndexRoute: typeof LayoutStationsStationStationIdPartsIndexRoute
+}
+
+const LayoutStationsStationStationIdPartsRouteChildren: LayoutStationsStationStationIdPartsRouteChildren =
+  {
+    LayoutStationsStationStationIdPartsIndexRoute:
+      LayoutStationsStationStationIdPartsIndexRoute,
+  }
+
+const LayoutStationsStationStationIdPartsRouteWithChildren =
+  LayoutStationsStationStationIdPartsRoute._addFileChildren(
+    LayoutStationsStationStationIdPartsRouteChildren,
+  )
+
+interface LayoutStationsStationStationIdRouteChildren {
+  LayoutStationsStationStationIdInfoRoute: typeof LayoutStationsStationStationIdInfoRoute
+  LayoutStationsStationStationIdPartsRoute: typeof LayoutStationsStationStationIdPartsRouteWithChildren
+  LayoutStationsStationStationIdPathwaysRoute: typeof LayoutStationsStationStationIdPathwaysRoute
+  LayoutStationsStationStationIdIndexRoute: typeof LayoutStationsStationStationIdIndexRoute
+}
+
+const LayoutStationsStationStationIdRouteChildren: LayoutStationsStationStationIdRouteChildren =
+  {
+    LayoutStationsStationStationIdInfoRoute:
+      LayoutStationsStationStationIdInfoRoute,
+    LayoutStationsStationStationIdPartsRoute:
+      LayoutStationsStationStationIdPartsRouteWithChildren,
+    LayoutStationsStationStationIdPathwaysRoute:
+      LayoutStationsStationStationIdPathwaysRoute,
+    LayoutStationsStationStationIdIndexRoute:
+      LayoutStationsStationStationIdIndexRoute,
+  }
+
+const LayoutStationsStationStationIdRouteWithChildren =
+  LayoutStationsStationStationIdRoute._addFileChildren(
+    LayoutStationsStationStationIdRouteChildren,
+  )
+
+interface LayoutRouteChildren {
+  LayoutStationsInfoRoute: typeof LayoutStationsInfoRoute
+  LayoutStationsMapRoute: typeof LayoutStationsMapRoute
+  LayoutStationsPartsRoute: typeof LayoutStationsPartsRouteWithChildren
+  LayoutStationsPathwaysRoute: typeof LayoutStationsPathwaysRouteWithChildren
+  LayoutStationsTableRoute: typeof LayoutStationsTableRoute
+  LayoutStopsMapRoute: typeof LayoutStopsMapRoute
+  LayoutStopsTableRoute: typeof LayoutStopsTableRoute
+  LayoutExportIndexRoute: typeof LayoutExportIndexRoute
+  LayoutStationsIndexRoute: typeof LayoutStationsIndexRoute
+  LayoutStopsIndexRoute: typeof LayoutStopsIndexRoute
+  LayoutStationsStationStationIdRoute: typeof LayoutStationsStationStationIdRouteWithChildren
+}
+
+const LayoutRouteChildren: LayoutRouteChildren = {
+  LayoutStationsInfoRoute: LayoutStationsInfoRoute,
+  LayoutStationsMapRoute: LayoutStationsMapRoute,
+  LayoutStationsPartsRoute: LayoutStationsPartsRouteWithChildren,
+  LayoutStationsPathwaysRoute: LayoutStationsPathwaysRouteWithChildren,
+  LayoutStationsTableRoute: LayoutStationsTableRoute,
+  LayoutStopsMapRoute: LayoutStopsMapRoute,
+  LayoutStopsTableRoute: LayoutStopsTableRoute,
+  LayoutExportIndexRoute: LayoutExportIndexRoute,
+  LayoutStationsIndexRoute: LayoutStationsIndexRoute,
+  LayoutStopsIndexRoute: LayoutStopsIndexRoute,
+  LayoutStationsStationStationIdRoute:
+    LayoutStationsStationStationIdRouteWithChildren,
+}
+
+const LayoutRouteWithChildren =
+  LayoutRoute._addFileChildren(LayoutRouteChildren)
+
+const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
+  LayoutRoute: LayoutRouteWithChildren,
+}
+export const routeTree = rootRouteImport
+  ._addFileChildren(rootRouteChildren)
+  ._addFileTypes<FileRouteTypes>()

@@ -14,10 +14,10 @@ export const ListItem = React.forwardRef(({ className, title, icon: Icon, childr
         {...props}
       >
         <div className="flex items-center space-x-2">
-          {Icon && <Icon className="w-5 h-5 text-muted-foreground" />} 
+          {Icon && <Icon className="w-5 h-5 text-current opacity-70" />}
           <div className="text-sm font-medium leading-none">{title}</div>
         </div>
-        <p className="text-sm leading-snug text-muted-foreground">
+        <p className="text-sm leading-snug text-current opacity-70">
           {children}
         </p>
       </a>

@@ -1,10 +1,23 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 import Header from "./Header";
 import TableComponent from '@/components/table'
 
 function TableView({ data, setOpen, ClickInfo, setClickInfo }) {
   
+  const [localClickInfo, setLocalClickInfo] = useState(ClickInfo);
+
+  useEffect(() => {
+    setLocalClickInfo(ClickInfo);
+  }, [ClickInfo]);
+
+  const handleSetClickInfo = (value: any) => {
+    setLocalClickInfo(value);
+    if (setClickInfo) {
+      setClickInfo(value);
+    }
+  };
+
   const columns = useMemo(
     () => [
       {
@@ -31,22 +44,17 @@ function TableView({ data, setOpen, ClickInfo, setClickInfo }) {
         accessorKey: "wheelchair_status",
         header: "Wheelchair",
       },
-      {
-        accessorKey: "status",
-        header: "Status",
-      },
     ],
     [ClickInfo, setClickInfo]
   );
 
-
   return (
     <TableComponent data={data} columns={columns}
-      ClickInfo={ClickInfo} setClickInfo={setClickInfo}
+      ClickInfo={localClickInfo} setClickInfo={handleSetClickInfo}
     >
       <Header
-        ClickInfo={ClickInfo}
-        setClickInfo={setClickInfo}
+        ClickInfo={localClickInfo}
+        setClickInfo={handleSetClickInfo}
         setOpen={setOpen}
       />
     </TableComponent>

@@ -1,19 +1,14 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { mutationDeleteStationFn } from "@/hooks/DuckdbCalls/DataEditing/editingFn";
-import { usePageViewContext, useStationViewContext } from "@/context/combinedContext";
-import { CreateStationsTable } from "@/hooks/DuckdbCalls/Ingestion/CreateStationTable";
+import { mutationDeleteStationFn } from "@/lib/duckdb/DataEditing/editingFn";
+import { createStationsTable, createStopsView } from "@/lib/extensions";
 
 import { Button } from "@/components/ui/button";
-import { Pen, Trash, Info, Check } from "lucide-react";
-import { useDuckDB } from "@/context/combinedContext";
+import { BiPencil, BiTrash } from "react-icons/bi";
+import { useDuckDB } from "@/context/duckdb.client";
+import TableSelectionHeader from "@/components/table/TableSelectionHeader";
 
-
-function Header({
-  setOpen,
-  ClickInfo,
-  setClickInfo
-}) {
-  const { conn } = useDuckDB()
+function Header({ setOpen, ClickInfo, setClickInfo }) {
+  const { conn } = useDuckDB();
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
@@ -24,60 +19,49 @@ function Header({
       });
     },
     onSuccess: async () => {
-      await conn.query(CreateStationsTable)
-      queryClient.invalidateQueries(["fetchStationInfoData"]);
-      setClickInfo();
+      await createStopsView(conn);
+      await createStationsTable(conn);
+      queryClient.invalidateQueries({ queryKey: ["fetchStationData"] });
+      queryClient.invalidateQueries({ queryKey: ["fetchStationInfoData"] });
+      setClickInfo(undefined);
     },
   });
 
   return (
-    <div className="align-bottom">
-      {!ClickInfo ? (
-        <div className="text-sm text-stone-500 ">
-          Click a row to edit, or delete a station part.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-2 w-full">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <Button
-              onClick={() => setClickInfo()}
-              size="sm"
-              variant="outline"
-              className="dark:bg-stone-500 bg-stone-300 rounded-sm w-full"
-            >
-              <Check /> Selected Row
-            </Button>
-            {
-             ClickInfo.location_type_name != 'Station' && (
-            <Button
-              size="sm"
-              variant="delete"
-              onClick={() => mutation.mutate()}
-              className="w-full"
-            >
-              <Trash className="mr-2 h-5 w-5" />
-              Delete
-            </Button>
-             )
-             }
-          </div>
-          {
-             ClickInfo.location_type_name != 'Station' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setOpen({ formType: "edit", state: true })}
-              className="w-full"
-            >
-              <Pen className="mr-2 h-5 w-5" />
-              Edit
-            </Button>
-          </div>)
-}
+    <TableSelectionHeader
+      clickInfo={ClickInfo}
+      onClose={() => setClickInfo(undefined)}
+      emptyMessage="Select a row to view actions"
+    >
+      {ClickInfo?.location_type_name !== "Station" && (
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setOpen({ formType: "edit", state: true })}
+            className="w-full"
+          >
+            <BiPencil className="mr-2 h-4 w-4" />
+            Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="delete"
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending}
+            className="w-full"
+          >
+            <BiTrash className="mr-2 h-4 w-4" />
+            {mutation.isPending ? "Deleting..." : "Delete"}
+          </Button>
         </div>
       )}
-    </div>
+      {ClickInfo?.location_type_name === "Station" && (
+        <div className="text-sm text-muted-foreground text-center p-2">
+          Station parts cannot be edited or deleted from this view
+        </div>
+      )}
+    </TableSelectionHeader>
   );
 }
 

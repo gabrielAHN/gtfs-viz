@@ -1,6 +1,8 @@
-import { StopTypeColors } from "@/components/style";
+import { getStopColor } from "@/components/style";
 import { rgbToHex } from "@/components/colorUtil";
+import { useThemeContext } from "@/context/theme.client";
 import { ScrollBar, ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   TableBody,
   TableCell,
@@ -9,70 +11,122 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-function ChildTable({ parentColumn, childColumn, rows }) {
-  return (
-    <div className="w-full overflow-x-auto rounded-sm">
-      <table className="min-w-max w-full border-collapse">
+function ChildTable({ parentColumn, childColumn, rows, isLoading = false, sortBy, sortOrder, onSortChange }) {
+  const { theme } = useThemeContext();
 
-        <TableHeader className="sticky top-0 z-10 bg-gray-100 dark:bg-stone-800 shadow-md">
-          <TableRow>
-            <TableHead className="w-40 p-2 border">
-              <div className="flex justify-between w-full">
-                <div className="w-1/2">{parentColumn.label}</div>
-                <div className="w-1/2">{childColumn.label}</div>
-                <div className="w-1/2 text-left">Time</div>
-              </div>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <ScrollArea className="relative min-h-[10vh] max-h-[75vh] w-full overflow-auto">
-            {rows.map((row, index) => (
-              <TableRow key={index} className="border-b">
-                <TableCell className="w-40 p-2 border whitespace-nowrap">
-                  <div className="flex items-center space-x-2">
-                    <div
-                      style={{
-                        backgroundColor: rgbToHex(
-                          StopTypeColors[row.primaryLocationType]?.color
-                        ),
-                      }}
-                      className="w-2 h-2 rounded-full"
-                    />
-                    <div className="text-xs font-medium">{row[parentColumn.value]}</div>
-                  </div>
-                </TableCell>
-                <TableCell className="p-2 min-w-[500px] border">
-                  <div className="overflow-x-auto">
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 min-w-[500px]">
-                      {row[childColumn.value].map((Column, idx) => (
-                        <div key={idx} className="contents">
-                          <div className="flex items-center whitespace-nowrap">
-                            <div
-                              style={{
-                                backgroundColor: rgbToHex(
-                                  StopTypeColors[Column.secondaryLocationType]?.color
-                                ),
-                              }}
-                              className="w-2 h-2 rounded-full mx-1"
-                            />
-                            <div className="text-xs font-medium">
-                              {Column[childColumn.childValue]}
-                            </div>
-                          </div>
-                          <div className="text-xs whitespace-nowrap text-left">
-                            {Column.shortest_time}
-                          </div>
+  const handleTimeSort = () => {
+    if (!onSortChange) return;
+
+    if (sortBy === "time") {
+      
+      if (sortOrder === "asc") {
+        onSortChange("time", "desc");
+      } else if (sortOrder === "desc") {
+        onSortChange(undefined, undefined);
+      } else {
+        onSortChange("time", "asc");
+      }
+    } else {
+      
+      onSortChange("time", "asc");
+    }
+  };
+
+  const getSortIcon = () => {
+    if (sortBy !== "time") return null;
+    if (sortOrder === "asc") return " ↑";
+    if (sortOrder === "desc") return " ↓";
+    return null;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="w-full space-y-3">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-24 w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full overflow-hidden rounded-md border shadow-sm">
+      <ScrollArea className="relative min-h-[10vh] max-h-[75vh] w-full overflow-auto">
+        <table className="min-w-max w-full border-collapse">
+          <TableHeader className="sticky top-0 z-10 bg-muted shadow-md">
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="p-2 border-b border-r first:rounded-tl-md">
+                {parentColumn.label}
+              </TableHead>
+              <TableHead className="p-2 border-b border-r">
+                {childColumn.label}
+              </TableHead>
+              <TableHead
+                className={`p-2 border-b text-left first:rounded-tl-md last:rounded-tr-md ${onSortChange ? 'cursor-pointer hover:bg-accent/30' : ''}`}
+                onClick={handleTimeSort}
+              >
+                Time (seconds){getSortIcon()}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row, index) => {
+              const childStops = row[childColumn.value] || [];
+              const isLastRow = index === rows.length - 1;
+              const lastChildIdx = childStops.length - 1;
+
+              return childStops.map((childStop, childIdx) => {
+                const isLastChild = childIdx === lastChildIdx;
+
+                return (
+                  <TableRow key={`${index}-${childIdx}`}>
+                    {childIdx === 0 && (
+                      <TableCell
+                        className={`p-2 border-b border-r whitespace-nowrap align-top ${isLastRow && isLastChild ? 'rounded-bl-md border-b-0' : ''}`}
+                        rowSpan={childStops.length}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <div
+                            style={{
+                              backgroundColor: rgbToHex(
+                                getStopColor(row.primaryLocationType, theme)
+                              ),
+                            }}
+                            className="w-2 h-2 rounded-full"
+                          />
+                          <div className="text-xs font-medium">{row[parentColumn.value]}</div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </ScrollArea>
-        </TableBody>
-      </table>
+                      </TableCell>
+                    )}
+                    <TableCell className={`p-2 border-b border-r whitespace-nowrap ${isLastRow && isLastChild ? 'border-b-0' : ''}`}>
+                      <div className="flex items-center space-x-2">
+                        <div
+                          style={{
+                            backgroundColor: rgbToHex(
+                              getStopColor(childStop.secondaryLocationType, theme)
+                            ),
+                          }}
+                          className="w-2 h-2 rounded-full"
+                        />
+                        <div className="text-xs font-medium">
+                          {childStop[childColumn.childValue]}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className={`p-2 border-b text-left ${isLastRow && isLastChild ? 'rounded-br-md border-b-0' : ''}`}>
+                      <div className="text-xs">
+                        {childStop.shortest_time !== null ? `${childStop.shortest_time}` : 'N/A'}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              });
+            })}
+          </TableBody>
+        </table>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
     </div>
   );
 }
