@@ -2,11 +2,12 @@ import { useMemo, useEffect } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import ChildTable from "@/components/table/ChildTable"
-import { doesRowPassInitialFilters } from "@/functions/stations/filters/initialFilters";
-import { doesRowPassStopTypesFilters } from "@/functions/stations/filters/stopTypesFilters";
-import { processFilteredData } from "@/functions/stations/filters/processFilteredData";
-import { computeTimeIntervalRanges } from "@/functions/stations/filters/computeTimeIntervalRanges";
-
+import {
+  doesRowPassInitialFilters,
+  doesRowPassStopTypesFilters,
+  processFilteredData,
+  computeTimeIntervalRanges,
+} from "@/lib/duckdb/DataFetching";
 
 function Table({
   RouteData,
@@ -18,11 +19,17 @@ function Table({
   EndStopTypesDropdown,
   setEndStopTypes,
   TimeRange,
+  ExcludeTime,
   TabValue,
   setStartStops,
   setEndStops,
   timeIntervalRanges,
   setTimeIntervalRanges,
+  SortBy,
+  SortOrder,
+  setSortBy,
+  setSortOrder,
+  isLoading = false,
 }) {
   const isStartView = TabValue === "start";
 
@@ -85,6 +92,9 @@ function Table({
       StartStopTypesDropdown,
       EndStopTypesDropdown,
       TimeRange,
+      ExcludeTime,
+      SortBy,
+      SortOrder,
     });
 
     const uniqueShortestTimesSet = new Set();
@@ -113,6 +123,9 @@ function Table({
     StartStopTypesDropdown,
     EndStopTypesDropdown,
     TimeRange,
+    ExcludeTime,
+    SortBy,
+    SortOrder,
     TabValue,
     primaryKey,
     secondaryKey,
@@ -120,39 +133,74 @@ function Table({
   ]);
 
   useEffect(() => {
-    const ranges = computeTimeIntervalRanges(uniqueShortestTimes);
-    setTimeIntervalRanges(ranges);
-  }, [uniqueShortestTimes]);
+    if (setTimeIntervalRanges) {
+      const ranges = computeTimeIntervalRanges(uniqueShortestTimes);
+      
+      const rangesChanged = ranges.length !== timeIntervalRanges?.length ||
+        ranges.some((range, idx) =>
+          range.min !== timeIntervalRanges?.[idx]?.min ||
+          range.max !== timeIntervalRanges?.[idx]?.max
+        );
+
+      if (rangesChanged) {
+        setTimeIntervalRanges(ranges);
+      }
+    }
+  }, [uniqueShortestTimes, setTimeIntervalRanges, timeIntervalRanges]);
+
+  const uniqueStartStopsStr = JSON.stringify(uniqueStartStops);
+  const uniqueEndStopsStr = JSON.stringify(uniqueEndStops);
+  const uniqueStartStopTypesStr = JSON.stringify(uniqueStartStopTypes);
+  const uniqueEndStopTypesStr = JSON.stringify(uniqueEndStopTypes);
 
   useEffect(() => {
     if (setStartStops) {
-      setStartStops(uniqueStartStops);
+      setStartStops(JSON.parse(uniqueStartStopsStr));
     }
 
     if (setEndStops) {
-      setEndStops(uniqueEndStops);
+      setEndStops(JSON.parse(uniqueEndStopsStr));
     }
 
     if (setStartStopTypes) {
-      setStartStopTypes(uniqueStartStopTypes);
+      setStartStopTypes(JSON.parse(uniqueStartStopTypesStr));
     }
 
     if (setEndStopTypes) {
-      setEndStopTypes(uniqueEndStopTypes);
+      setEndStopTypes(JSON.parse(uniqueEndStopTypesStr));
     }
   }, [
-    uniqueStartStops,
-    uniqueEndStops,
-    uniqueStartStopTypes,
-    uniqueEndStopTypes,
+    uniqueStartStopsStr,
+    uniqueEndStopsStr,
+    uniqueStartStopTypesStr,
+    uniqueEndStopTypesStr,
     setStartStops,
     setEndStops,
     setStartStopTypes,
     setEndStopTypes,
   ]);
 
-  if (!RouteData || !Array.isArray(RouteData)) {
-    return <Skeleton className="h-12 rounded-md flex-1 min-w-[200px]" />;
+  if (isLoading || !RouteData || !Array.isArray(RouteData)) {
+    return (
+      <div className="mt-5">
+        <ChildTable
+          parentColumn={{
+            label: isStartView ? 'Start Stop' : 'End Stop',
+            value: isStartView ? 'start_stop' : 'end_stop',
+          }}
+          childColumn={{
+            label: isStartView ? 'End Stop' : 'Start Stop',
+            value: isStartView ? 'endStops' : 'startStops',
+            childValue: isStartView ? 'end_stop' : 'start_stop'
+          }}
+          rows={[]}
+          isLoading={true}
+          sortBy={undefined}
+          sortOrder={undefined}
+          onSortChange={undefined}
+        />
+      </div>
+    );
   }
 
   return (
@@ -164,30 +212,44 @@ function Table({
           </h2>
         </div>
       ) : isStartView ? (
-        <ChildTable 
+        <ChildTable
           parentColumn={{
             label: 'Start Stop',
             value: 'start_stop',
-          }} 
+          }}
           childColumn={{
             label: 'End Stop',
             value: 'endStops',
             childValue: 'end_stop'
           }}
           rows={rows}
+          isLoading={false}
+          sortBy={SortBy}
+          sortOrder={SortOrder}
+          onSortChange={(newSortBy, newSortOrder) => {
+            if (setSortBy) setSortBy(newSortBy);
+            if (setSortOrder) setSortOrder(newSortOrder);
+          }}
         />
       ) : (
-        <ChildTable 
+        <ChildTable
           parentColumn={{
             label: 'End Stop',
             value: 'end_stop'
-          }} 
+          }}
           childColumn={{
             label: 'Start Stop',
             value: 'startStops',
             childValue: 'start_stop'
           }}
           rows={rows}
+          isLoading={false}
+          sortBy={SortBy}
+          sortOrder={SortOrder}
+          onSortChange={(newSortBy, newSortOrder) => {
+            if (setSortBy) setSortBy(newSortBy);
+            if (setSortOrder) setSortOrder(newSortOrder);
+          }}
         />
       )}
     </div>

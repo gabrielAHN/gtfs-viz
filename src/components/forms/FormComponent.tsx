@@ -1,21 +1,67 @@
-import { useState, useMemo } from "react"
-import { useMutation } from "@tanstack/react-query"
-import { useForm } from "react-hook-form"
+import { useState, useMemo, useEffect } from "react";
+import type { ReactNode } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
 
-import { Form } from "@/components/ui/form"
-import { Button } from "@/components/ui/button"
+import { Form } from "@/components/ui/form";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-import EditFormUI from "./EditForm"
-import AddFormUI from "./AddForm"
+import FormFieldsRenderer from "./FormFieldsRenderer";
+
+interface FormField {
+  name: string;
+  label: string;
+  type: "formField" | "map";
+  parts: any;
+}
+
+export type LocationTypeConfig = {
+  show: boolean;
+  options?: Array<{ value: string; label: string }>;
+  defaultValue?: string;
+  required?: boolean;
+};
+
+export const LOCATION_TYPE_CONFIGS = {
+  STOP: {
+    show: false,
+    defaultValue: "Stop",
+    required: false,
+  } as LocationTypeConfig,
+
+  STATION: {
+    show: false,
+    defaultValue: "Station",
+    required: false,
+  } as LocationTypeConfig,
+
+  NODE: {
+    show: true,
+    options: [
+      { value: "Exit/Entrance", label: "Exit/Entrance" },
+      { value: "Pathway Node", label: "Pathway Node" },
+      { value: "Boarding Area", label: "Boarding Area" },
+    ],
+    required: true,
+  } as LocationTypeConfig,
+};
 
 interface FormComponentProps {
-  inputData: any[]
-  mutationFn: (data: any) => Promise<any>
-  header: string
-  buttonLabel: "Create" | "Edit"
-  onSuccess?: () => void
-  onError?: (error: any) => void
-  defaultValues?: Record<string, any>
+  inputData: FormField[];
+  mutationFn: (data: any) => Promise<any>;
+  header: string;
+  buttonLabel: "Create" | "Edit";
+  onSuccess?: (data?: any) => void;
+  onError?: (error: any) => void;
+  onReset?: () => void;
+  defaultValues?: Record<string, any>;
+  customActions?: ReactNode;
+  disableInputs?: boolean;
+  validationMode?: "onBlur" | "onChange" | "onSubmit" | "all";
+  enableSubmitButton?: boolean;
+  locationType?: LocationTypeConfig;
+  onMutationStateChange?: (isPending: boolean) => void;
 }
 
 function FormComponent({
@@ -25,97 +71,158 @@ function FormComponent({
   buttonLabel,
   onSuccess,
   onError,
+  onReset,
   defaultValues = {},
+  customActions,
+  disableInputs = false,
+  validationMode = "onBlur",
+  enableSubmitButton = true,
+  locationType,
+  onMutationStateChange,
 }: FormComponentProps) {
   const form = useForm({
     defaultValues,
-    mode: "all",
-  })
+    mode: validationMode, 
+    reValidateMode: validationMode, 
+    criteriaMode: "all", 
+    shouldFocusError: true,
+  });
 
   const {
     handleSubmit,
     reset,
-    watch,
-    formState: { isDirty, dirtyFields },
-  } = form
+    formState: { isDirty, isValid, dirtyFields, touchedFields },
+  } = form;
 
-  const [submissionError, setSubmissionError] = useState < string | null > (null)
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [submittedData, setSubmittedData] = useState<any>(null);
 
   const mutation = useMutation({
     mutationFn,
-    onSuccess: () => {
-      reset(defaultValues)
-      setSubmissionError(null)
-      onSuccess?.()
+    onSuccess: (data) => {
+      reset(defaultValues);
+      setSubmissionError(null);
+      setSubmittedData(null); 
+      onSuccess?.(data);
     },
     onError: (error: any) => {
-      setSubmissionError(error.message)
-      onError?.(error)
+      setSubmissionError(error.message);
+      setSubmittedData(null); 
+      onError?.(error);
     },
-  })
+  });
+
+  useEffect(() => {
+    onMutationStateChange?.(mutation.isPending);
+  }, [mutation.isPending, onMutationStateChange]);
 
   const onSubmit = (data: any) => {
-    setSubmissionError(null)
-
-    if (buttonLabel === "Create") {
-      mutation.mutate(data)
-      return
-    }
-
-    mutation.mutate(data)
-  }
+    setSubmissionError(null);
+    setSubmittedData(data); 
+    mutation.mutate(data);
+  };
 
   const handleReset = () => {
-    reset(defaultValues)
-    setSubmissionError(null)
-  }
+    reset(defaultValues);
+    setSubmissionError(null);
+    onReset?.();
+  };
 
-  const watchAllValues = watch()
-  const allFieldsFilled = useMemo(() => {
-    return Object.keys(defaultValues).every(
-      (field) => watchAllValues[field] !== "" || watchAllValues['parent_station'] === ''
-    )
-  }, [defaultValues, watchAllValues])
+  const enhancedInputData = useMemo(() => {
+    if (!locationType || !locationType.show) {
+      return inputData;
+    }
+
+    const nameIndex = inputData.findIndex((field) => field.name === "name");
+    const insertIndex = nameIndex >= 0 ? nameIndex + 1 : 1;
+
+    const locationTypeField = {
+      name: "location_type_name",
+      label: "Location Type",
+      type: "formField" as const,
+      parts: {
+        renderInput: ({ value, onChange, ref, disabled }: any) => (
+          <Select
+            value={value || ""}
+            onValueChange={(val) => {
+              onChange(val);
+            }}
+            disabled={disabled}
+          >
+            <SelectTrigger ref={ref}>
+              <SelectValue placeholder="Select Location Type" />
+            </SelectTrigger>
+            <SelectContent>
+              {locationType.options?.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ),
+        rules: locationType.required
+          ? {
+              required: "Location Type is required",
+            }
+          : undefined,
+      },
+    };
+
+    const newInputData = [...inputData];
+    newInputData.splice(insertIndex, 0, locationTypeField);
+    return newInputData;
+  }, [inputData, locationType]);
 
   return (
     <Form {...form}>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-        <label className="text-3xl font-bold">{header}</label>
-        {buttonLabel === "Edit" && (
-          <EditFormUI key='edit' inputData={inputData} defaultValues={defaultValues} />
-        )}
-        {buttonLabel === "Create" && <AddFormUI key='add' inputData={inputData} />}
-        <div className="flex gap-4 mt-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
+        <h2 className="text-2xl font-bold mb-2">{header}</h2>
+        <FormFieldsRenderer
+          inputData={enhancedInputData}
+          isLoading={mutation.isPending || disableInputs}
+          mode={buttonLabel === "Edit" ? "edit" : "add"}
+          submittedData={mutation.isPending ? submittedData : null}
+        />
+        <div className="flex gap-4 mt-3 pt-2">
           <Button
             type="submit"
             variant="outline"
             disabled={
-              buttonLabel === "Create"
-                ? !allFieldsFilled
-                : !isDirty && !submissionError
+              !enableSubmitButton ||
+              mutation.isPending ||
+              disableInputs ||
+              (buttonLabel === "Create" && !isValid) ||
+              (buttonLabel === "Edit" && !isDirty)
             }
-            className={`px-6 py-2 ${submissionError ? "bg-red-500 text-white" : ""
-              }`}
+            className={`px-6 py-2 ${
+              submissionError
+                ? "bg-destructive text-destructive-foreground"
+                : ""
+            }`}
           >
-            {mutation.isLoading
-              ? "Processing..."
+            {mutation.isPending
+              ? buttonLabel === "Edit"
+                ? "Editing..."
+                : "Creating..."
               : submissionError
-                ? "Error"
+                ? "Retry"
                 : buttonLabel}
           </Button>
           <Button
             type="button"
             variant="secondary"
             onClick={handleReset}
-            disabled={!isDirty}
+            disabled={mutation.isPending || disableInputs}
             className="px-6 py-2"
           >
             Reset
           </Button>
+          {customActions}
         </div>
       </form>
     </Form>
-  )
+  );
 }
 
-export default FormComponent
+export default FormComponent;

@@ -1,31 +1,28 @@
 import { useState } from "react";
 
 import { useMutation } from "@tanstack/react-query";
-import { mutationDeleteStationFn } from "@/hooks/DuckdbCalls/DataEditing/editingFn";
+import { mutationDeleteStationFn } from "@/lib/duckdb/DataEditing/editingFn";
+import { useRouter } from "@tanstack/react-router";
 
-import { Button } from "@/components/ui/button";
-import { Pen, Trash } from "lucide-react"
-import { useDuckDB, useStationViewContext, usePageViewContext } from "@/context/combinedContext";
-
-import Form from "./Form"
+import { useDuckDB } from "@/context/duckdb.client";
+import { EditButton, DeleteButton } from "@/components/ui/ActionButtons";
+import StopStationForm from "@/components/forms/StopStationForms";
 import PopupTable from "@/components/table/PopupTable";
 
-
 function StationInfo({ Data }) {
-  const { StationView } = useStationViewContext();
-  const { setPageState } = usePageViewContext();
+  const router = useRouter();
   const { conn } = useDuckDB();
-  const [Open, setOpen] = useState(false);
+  const [Open, setOpen] = useState({ formType: null, state: false });
   
   const mutation = useMutation({
     mutationFn: async () => {
       await mutationDeleteStationFn({
         conn: conn,
-        SelectStation: StationView,
+        SelectStation: Data,
       });
     },
     onSuccess: () => {
-      setPageState('dashboard');
+      router.navigate({ to: "/stations" });
     },
   });
   
@@ -33,38 +30,31 @@ function StationInfo({ Data }) {
     <div className="w-full p-1">
       <div className="grid grid-cols-1 gap-2 w-full mb-2">
         <div className="flex flex-col md:flex-row gap-2">
-        <Form
-          Data={Data}
-          OpenValue={Open}
-          setOpenValue={setOpen}
-        />
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setOpen({ state: true })}
+          <StopStationForm
+            Data={[Data]}
+            OpenValue={Open}
+            setOpenValue={setOpen}
+            ClickInfo={Data}
+            setClickInfo={() => {}}
+            type="station"
+          />
+          <EditButton
+            onClick={() => setOpen({ formType: "edit", state: true })}
             className="w-full md:w-auto"
-          >
-            <Pen className="mr-2 h-5 w-5" />
-            Edit
-          </Button>
-          <Button
-            size="sm"
-            variant="delete"
-            onClick={() => {mutation.mutate()}} 
+          />
+          <DeleteButton
+            onClick={() => mutation.mutate()}
+            isPending={mutation.isPending}
             className="w-full md:w-auto"
-          >
-            <Trash className="mr-2 h-5 w-5" />
-            Delete
-          </Button>
+          />
         </div>
       </div>
       <PopupTable
-        Data={StationView}
+        Data={Data}
         ColumnsData={[
           "stop_id",
           "stop_lon",
           "stop_lat",
-          "status",
           "exit_count",
           "pathways_status",
           "wheelchair_status",
@@ -73,7 +63,6 @@ function StationInfo({ Data }) {
           "Stop Id",
           "Stop Lon",
           "Stop Lat",
-          "Status",
           "Exit Count",
           "Pathways Status",
           "Wheelchair Status",

@@ -1,8 +1,7 @@
 import React from "react";
 
-import { Upload } from 'lucide-react';
+import { BiUpload } from 'react-icons/bi';
 import { Button } from "@/components/ui/button";
-
 
 interface UploadFileProps {
   handleFileUpload: (file: File) => void;
@@ -33,7 +32,7 @@ export default function UploadFile({
         className="w-[30vh]"
         onClick={onButtonClick}
       >
-        <Upload /> Upload GTFS Zip File
+        <BiUpload /> Upload GTFS Zip File
       </Button>
     </div>
   );

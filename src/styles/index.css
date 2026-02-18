@@ -1,0 +1,147 @@
+@font-face {
+  font-family: "Zain";
+  src: url("/font/Zain-ExtraLight.ttf") format("truetype");
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Zain";
+  src: url("/font/Zain-Light.ttf") format("truetype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Zain";
+  src: url("/font/Zain-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Zain";
+  src: url("/font/Zain-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Zain";
+  src: url("/font/Zain-ExtraBold.ttf") format("truetype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Zain";
+  src: url("/font/Zain-Black.ttf") format("truetype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Zain";
+  src: url("/font/Zain-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Zain";
+  src: url("/font/Zain-LightItalic.ttf") format("truetype");
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer base {
+  :root {
+    --background: 44.2 76% 95.1%;
+    --foreground: 140 25.7% 6.9%;
+    --card: 47 72.5% 90%;
+    --card-foreground: 140 25.7% 6.9%;
+    --popover: 47 72.5% 90%;
+    --popover-foreground: 140 25.7% 6.9%;
+    --primary: 46 74.1% 50%;
+    --primary-foreground: 46.2 72.2% 7.1%;
+    --secondary: 45 93% 47%;
+    --secondary-foreground: 45 100% 96%;
+    --muted: 152 29.4% 90%;
+    --muted-foreground: 152.1 28.1% 30%;
+    --accent: 46 74.1% 50%;
+    --accent-foreground: 46.2 72.2% 7.1%;
+    --destructive: 12 88% 55%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 152.1 27.5% 80%;
+    --input: 152.1 27.5% 80%;
+    --ring: 46 74.1% 50%;
+    --chart-1: 46 74.1% 50%;
+    --chart-2: 45 93% 47%;
+    --chart-3: 87.6 24.7% 50%;
+    --chart-4: 12 88% 55%;
+    --chart-5: 138.1 24.7% 50%;
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+  .dark {
+    --background: 0 0% 8%;
+    --foreground: 44.2 76% 95.1%;
+    --card: 0 0% 12%;
+    --card-foreground: 44.2 76% 95.1%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 44.2 76% 95.1%;
+    --primary: 176.2 31.4% 45%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 176.2 31.4% 30%;
+    --secondary-foreground: 176.2 31.4% 90%;
+    --muted: 0 0% 18%;
+    --muted-foreground: 152 29.4% 65%;
+    --accent: 176.2 31.4% 45%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 350 70% 55%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 40%;
+    --input: 0 0% 14%;
+    --ring: 176.2 31.4% 45%;
+    --chart-1: 176.2 31.4% 45%;
+    --chart-2: 176.2 31.4% 30%;
+    --chart-3: 88.2 25.1% 45%;
+    --chart-4: 350 70% 55%;
+    --chart-5: 137.6 25.1% 45%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}

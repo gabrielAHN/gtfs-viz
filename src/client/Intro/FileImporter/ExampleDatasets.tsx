@@ -37,7 +37,7 @@ export default function ExampleDatasets({ handleExampleFileUpload }) {
         }
       }}
     >
-      <SelectTrigger className="min-w-[15em] text-center">
+      <SelectTrigger className="w-[30vh] text-center">
         <SelectValue
           placeholder="Example Datasets"
           className="text-center text-gray-500"

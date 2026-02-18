@@ -1,4 +1,4 @@
-import { Plus, RotateCcw } from "lucide-react";
+import { BiPlus, BiReset } from "react-icons/bi";
 import Combobox from "@/components/ui/combobox";
 import { MultiSelect } from "@/components/ui/multiselect";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,11 @@ interface HeaderProps {
   WheelChairStatusData: Array<{ label: string; value: string }>;
   WheelChairStatusDropDown: string[];
   setWheelChairStatusDropDown: (values: string[]) => void;
+  EditStatusDropDown?: string[];
+  setEditStatusDropDown?: (values: string[]) => void;
+  onResetFilters?: () => void;
+  isResetDisabled?: boolean;
+  hasEditedItems?: boolean;
 }
 
 const Header: React.FC<HeaderProps> = (props) => {
@@ -35,7 +40,12 @@ const Header: React.FC<HeaderProps> = (props) => {
     setPathwaysStatusDropDown,
     WheelChairStatusDropDown,
     setWheelChairStatusDropDown,
-    WheelchairStatusData
+    WheelchairStatusData,
+    EditStatusDropDown = [],
+    setEditStatusDropDown,
+    onResetFilters,
+    isResetDisabled: isResetDisabledProp,
+    hasEditedItems = false
   } = props;
 
   const handleOpen = ({ formType }: { formType: string }) => {
@@ -43,16 +53,22 @@ const Header: React.FC<HeaderProps> = (props) => {
   };
 
   const isResetDisabled =
+    isResetDisabledProp !== undefined ? isResetDisabledProp :
     (!StopIdDropdown || StopIdDropdown.trim() === "") &&
     (!StopNameDropDown || StopNameDropDown.trim() === "") &&
     (!PathwaysStatusDropDown || PathwaysStatusDropDown.length === 0) &&
-    (!WheelChairStatusDropDown || WheelChairStatusDropDown.length === 0);
+    (!WheelChairStatusDropDown || WheelChairStatusDropDown.length === 0) &&
+    (!EditStatusDropDown || EditStatusDropDown.length === 0);
 
   const handleReset = () => {
     setStopIdDropdown("");
     setStopNameDropDown("");
     setPathwaysStatusDropDown([]);
     setWheelChairStatusDropDown([]);
+    setEditStatusDropDown?.([]);
+    if (onResetFilters) {
+      onResetFilters();
+    }
   };
 
   return (
@@ -64,7 +80,7 @@ const Header: React.FC<HeaderProps> = (props) => {
           onClick={() => handleOpen({ formType: "add" })}
           className="w-full md:w-auto flex items-center justify-center"
         >
-          <Plus className="mr-2 h-5 w-5" />
+          <BiPlus className="mr-2 h-5 w-5" />
           Station
         </Button>
         <Button
@@ -73,11 +89,11 @@ const Header: React.FC<HeaderProps> = (props) => {
           onClick={handleReset}
           className="w-full md:w-auto flex items-center justify-center"
         >
-          <RotateCcw className="mr-2 h-5 w-5" />
+          <BiReset className="mr-2 h-5 w-5" />
           Reset
         </Button>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 mb-1">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${hasEditedItems ? 'xl:grid-cols-5' : 'xl:grid-cols-4'} gap-2 mb-1`}>
         <div className="col-span-1">
           {StopsNameData ? (
             <Combobox
@@ -126,6 +142,19 @@ const Header: React.FC<HeaderProps> = (props) => {
             <Skeleton className="h-12 rounded-md" />
           )}
         </div>
+        {hasEditedItems && (
+          <div className="col-span-1">
+            <MultiSelect
+              options={[
+                { label: "Yes", value: "edited" },
+                { label: "No", value: "not_edited" },
+              ]}
+              onValueChange={(newValue) => setEditStatusDropDown?.(newValue)}
+              defaultValue={EditStatusDropDown}
+              placeholder="Edited"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

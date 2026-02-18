@@ -1,19 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useDuckDB } from "@/context/combinedContext";
+import { useDuckDB } from "@/context/duckdb.client";
 
-import { Download } from 'lucide-react';
+import { BiDownload } from 'react-icons/bi';
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { exportingData } from "@/hooks/DuckdbCalls/DataExporting/exportingData";
+import { exportingData } from "@/lib/duckdb/DataExporting/exportingData";
 
 import StopsTable from "./components/StopsTable"
 
 function Export() {
   const [FileTypes, setFileTypes] = useState({});
-  const { conn } = useDuckDB();
+  const duckDB = useDuckDB();
+  const { conn } = duckDB || {};
 
   const queryClient = useQueryClient()
 
@@ -24,19 +25,27 @@ function Export() {
     staleTime: 0
   });
 
-
   const EditsStatus = Object.values(FileTypes).some((value) => value === true);
 
+  useEffect(() => {
+    if (exportLoading && duckDB) {
+      duckDB.setIsResetting(true);
+      duckDB.setLoadingMessage("Exporting data...");
+      duckDB.setLoadingSubMessage("Preparing GTFS files for download");
+    } else if (!exportLoading && duckDB) {
+      duckDB.setIsResetting(false);
+      duckDB.setLoadingMessage("");
+      duckDB.setLoadingSubMessage("");
+    }
+  }, [exportLoading, duckDB]);
 
   const handleExport = async () => {
     await refetch({ force: true });
   };
 
-
   const handleCancel = (key) => {
     queryClient.cancelQueries({ queryKey: [key] })
   }
-
 
   if (exportLoading) (
     <>
@@ -69,7 +78,7 @@ function Export() {
             "Exporting..."
           ) : (
             <span className="flex items-center">
-              <Download className="mr-2" />
+              <BiDownload className="mr-2" />
               {EditsStatus ? (
                 "Export Edit Files"
               ) : "No Changes to Export"

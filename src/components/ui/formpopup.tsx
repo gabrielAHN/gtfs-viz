@@ -11,6 +11,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogDescription,
 } from "@/components/ui/dialog"
 
 const FormPopup = ({ children, setOpenValue, OpenValue }) => {
@@ -22,17 +23,19 @@ const FormPopup = ({ children, setOpenValue, OpenValue }) => {
     }
   }
 
+  const isOpen = OpenValue?.state === true;
+
   return isDesktop ? (
-    <Dialog open={OpenValue.state} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-h-[80vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogTitle className="hidden" />
-        <DrawerDescription className="hidden" />
+        <DialogDescription className="hidden" />
         {children}
       </DialogContent>
     </Dialog>
   ) : (
-    <Drawer open={OpenValue.state} onOpenChange={handleOpenChange}>
-      <DrawerContent className="flex flex-col max-h-screen overflow-hidden">
+    <Drawer open={isOpen} onOpenChange={handleOpenChange}>
+      <DrawerContent className="flex flex-col max-h-[90vh] overflow-hidden">
         <DrawerHeader className="hidden">
           <DrawerTitle />
           <DrawerDescription />

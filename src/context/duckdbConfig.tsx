@@ -19,11 +19,28 @@ async function DuckDB() {
   const bundle = await duckdb.selectBundle(MANUAL_BUNDLES);
 
   const worker = new Worker(bundle.mainWorker!);
+
+  worker.addEventListener('error', (event) => {
+    const message = event.message || '';
+    if (message.includes('onager') ||
+        message.includes('Extension') ||
+        message.includes('DB manager') ||
+        message.includes('does not exist') ||
+        message.includes('Catalog Error')) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
+
   const logger = new duckdb.VoidLogger();
   const db = new duckdb.AsyncDuckDB(logger, worker);
   await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
 
   const conn = await db.connect();
+
+  await conn.query(`SET autoinstall_known_extensions = false;`);
+  await conn.query(`SET autoload_known_extensions = false;`);
+
   return { conn, db };
 }
 export default DuckDB;

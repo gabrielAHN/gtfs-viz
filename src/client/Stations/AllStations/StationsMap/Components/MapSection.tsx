@@ -1,11 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
-import DeckglMap from "@/components/maps/DeckglMap"
+import DeckglMap from "@/components/maps/DeckglMap.lazy"
 
-import { DATA_STATUS } from "@/components/style";
+import { DATA_STATUS, getStopColor } from "@/components/style";
 import { ScatterplotLayer } from "@deck.gl/layers";
-import { useThemeContext } from "@/context/combinedContext";
-
+import { useThemeContext } from "@/context/theme.client";
+import { getMapsFunction } from "@/functions/mapComponent/MapFunctions";
+import { createPointOutline } from "@/components/maps/MapOutlineHelpers";
 
 function MapSection({
   MapLayers,
@@ -15,22 +16,103 @@ function MapSection({
   viewState,
   setViewState,
   BoundBox,
+  setBoundBox,
   ClickInfo,
   setClickInfo
 }) {
   const { theme } = useThemeContext();
+  const [HoverInfo, setHoverInfo] = useState();
+  const lastAutoZoomedStopId = useRef(null);
+
+  const handleClick = useCallback((event) => {
+    if (event.object) {
+      
+      setClickInfo(event);
+    } else {
+      
+      setClickInfo(undefined);
+    }
+  }, [setClickInfo]);
 
   useEffect(() => {
-    const mapPoints = TableData.map((row) => ({
-      coordinates: [Number(row.stop_lon), Number(row.stop_lat)],
-      ...row,
-    }));
+    if (!TableData || TableData.length === 0) return;
+    if (viewState && BoundBox) return; 
+
+    const mapPoints = TableData.filter(
+      (row) => row.stop_lon !== null && row.stop_lat !== null
+    );
+
+    if (mapPoints.length === 0) return;
+
+    const { CenterData, BoundBox: mapBoundBox } = getMapsFunction({
+      data: mapPoints,
+    });
+
+    setViewState({
+      longitude: CenterData.lon,
+      latitude: CenterData.lat,
+      zoom: 10,
+      pitch: 0,
+      bearing: 0,
+    });
+
+    setBoundBox(mapBoundBox);
+  }, [TableData, viewState, BoundBox]);
+
+  useEffect(() => {
+    if (!ClickInfo) return;
+
+    const clickData = ClickInfo?.object || ClickInfo;
+
+    if (clickData?.stop_lon && clickData?.stop_lat && clickData?.stop_id) {
+      
+      if (lastAutoZoomedStopId.current === clickData.stop_id) {
+        return;
+      }
+
+      const isMapClick = ClickInfo?.layer?.id === "all-table-view";
+
+      if (!isMapClick) {
+        
+        setViewState((prev) => ({
+          ...prev,
+          longitude: clickData.stop_lon,
+          latitude: clickData.stop_lat,
+          zoom: 15,
+        }));
+        lastAutoZoomedStopId.current = clickData.stop_id;
+      }
+    }
+  }, [ClickInfo, setViewState]);
+
+  useEffect(() => {
+    if (!TableData || TableData.length === 0) {
+      setMapLayers([]);
+      return;
+    }
+
+    const mapPoints = TableData.filter(
+      (row) => row.stop_lon !== null && row.stop_lat !== null
+    );
+
+    if (mapPoints.length === 0) {
+      setMapLayers([]);
+      return;
+    }
 
     const baseLayer = new ScatterplotLayer({
       id: "all-table-view",
       data: mapPoints,
-      getFillColor: (row) => DATA_STATUS[row[DataColor]].color,
-      getPosition: (d) => d.coordinates,
+      getFillColor: (row) => {
+        const value = row[DataColor];
+        
+        if (DATA_STATUS[value]) {
+          return DATA_STATUS[value].color;
+        }
+        
+        return getStopColor(value, theme);
+      },
+      getPosition: (row) => [Number(row.stop_lon), Number(row.stop_lat)],
       pickable: true,
       getLineWidth: 0.025,
       stroked: true,
@@ -40,48 +122,47 @@ function MapSection({
 
     const layers = [baseLayer];
 
-    if (ClickInfo) {
-      setViewState({
-        ...viewState,
-        longitude: Number(ClickInfo.stop_lon),
-        latitude: Number(ClickInfo.stop_lat),
-        zoom: 15
-      });
+    const clickData = ClickInfo?.object || ClickInfo;
+    const hoverData = HoverInfo?.object || HoverInfo;
 
-      const highlightedPoint = new ScatterplotLayer({
-        id: "highlighted-point",
-        data: [{'coordinates': [ClickInfo.stop_lon, ClickInfo.stop_lat]}],
-        getFillColor: theme === "dark" ? [255, 255, 255] : [0, 0, 0],
-        getPosition: (d) => d.coordinates,
-        pickable: true,
-        lineWidthUnits: "pixels",
-        getLineWidth: 1,
-        radiusUnits: "pixels",
-        radiusMaxPixels: 10,
-        radiusMinPixels: 10,
+    if (HoverInfo?.layer?.id === "all-table-view" && hoverData &&
+        (!clickData || hoverData.stop_id !== clickData.stop_id)) {
+      const hoverOutline = createPointOutline({
+        id: "hover-stop-point",
+        data: [hoverData],
+        theme,
+        state: 'hover',
       });
-      layers.unshift(highlightedPoint);
+      layers.push(hoverOutline);
     }
 
-    setMapLayers([layers]);
-  }, [TableData, DataColor, ClickInfo, theme]);
+    if (clickData && clickData.stop_id) {
+      const selectedOutline = createPointOutline({
+        id: "selected-stop-point",
+        data: [clickData],
+        theme,
+        state: 'selected',
+      });
+      layers.push(selectedOutline);
+    }
 
-  const handleMapClick = (info: any) => {
-    setClickInfo(info?.object)
-  };
+    setMapLayers(layers);
+  }, [TableData, DataColor, ClickInfo, HoverInfo, theme]);
+
+  if (!viewState || !BoundBox) return null;
 
   return (
-    <div className="relative h-[74vh] w-full">
-      <DeckglMap
-        MinZoom={7}
-        dragRotate={false}
-        MapLayers={MapLayers}
-        BoundBox={BoundBox}
-        viewState={viewState}
-        setClickInfo={handleMapClick}
-        setViewState={setViewState}
-      />
-    </div>
+    <DeckglMap
+      MinZoom={7}
+      dragRotate={false}
+      maxPitch={0}
+      MapLayers={MapLayers}
+      BoundBox={BoundBox}
+      viewState={viewState}
+      setClickInfo={handleClick}
+      setViewState={setViewState}
+      setHoverInfo={setHoverInfo}
+    />
   );
 }
 

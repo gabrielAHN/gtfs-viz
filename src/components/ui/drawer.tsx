@@ -36,7 +36,7 @@ const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
 >(({ className, children, ...props }, ref) => (
-  <DrawerPortal>
+  <DrawerPortal container={typeof document !== 'undefined' ? document.body : undefined}>
     <DrawerOverlay />
     <DrawerPrimitive.Content
       ref={ref}

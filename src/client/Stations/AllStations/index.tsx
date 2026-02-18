@@ -1,47 +1,45 @@
 import { useState, useMemo } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CreateStationsTable } from "@/hooks/DuckdbCalls/Ingestion/CreateStationTable";
+import { createStationsTable } from "@/lib/extensions";
 import { useQuery } from "@tanstack/react-query";
-import { useDuckDB } from "@/context/combinedContext";
-import { Skeleton } from "@/components/ui/skeleton"
+import { useDuckDB } from "@/context/duckdb.client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import StationTable from "./StationTable";
 import StationMap from "./StationsMap";
 import Header from "./Header";
 
-import { Map, Table } from "lucide-react";
+import { BiMap, BiTable } from "react-icons/bi";
 import {
   fetchStopsIdData,
   fetchStationsData,
   fetchStopsNamesData,
   fetchPathwaysStatusData,
   fetchWheelchairStatusData,
-} from "@/hooks/DuckdbCalls/DataFetching/fetchGTFSData";
-import StationForm from "./Components/StationForm";
-
+} from "@/lib/duckdb/DataFetching/fetchGTFSData";
+import StopStationForm from "@/components/forms/StopStationForms";
 
 export const ToggleTabs = [
-  { value: "table", label: "Table", icon: <Table /> },
-  { value: "map", label: "Map", icon: <Map /> },
+  { value: "table", label: "Table", icon: <BiTable /> },
+  { value: "map", label: "Map", icon: <BiMap /> },
 ];
 
 function AllStations() {
   const { conn } = useDuckDB();
-  const [Open, setOpen] = useState({ 'formType': null, 'state': false });
+  const [Open, setOpen] = useState({ formType: null, state: false });
   const [ClickInfo, setClickInfo] = useState();
   const [StopIdDropdown, setStopIdDropdown] = useState();
   const [StopNameDropDown, setStopNameDropDown] = useState();
   const [PathwaysStatusDropDown, setPathwaysStatusDropDown] = useState([]);
   const [WheelChairStatusDropDown, setWheelChairStatusDropDown] = useState([]);
+  const [EditStatusDropDown, setEditStatusDropDown] = useState([]);
 
-  const { isLoading: StationTableLoad, isFetching: StationTableFetching } = useQuery({
-    queryKey: [
-      "createStationTable"
-    ],
-    queryFn: () =>
-      conn.query(CreateStationsTable)
-  });
+  const { isLoading: StationTableLoad, isFetching: StationTableFetching } =
+    useQuery({
+      queryKey: ["createStationTable"],
+      queryFn: () => createStationsTable(conn),
+    });
 
   const { data: StopsIdData } = useQuery({
     queryKey: [
@@ -133,19 +131,39 @@ function AllStations() {
       }),
   });
 
-  const memoizedData = useMemo(() => data, [data]);
+  const memoizedData = useMemo(() => {
+    if (!data) return data;
+
+    if (EditStatusDropDown && EditStatusDropDown.length > 0) {
+      return data.filter((item) => {
+        const hasEditStatus = item.status && item.status !== '';
+        const isEdited = EditStatusDropDown.includes("edited");
+        const isNotEdited = EditStatusDropDown.includes("not_edited");
+
+        if (isEdited && isNotEdited) return true;
+        if (isEdited) return hasEditStatus;
+        if (isNotEdited) return !hasEditStatus;
+        return true;
+      });
+    }
+
+    return data;
+  }, [data, EditStatusDropDown]);
+
+  const hasEditedItems = useMemo(() => {
+    if (!data || !Array.isArray(data)) return false;
+    return data.some((station: any) => station.status && station.status !== '');
+  }, [data]);
 
   return (
-    <Tabs defaultValue="table" >
-      <TabsList className="h-[2.8em] mb-2" >
-        {
-          ToggleTabs.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value} >
-              {tab.icon}
-              < span className="ml-2" > {tab.label} </span>
-            </TabsTrigger>
-          ))
-        }
+    <Tabs defaultValue="table">
+      <TabsList className="h-[2.8em] mb-2">
+        {ToggleTabs.map((tab) => (
+          <TabsTrigger key={tab.value} value={tab.value}>
+            {tab.icon}
+            <span className="ml-2"> {tab.label} </span>
+          </TabsTrigger>
+        ))}
       </TabsList>
       <Header
         setOpen={setOpen}
@@ -161,36 +179,40 @@ function AllStations() {
         setPathwaysStatusDropDown={setPathwaysStatusDropDown}
         setWheelChairStatusDropDown={setWheelChairStatusDropDown}
         WheelChairStatusDropDown={WheelChairStatusDropDown}
+        EditStatusDropDown={EditStatusDropDown}
+        setEditStatusDropDown={setEditStatusDropDown}
+        hasEditedItems={hasEditedItems}
       />
-      {
-        isLoading || StationTableLoad || StationTableFetching ? (
-          <Skeleton className="h-40 w-full mt-2" />
-        ) : (
-          <>
-            <StationForm
-              Data={data}
-              OpenValue={Open}
-              setOpenValue={setOpen}
+      {isLoading || StationTableLoad || StationTableFetching ? (
+        <Skeleton className="h-40 w-full mt-2" />
+      ) : (
+        <>
+          <StopStationForm
+            Data={data}
+            OpenValue={Open}
+            setOpenValue={setOpen}
+            ClickInfo={ClickInfo}
+            setClickInfo={setClickInfo}
+            type="station"
+          />
+          <TabsContent value="table">
+            <StationTable
+              data={memoizedData}
+              setOpen={setOpen}
               ClickInfo={ClickInfo}
               setClickInfo={setClickInfo}
             />
-            <TabsContent value="table" >
-              <StationTable
-                data={memoizedData}
-                setOpen={setOpen}
-                ClickInfo={ClickInfo}
-                setClickInfo={setClickInfo} />
-            </TabsContent>
-            <TabsContent value="map" >
-              <StationMap
-                data={memoizedData}
-                setOpen={setOpen}
-                ClickInfo={ClickInfo}
-                setClickInfo={setClickInfo} />
-            </TabsContent>
-          </>
-        )
-      }
+          </TabsContent>
+          <TabsContent value="map">
+            <StationMap
+              data={memoizedData}
+              setOpen={setOpen}
+              ClickInfo={ClickInfo}
+              setClickInfo={setClickInfo}
+            />
+          </TabsContent>
+        </>
+      )}
     </Tabs>
   );
 }
