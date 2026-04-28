@@ -22,13 +22,31 @@ jobs:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
+      - name: Check if version already published
+        id: check
+        run: |
+          LOCAL_VERSION=$(node -p "require('./packages/cli/package.json').version")
+          PUBLISHED=$(npm view @gabrielahn/gtfs-viz-cli version 2>/dev/null || echo "none")
+          if [ "$LOCAL_VERSION" = "$PUBLISHED" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Version $LOCAL_VERSION already published — skipping"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "Publishing $LOCAL_VERSION (npm has $PUBLISHED)"
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Install dependencies
+        if: steps.check.outputs.skip != 'true'
         run: yarn install --frozen-lockfile --ignore-engines
 
       - name: Build all packages
+        if: steps.check.outputs.skip != 'true'
         run: yarn build
 
       - name: Publish to npm
+        if: steps.check.outputs.skip != 'true'
         working-directory: packages/cli
         run: npm publish --access public
         env:
