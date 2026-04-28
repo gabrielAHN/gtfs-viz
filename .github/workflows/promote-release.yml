@@ -26,6 +26,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Get version from package.json
         id: version
@@ -96,3 +97,18 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "v$VERSION" "$GITHUB_SHA" -m "v$VERSION"
           git push origin "v$VERSION"
+
+      - name: Publish CLI to npm
+        if: steps.prerelease.outputs.create_tag == 'true'
+        run: |
+          LOCAL_VERSION=$(node -p "require('./packages/cli/package.json').version")
+          PUBLISHED=$(npm view @gabrielahn/gtfs-viz-cli version 2>/dev/null || echo "none")
+          if [ "$LOCAL_VERSION" != "$PUBLISHED" ]; then
+            yarn install --frozen-lockfile --ignore-engines
+            yarn build
+            cd packages/cli && npm publish --access public
+          else
+            echo "CLI $LOCAL_VERSION already published — skipping"
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
