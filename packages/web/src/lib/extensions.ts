@@ -1,16 +1,15 @@
 /**
  * GTFS extension loading for the web app.
  *
- * Production: fetches gtfs.sql from /extensions/gtfs.sql (served from public dir)
- * Dev: same URL (Vite serves public dir locally)
- * Fallback: bundled SQL from the procedures package build
+ * Uses the same installExtension() from @gtfs-viz/procedures as the CLI.
+ * Both resolve gtfs.sql from the bundled SQL (embedded at build time).
+ * The web also serves gtfs.sql at /extensions/gtfs.sql for standalone DuckDB users.
  *
  * Individual procedures are kept for incremental updates after edits.
  */
 
 import {
   installExtension,
-  getInstallSql,
   createBundledLoader,
   recreateStopsView as _recreateStopsView,
   recreatePathwaysView as _recreatePathwaysView,
@@ -20,9 +19,6 @@ import {
   installPathwayQueryProcedures as _installPathwayQueryProcedures,
 } from "@gtfs-viz/procedures";
 import type { ProcedureLoader, SqlExecutor } from "@gtfs-viz/procedures";
-
-/** URL where the deployed web app serves the extension SQL */
-const EXTENSION_PATH = "/extensions/gtfs.sql";
 
 // Singleton bundled loader for individual procedure loading
 let _loader: ProcedureLoader | null = null;
@@ -40,21 +36,15 @@ function createExecutor(conn: any): SqlExecutor {
   };
 }
 
-// ── Primary install (fetches from URL, falls back to bundle) ─────────────────
+// ── Primary install (same path as CLI) ───────────────────────────────────────
 
 /**
  * Install the full GTFS extension into a DuckDB-WASM connection.
- * Fetches gtfs.sql from the web app's public URL. Falls back to the
- * bundled SQL if the fetch fails (e.g. offline or CLI-backed session).
+ * Uses installExtension() from @gtfs-viz/procedures — the same function
+ * the CLI uses. Both resolve gtfs.sql from the bundled SQL.
  */
 export const installGtfsExtension = async (conn: any): Promise<void> => {
-  const executor = createExecutor(conn);
-  try {
-    await installExtension(executor, EXTENSION_PATH);
-  } catch {
-    // Fallback: use bundled SQL (works offline / in CLI-backed sessions)
-    await installExtension(executor);
-  }
+  await installExtension(createExecutor(conn));
 };
 
 // ── Individual procedures (for incremental updates after edits) ──────────────

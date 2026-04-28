@@ -1,12 +1,15 @@
 /**
  * Builds the import SQL by composing CSV ingestion + GTFS extension install.
  *
- * Uses the bundled SQL (embedded at build time via esbuild) so the CLI
- * works both in the repo and when installed globally via npm.
+ * Uses the same installExtension() path as the web app:
+ *   1. getInstallSql() returns the full gtfs.sql content
+ *   2. The SQL is inlined into the import script
+ *
+ * Both CLI and web resolve gtfs.sql from the procedures package bundle.
+ * Standalone DuckDB users can .read the same SQL from the public URL.
  */
 
 import { getInstallSql } from "@gtfs-viz/procedures";
-import { SQL_BUNDLE } from "@gtfs-viz/procedures";
 
 const sqlString = (value: string) => `'${value.replace(/'/g, "''")}'`;
 
@@ -14,14 +17,16 @@ export async function buildImportSql(opts: {
   stopsPath: string;
   pathwaysPath?: string;
 }): Promise<string> {
-  // Load enum macros from the bundle — needed by the CSV reformat step
-  const enums = SQL_BUNDLE.get("utils/gtfs_enums");
-  if (!enums) throw new Error("Enum macros not found in SQL bundle");
-
-  // Full extension SQL from the bundle
+  // The full extension SQL — same gtfs.sql used by web, CLI, and standalone DuckDB
   const extensionSql = getInstallSql();
 
-  // CLI-specific: drop existing objects and import CSV files
+  // Extract just the enum macros from the extension SQL.
+  // They're needed BEFORE the CSV import for location_type_to_name() and
+  // wheelchair_to_emoji() used in the reformat step.
+  // The full extension SQL re-creates them (idempotent), so this is safe.
+  const enumEnd = extensionSql.indexOf("-- tables/create_edit_stop_table");
+  const enumSql = enumEnd > 0 ? extensionSql.slice(0, enumEnd) : "";
+
   const dropExisting = `
 DROP TABLE IF EXISTS stops_raw;
 DROP TABLE IF EXISTS pathways_raw;
@@ -156,9 +161,9 @@ CREATE TABLE pathways (
 );
 `;
 
-  // Compose: enums → drop → CSV import → full extension SQL (inline, no .read)
+  // Flow: enums (for CSV reformat) → drop → CSV import → full extension install
   return [
-    enums,
+    enumSql,
     dropExisting,
     createStops,
     createPathways,
