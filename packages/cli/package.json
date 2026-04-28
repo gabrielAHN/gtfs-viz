@@ -1,6 +1,6 @@
 {
   "name": "@gabrielahn/gtfs-viz-cli",
-  "version": "0.1.1",
+  "version": "2.0.0",
   "description": "CLI for importing, querying, editing, and visualizing GTFS transit data with DuckDB",
   "license": "MIT",
   "author": "Gabriel AHN",
