@@ -1,0 +1,40 @@
+{
+  "name": "@gtfs-viz/procedures",
+  "version": "0.1.0",
+  "description": "GTFS DuckDB extension — SQL macros, views, and pathfinding procedures",
+  "license": "MIT",
+  "author": "Gabriel AHN",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gabrielAHN/gtfs-viz.git",
+    "directory": "packages/procedures"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./bundled": {
+      "import": "./dist/loader-bundled.js",
+      "types": "./dist/loader-bundled.d.ts"
+    },
+    "./node": {
+      "import": "./dist/loader-node.js",
+      "types": "./dist/loader-node.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "gtfs",
+    "scripts"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/bundle-sql.mjs",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "~5.6.2"
+  }
+}

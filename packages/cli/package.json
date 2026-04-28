@@ -1,0 +1,50 @@
+{
+  "name": "@gabrielahn/gtfs-viz-cli",
+  "version": "0.1.1",
+  "description": "CLI for importing, querying, editing, and visualizing GTFS transit data with DuckDB",
+  "license": "MIT",
+  "author": "Gabriel AHN",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gabrielAHN/gtfs-viz.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/gabrielAHN/gtfs-viz/tree/main/packages/cli#readme",
+  "keywords": [
+    "gtfs",
+    "transit",
+    "duckdb",
+    "cli",
+    "visualization",
+    "stations",
+    "pathways",
+    "accessibility"
+  ],
+  "bin": {
+    "gtfs-viz": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "dashboard",
+    "skills",
+    "scripts",
+    "README.md"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/bundle.mjs && chmod +x dist/index.js && node scripts/copy-dashboard.mjs",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "postinstall": "node scripts/postinstall.mjs",
+    "preuninstall": "node scripts/preuninstall.mjs",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@gtfs-viz/procedures": "*",
+    "@types/node": "^22.10.5",
+    "esbuild": "^0.28.0",
+    "typescript": "~5.6.2"
+  }
+}

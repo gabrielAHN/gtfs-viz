@@ -3,21 +3,12 @@
   "build": {
     "builder": "RAILPACK",
     "watchPatterns": [
-      "src/**",
-      "public/**",
+      "packages/**",
       "scripts/**",
-      "images/**",
-      "extensions/**",
-      "Caddyfile",
       "package.json",
       "yarn.lock",
-      ".yarnrc",
       "railway.json",
-      "railpack.json",
-      "vite.config.ts",
-      "tsconfig.json",
-      "postcss.config.js",
-      "tailwind.config.js"
+      "railpack.json"
     ]
   },
   "deploy": {

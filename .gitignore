@@ -6,11 +6,17 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+*.tgz
 
 node_modules
 dist
 dist-ssr
 *.local
+
+# Package build artifacts
+packages/*/dist/
+packages/*/.tsc-out/
+packages/cli/dashboard/
 
 # Editor directories and files
 .vscode/*
@@ -28,7 +34,6 @@ dist-ssr
 
 # MCP and environment files
 .mcp.json
-.nvmrc
 .claude/
 
 # Railway local configuration
@@ -37,15 +42,11 @@ dist-ssr
 # Package manager lock files (keep yarn.lock, ignore npm)
 package-lock.json
 
-# GTFS sample data (zip files)
-public/extensions/sample-data/*.zip
-
 # Extensions directory (separate project - root level only)
 /extensions/
 
-# Documentation files in public/extensions (not needed for deployment)
-public/extensions/**/*.md
-public/extensions/**/README.md
+# GTFS extension build artifact (copied from procedures during build)
+packages/web/public/extensions/gtfs.sql
 
-# Stale generated TanStack route tree path from older root config
-src/src/routeTree.gen.ts
+# GTFS sample data (zip files)
+packages/web/public/extensions/sample-data/*.zip

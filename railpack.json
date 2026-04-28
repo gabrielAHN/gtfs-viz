@@ -2,12 +2,12 @@
   "$schema": "https://schema.railpack.com",
   "provider": "node",
   "packages": {
-    "node": "22"
+    "node": "22.12"
   },
   "steps": {
     "install": {
       "commands": [
-        "yarn install --non-interactive"
+        "yarn install --non-interactive --ignore-engines"
       ]
     },
     "build": {
@@ -17,7 +17,7 @@
         }
       ],
       "commands": [
-        "yarn build"
+        "yarn build:procedures && yarn build:web && rm -rf dist && cp -r packages/web/dist dist"
       ]
     }
   }
