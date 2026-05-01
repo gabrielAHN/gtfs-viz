@@ -1,7 +1,7 @@
 import JSZip from "jszip";
 import { logger } from "@/lib/logger";
 
-import { generateDynamicSelectQuery, EditMergeQuery } from "../QueryHelper";
+import { generateDynamicSelectQuery, EditMergeQuery, executeQuery } from "../QueryHelper";
 
 const Datafiles = [
   {
@@ -34,6 +34,23 @@ const Datafiles = [
   },
 ];
 
+const isCliNativeConn = (conn: any): boolean =>
+  Boolean(conn?.__gtfsVizCliNative);
+
+function rowsToCsv(columns: string[], rows: Record<string, unknown>[]): string {
+  const escapeField = (val: unknown) => {
+    if (val === null || val === undefined) return "";
+    const str = String(val);
+    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+  const header = columns.map(escapeField).join(",");
+  const body = rows.map((row) => columns.map((col) => escapeField(row[col])).join(","));
+  return [header, ...body].join("\n");
+}
+
 export const exportingData = async ({ conn, FileTypes }) => {
   const zip = new JSZip();
   const fileName = "edited_gtfs"
@@ -46,19 +63,31 @@ export const exportingData = async ({ conn, FileTypes }) => {
     for (const fileInfo of filteredDatafiles) {
       const query = await CreateExportQuery(conn, fileInfo);
 
-      await conn.send(`
-        COPY (${query})
-        TO '${fileInfo.orgTable.file}'
-        (FORMAT CSV, HEADER, DELIMITER ',');
-      `);
+      let csvContent: string | Uint8Array;
 
-      const csvBuffer = await conn._bindings.copyFileToBuffer(
-        fileInfo.orgTable.file
-      );
+      if (isCliNativeConn(conn)) {
+        const columns = await generateDynamicSelectQuery(
+          conn,
+          fileInfo.orgTable.name,
+          fileInfo.orgTable.removeList,
+        );
+        const rows = await executeQuery(conn, query);
+        csvContent = rowsToCsv(columns, rows);
+      } else {
+        await conn.send(`
+          COPY (${query})
+          TO '${fileInfo.orgTable.file}'
+          (FORMAT CSV, HEADER, DELIMITER ',');
+        `);
 
-      zip.file(`${fileName}/${fileInfo.orgTable.file}`, csvBuffer);
+        csvContent = await conn._bindings.copyFileToBuffer(
+          fileInfo.orgTable.file
+        );
 
-      await conn._bindings.dropFile(fileInfo.orgTable.file);
+        await conn._bindings.dropFile(fileInfo.orgTable.file);
+      }
+
+      zip.file(`${fileName}/${fileInfo.orgTable.file}`, csvContent);
     }
 
     createZipFile({ name: `${fileName}.zip`, zip });

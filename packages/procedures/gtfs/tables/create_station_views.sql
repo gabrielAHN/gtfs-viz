@@ -87,7 +87,7 @@ CREATE OR REPLACE MACRO get_stations_table_data() AS TABLE (
     FROM StopsView s
     LEFT JOIN stops st
       ON st.parent_station = s.stop_id
-    LEFT JOIN pathways p
+    LEFT JOIN PathwaysView p
       ON p.from_stop_id IN (s.stop_id, st.stop_id)
       OR p.to_stop_id IN (s.stop_id, st.stop_id)
   ),

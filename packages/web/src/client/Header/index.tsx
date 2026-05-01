@@ -50,6 +50,7 @@ function Header() {
   const hasStations = duckDB?.hasStations ?? false;
   const hasStops = duckDB?.hasStops ?? false;
   const isResetting = duckDB?.isResetting ?? false;
+  const isCliLaunch = duckDB?.isCliLaunch ?? false;
 
   const isStationsActive = currentPath.startsWith("/stations");
   const isStopsActive = currentPath.startsWith("/stops");
@@ -115,20 +116,24 @@ function Header() {
           </SheetHeader>
 
           <div className="mt-6 flex flex-col gap-6">
-            <Button
-              variant="outline"
-              className="w-full justify-start"
-              onClick={() => {
-                handleImport();
-                handleNavigate();
-              }}
-              disabled={isResetting}
-            >
-              <BiImport className="mr-2 h-4 w-4" />
-              {isResetting ? "Resetting..." : "Import Data"}
-            </Button>
+            {!isCliLaunch && (
+              <>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    handleImport();
+                    handleNavigate();
+                  }}
+                  disabled={isResetting}
+                >
+                  <BiImport className="mr-2 h-4 w-4" />
+                  {isResetting ? "Resetting..." : "Import Data"}
+                </Button>
 
-            <Separator />
+                <Separator />
+              </>
+            )}
 
             <div>
               <h3 className="text-xs font-medium text-muted-foreground mb-2 px-2">
@@ -312,16 +317,18 @@ function Header() {
               <h1 className="font-bold text-foreground text-xl">GTFS Viz</h1>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleImport}
-                disabled={isResetting}
-                className="text-xs"
-              >
-                <BiImport className="mr-1.5 h-3.5 w-3.5" />
-                {isResetting ? "Resetting..." : "Import"}
-              </Button>
+              {!isCliLaunch && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleImport}
+                  disabled={isResetting}
+                  className="text-xs"
+                >
+                  <BiImport className="mr-1.5 h-3.5 w-3.5" />
+                  {isResetting ? "Resetting..." : "Import"}
+                </Button>
+              )}
               <div className="ml-2 pl-2">
                 <ThemeSwitcher />
               </div>

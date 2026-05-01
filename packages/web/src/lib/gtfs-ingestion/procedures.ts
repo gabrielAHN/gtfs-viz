@@ -182,7 +182,7 @@ CREATE OR REPLACE MACRO get_stations_table_data() AS TABLE (
     FROM stations_base s
     LEFT JOIN StopsView st
       ON st.parent_station = s.stop_id
-    LEFT JOIN pathways p
+    LEFT JOIN PathwaysView p
       ON p.from_stop_id IN (s.stop_id, st.stop_id)
       OR p.to_stop_id IN (s.stop_id, st.stop_id)
     WHERE p.pathway_id IS NOT NULL
@@ -201,7 +201,7 @@ CREATE OR REPLACE MACRO get_stations_table_data() AS TABLE (
     FROM stations_base s
     LEFT JOIN StopsView st
       ON st.parent_station = s.stop_id
-    LEFT JOIN pathways p
+    LEFT JOIN PathwaysView p
       ON p.from_stop_id IN (s.stop_id, st.stop_id)
       OR p.to_stop_id IN (s.stop_id, st.stop_id)
     LEFT JOIN StopsView from_stop
@@ -288,9 +288,9 @@ SELECT
     )
     ELSE NULL
   END AS angle
-FROM pathways p
-JOIN stops s1 ON p.from_stop_id = s1.stop_id
-JOIN stops s2 ON p.to_stop_id = s2.stop_id`;
+FROM PathwaysView p
+JOIN StopsView s1 ON p.from_stop_id = s1.stop_id
+JOIN StopsView s2 ON p.to_stop_id = s2.stop_id`;
 
 export const CREATE_PATHWAY_INDEXES = `
 CREATE INDEX IF NOT EXISTS idx_pathways_from_stop ON pathways(from_stop_id);

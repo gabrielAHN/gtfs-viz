@@ -92,7 +92,7 @@ function PartsMap({ data, setOpen, ClickInfo, setClickInfo, externalViewState })
       new Set(data.map((item) => item.location_type_name).filter(Boolean)),
     );
     return locationTypes.map((locationType) => ({
-      label: StopTypeColors[locationType]?.name || locationType,
+      label: locationType === 'Stop' ? 'Platform' : (StopTypeColors[locationType]?.name || locationType),
       color: rgbToHex(getStopColor(locationType, theme) || [128, 128, 128]),
     }));
   }, [data, DataColor, theme]);

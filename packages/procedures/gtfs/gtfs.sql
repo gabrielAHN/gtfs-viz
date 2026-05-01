@@ -306,7 +306,7 @@ CREATE OR REPLACE MACRO get_stations_table_data() AS TABLE (
     FROM StopsView s
     LEFT JOIN stops st
       ON st.parent_station = s.stop_id
-    LEFT JOIN pathways p
+    LEFT JOIN PathwaysView p
       ON p.from_stop_id IN (s.stop_id, st.stop_id)
       OR p.to_stop_id IN (s.stop_id, st.stop_id)
   ),
@@ -353,7 +353,21 @@ CREATE OR REPLACE TABLE StationsTable AS SELECT * FROM get_stations_table_data()
 -- tables/initialize_pathway_network
 CREATE OR REPLACE VIEW pathway_network AS
 SELECT
-  p.*,
+  p.row_id,
+  p.pathway_id,
+  p.from_stop_id,
+  p.to_stop_id,
+  p.pathway_mode,
+  p.is_bidirectional,
+  p.length,
+  p.traversal_time,
+  p.stair_count,
+  p.max_slope,
+  p.min_width,
+  p.signposted_as,
+  p.reversed_signposted_as,
+  p.pathway_mode_name,
+  p.direction_type,
 
   COALESCE(NULLIF(s1.parent_station, ''), s1.stop_id) AS from_parent_station,
   s1.stop_lat AS from_lat,
@@ -376,9 +390,9 @@ SELECT
     )
     ELSE NULL
   END AS angle
-FROM pathways p
-JOIN stops s1 ON p.from_stop_id = s1.stop_id
-JOIN stops s2 ON p.to_stop_id = s2.stop_id;
+FROM PathwaysView p
+JOIN StopsView s1 ON p.from_stop_id = s1.stop_id
+JOIN StopsView s2 ON p.to_stop_id = s2.stop_id;
 
 CREATE INDEX IF NOT EXISTS idx_pathways_from_stop ON pathways(from_stop_id);
 CREATE INDEX IF NOT EXISTS idx_pathways_to_stop ON pathways(to_stop_id);
@@ -399,23 +413,23 @@ CREATE OR REPLACE MACRO get_station_info(station_id) AS TABLE (
       location_type_name,
       parent_station,
       wheelchair_status
-    FROM stops
+    FROM StopsView
     WHERE location_type_name = 'Station'
       AND stop_id = station_id
   ),
   exit_counts AS (
     SELECT
       COUNT(*) AS exit_count
-    FROM stops
+    FROM StopsView
     WHERE location_type_name = 'Exit/Entrance'
       AND parent_station = station_id
   ),
   pathway_counts AS (
     SELECT
       COUNT(DISTINCT p.pathway_id) AS pathway_count
-    FROM pathways p
-    JOIN stops s1 ON p.from_stop_id = s1.stop_id
-    JOIN stops s2 ON p.to_stop_id = s2.stop_id
+    FROM PathwaysView p
+    JOIN StopsView s1 ON p.from_stop_id = s1.stop_id
+    JOIN StopsView s2 ON p.to_stop_id = s2.stop_id
     WHERE (
       COALESCE(NULLIF(s1.parent_station, ''), s1.stop_id) = station_id
       AND COALESCE(NULLIF(s2.parent_station, ''), s2.stop_id) = station_id
@@ -705,7 +719,7 @@ CREATE OR REPLACE MACRO get_pathways_filtered(
   min_time,
   max_time,
   include_null_time,
-  direction_type,
+  direction_filter,
   pathway_types
 ) AS TABLE (
   SELECT
@@ -732,7 +746,7 @@ CREATE OR REPLACE MACRO get_pathways_filtered(
         OR (include_null_time = FALSE AND traversal_time IS NULL)
       )
     )
-    AND (direction_type IS NULL OR direction_type = direction_type)
+    AND (direction_filter IS NULL OR direction_type = direction_filter)
     AND (pathway_types IS NULL OR pathway_mode_name IN (SELECT unnest(pathway_types)))
 );
 

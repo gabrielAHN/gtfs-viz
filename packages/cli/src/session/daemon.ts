@@ -4,6 +4,8 @@ import path from "node:path";
 import {
   readDaemonMetadata,
   removeDaemonMetadata,
+  removeAllSessions,
+  removeSession,
   type DaemonMetadata,
 } from "./metadata.js";
 
@@ -65,13 +67,20 @@ export async function startDaemon(cliArgs: string[]): Promise<void> {
 
 export async function stopDaemon(): Promise<boolean> {
   const meta = await readDaemonMetadata();
-  if (!meta) return false;
+  if (!meta) {
+    await removeAllSessions().catch(() => {});
+    return false;
+  }
 
   try {
     process.kill(meta.pid, "SIGTERM");
+    await removeSession(meta.sessionId).catch(() => {});
+    await removeAllSessions().catch(() => {});
     await removeDaemonMetadata();
     return true;
   } catch {
+    await removeSession(meta.sessionId).catch(() => {});
+    await removeAllSessions().catch(() => {});
     await removeDaemonMetadata();
     return false;
   }

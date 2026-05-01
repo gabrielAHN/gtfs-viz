@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   publish:
@@ -48,6 +49,6 @@ jobs:
       - name: Publish to npm
         if: steps.check.outputs.skip != 'true'
         working-directory: packages/cli
-        run: npm publish --access public
+        run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

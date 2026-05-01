@@ -48,6 +48,9 @@ ALTER TABLE stops ADD COLUMN IF NOT EXISTS parent_station VARCHAR;
 ALTER TABLE stops ADD COLUMN IF NOT EXISTS level_id VARCHAR;
 ALTER TABLE stops ADD COLUMN IF NOT EXISTS location_type INTEGER DEFAULT 0;
 ALTER TABLE stops ADD COLUMN IF NOT EXISTS wheelchair_boarding INTEGER DEFAULT 0;
+ALTER TABLE stops ADD COLUMN IF NOT EXISTS row_id INTEGER;
+ALTER TABLE stops ADD COLUMN IF NOT EXISTS location_type_name VARCHAR;
+ALTER TABLE stops ADD COLUMN IF NOT EXISTS wheelchair_status VARCHAR;
 
 CREATE TEMP TABLE stops_temp AS SELECT * FROM stops;
 DROP TABLE stops;
@@ -72,10 +75,16 @@ SELECT
   location_type_coalesced AS location_type,
   wheelchair_boarding_coalesced AS wheelchair_boarding,
   * EXCLUDE (
+    row_id,
     stop_id,
+    stop_name,
+    stop_lat,
+    stop_lon,
     parent_station,
     location_type,
     wheelchair_boarding,
+    location_type_name,
+    wheelchair_status,
     stop_id_casted,
     parent_station_casted,
     location_type_coalesced,
@@ -101,6 +110,9 @@ ALTER TABLE pathways ADD COLUMN IF NOT EXISTS max_slope DOUBLE;
 ALTER TABLE pathways ADD COLUMN IF NOT EXISTS min_width DOUBLE;
 ALTER TABLE pathways ADD COLUMN IF NOT EXISTS signposted_as VARCHAR;
 ALTER TABLE pathways ADD COLUMN IF NOT EXISTS reversed_signposted_as VARCHAR;
+ALTER TABLE pathways ADD COLUMN IF NOT EXISTS row_id INTEGER;
+ALTER TABLE pathways ADD COLUMN IF NOT EXISTS pathway_mode_name VARCHAR;
+ALTER TABLE pathways ADD COLUMN IF NOT EXISTS direction_type VARCHAR;
 
 CREATE TEMP TABLE pathways_temp AS SELECT * FROM pathways;
 DROP TABLE pathways;
@@ -124,11 +136,14 @@ SELECT
   pathway_mode_coalesced AS pathway_mode,
   is_bidirectional_coalesced AS is_bidirectional,
   * EXCLUDE (
+    row_id,
     pathway_id,
     from_stop_id,
     to_stop_id,
     pathway_mode,
     is_bidirectional,
+    pathway_mode_name,
+    direction_type,
     pathway_id_casted,
     from_stop_id_casted,
     to_stop_id_casted,

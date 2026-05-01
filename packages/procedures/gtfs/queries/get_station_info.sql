@@ -12,23 +12,23 @@ CREATE OR REPLACE MACRO get_station_info(station_id) AS TABLE (
       location_type_name,
       parent_station,
       wheelchair_status
-    FROM stops
+    FROM StopsView
     WHERE location_type_name = 'Station'
       AND stop_id = station_id
   ),
   exit_counts AS (
     SELECT
       COUNT(*) AS exit_count
-    FROM stops
+    FROM StopsView
     WHERE location_type_name = 'Exit/Entrance'
       AND parent_station = station_id
   ),
   pathway_counts AS (
     SELECT
       COUNT(DISTINCT p.pathway_id) AS pathway_count
-    FROM pathways p
-    JOIN stops s1 ON p.from_stop_id = s1.stop_id
-    JOIN stops s2 ON p.to_stop_id = s2.stop_id
+    FROM PathwaysView p
+    JOIN StopsView s1 ON p.from_stop_id = s1.stop_id
+    JOIN StopsView s2 ON p.to_stop_id = s2.stop_id
     WHERE (
       COALESCE(NULLIF(s1.parent_station, ''), s1.stop_id) = station_id
       AND COALESCE(NULLIF(s2.parent_station, ''), s2.stop_id) = station_id

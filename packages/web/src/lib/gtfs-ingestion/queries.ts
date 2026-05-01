@@ -282,7 +282,7 @@ CREATE OR REPLACE MACRO get_pathways_filtered(
   min_time,
   max_time,
   include_null_time,
-  direction_type,
+  direction_filter,
   pathway_types
 ) AS TABLE (
   SELECT
@@ -297,7 +297,7 @@ CREATE OR REPLACE MACRO get_pathways_filtered(
       (pn.traversal_time >= min_time AND pn.traversal_time <= max_time) OR
       (include_null_time AND pn.traversal_time IS NULL)
     )
-    AND (direction_type IS NULL OR pn.direction_type = direction_type)
+    AND (direction_filter IS NULL OR pn.direction_type = direction_filter)
     AND (
       pathway_types IS NULL OR
       list_contains(pathway_types, pn.pathway_mode_name)

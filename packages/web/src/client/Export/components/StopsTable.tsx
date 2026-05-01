@@ -169,19 +169,48 @@ const StopsTable = ({ FileTypes, setFileTypes }) => {
     const status = selectedStop.status;
     const originalParentStation = originalData?.parent_station;
 
-    if (locationType === "Station" || locationType === "Stop") {
+    if (locationType === "Station") {
       return (
         <Button
           variant="default"
           onClick={() => {
-            if (locationType === "Station") {
-              router.navigate({
-                to: "/stations/map",
-                search: { selectedStationId: stopId },
-              });
-              return;
-            }
+            router.navigate({
+              to: "/stations/map",
+              search: { selectedStationId: stopId },
+            });
+          }}
+        >
+          <BiMap className="mr-2 h-5 w-5" />
+          Go to Station
+        </Button>
+      );
+    }
 
+    if (locationType === "Stop") {
+      if (parentStation) {
+        return (
+          <Button
+            variant="default"
+            onClick={() => {
+              router.navigate({
+                to: "/stations/pathways/flow/column",
+                search: {
+                  selectedStationId: parentStation,
+                  selectedNodeId: stopId,
+                },
+              });
+            }}
+          >
+            <BiMap className="mr-2 h-5 w-5" />
+            Go to Station
+          </Button>
+        );
+      }
+
+      return (
+        <Button
+          variant="default"
+          onClick={() => {
             router.navigate({
               to: "/stops/map",
               search: { selectedStopId: stopId },
@@ -189,7 +218,7 @@ const StopsTable = ({ FileTypes, setFileTypes }) => {
           }}
         >
           <BiMap className="mr-2 h-5 w-5" />
-          Go to {locationType === "Station" ? "Station" : "Stop"}
+          Go to Stop
         </Button>
       );
     }

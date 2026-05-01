@@ -130,6 +130,7 @@ export const recreateStopsView = async (conn: any): Promise<void> => {
 };
 
 export const recreatePathwaysView = async (conn: any): Promise<void> => {
+  await conn.query("DROP VIEW IF EXISTS pathway_network");
   await conn.query("DROP VIEW IF EXISTS PathwaysView");
   await createPathwaysView(conn);
   await recreatePathwayNetwork(conn);

@@ -1,3 +1,8 @@
+---
+name: gtfs-viz
+description: Use this skill when an agent needs to import a GTFS zip, query transit data, edit stations or pathways, export changes, or open the local GTFS Viz dashboard.
+---
+
 # GTFS Viz CLI
 
 Use this skill when an agent needs to import a GTFS zip, query transit data, edit stations/pathways, export changes, or open the local dashboard.
@@ -9,6 +14,7 @@ This skill folder contains detailed reference documents. Read these when you nee
 - [commands.md](commands.md) — All CLI commands with flags and examples
 - [tables.md](tables.md) — Table and view schemas with column types
 - [procedures.md](procedures.md) — SQL macros, named queries, and pathfinding functions
+- [gtfs-schedule-reference.md](gtfs-schedule-reference.md) — GTFS Schedule field reference focused on station parts, pathways, and missing-connection audits
 - [examples.sql](examples.sql) — Practical SQL query examples
 
 ## Install
@@ -98,6 +104,8 @@ gtfs-viz station_pathways place-pktrm --node-id node-pktrm-stair7-gl --data
 
 `--node-id` targets platforms, exits/entrances, or pathway nodes within a station.
 
+When checking for missing station pieces or broken internal connectivity, use station-part and network functions only. Start with `get_station_stops(station_id)`, then inspect `get_station_pathways(station_id)`, `get_station_routes(station_id)`, `find_shortest_path`, or `find_reachable_stops`. Do not audit station-internal connectivity from `StopsTable`, because that table is for standalone stops. See [gtfs-schedule-reference.md](gtfs-schedule-reference.md).
+
 ## Routes
 
 ```bash
@@ -167,6 +175,7 @@ gtfs-viz export --force                   # Export even with no pending edits
 
 ```bash
 gtfs-viz stop                             # Stop the dashboard session
+gtfs-viz restart                          # Stop session and remove local import
 gtfs-viz clean                            # Stop daemon + delete all local data
 ```
 

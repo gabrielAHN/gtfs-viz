@@ -1358,7 +1358,7 @@ export const PathwayFlowEditor: React.FC<PathwayFlowEditorProps> = ({
     });
 
     return Array.from(stopTypes).map((type) => ({
-      label: type,
+      label: type === 'Stop' ? 'Platform' : type,
       color: rgbToHex(getStopColor(type, theme)),
     }));
   }, [pathwayData?.stops, theme]);

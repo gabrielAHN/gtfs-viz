@@ -2,7 +2,21 @@
 
 CREATE OR REPLACE VIEW pathway_network AS
 SELECT
-  p.*,
+  p.row_id,
+  p.pathway_id,
+  p.from_stop_id,
+  p.to_stop_id,
+  p.pathway_mode,
+  p.is_bidirectional,
+  p.length,
+  p.traversal_time,
+  p.stair_count,
+  p.max_slope,
+  p.min_width,
+  p.signposted_as,
+  p.reversed_signposted_as,
+  p.pathway_mode_name,
+  p.direction_type,
 
   COALESCE(NULLIF(s1.parent_station, ''), s1.stop_id) AS from_parent_station,
   s1.stop_lat AS from_lat,
@@ -25,9 +39,9 @@ SELECT
     )
     ELSE NULL
   END AS angle
-FROM pathways p
-JOIN stops s1 ON p.from_stop_id = s1.stop_id
-JOIN stops s2 ON p.to_stop_id = s2.stop_id;
+FROM PathwaysView p
+JOIN StopsView s1 ON p.from_stop_id = s1.stop_id
+JOIN StopsView s2 ON p.to_stop_id = s2.stop_id;
 
 CREATE INDEX IF NOT EXISTS idx_pathways_from_stop ON pathways(from_stop_id);
 CREATE INDEX IF NOT EXISTS idx_pathways_to_stop ON pathways(to_stop_id);

@@ -282,8 +282,13 @@ export async function recreateStopsView(
   executor: SqlExecutor
 ): Promise<void> {
   await executor("ALTER TABLE stops ADD COLUMN IF NOT EXISTS level_id VARCHAR");
+  await executor("DROP VIEW IF EXISTS pathway_network");
   await executor("DROP VIEW IF EXISTS StopsView");
   await loadAndExecute(loader, executor, "tables/create_stops_view");
+  try {
+    await loadAndExecute(loader, executor, "tables/initialize_pathway_network");
+    await installPathwayQueryProcedures(loader, executor);
+  } catch {}
 }
 
 /**
@@ -294,9 +299,9 @@ export async function recreatePathwaysView(
   loader: ProcedureLoader,
   executor: SqlExecutor
 ): Promise<void> {
+  await executor("DROP VIEW IF EXISTS pathway_network");
   await executor("DROP VIEW IF EXISTS PathwaysView");
   await loadAndExecute(loader, executor, "tables/create_pathways_view");
-  await executor("DROP VIEW IF EXISTS pathway_network");
   await loadAndExecute(loader, executor, "tables/initialize_pathway_network");
   try {
     await installPathwayQueryProcedures(loader, executor);

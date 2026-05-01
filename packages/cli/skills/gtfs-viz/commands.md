@@ -9,6 +9,7 @@ gtfs-viz import <feed.zip>          # Import GTFS zip into local DuckDB
 gtfs-viz status                     # Show dataset info and session state
 gtfs-viz tables                     # List available DuckDB tables
 gtfs-viz stop                       # Stop background dashboard session
+gtfs-viz restart                    # Stop session and remove local import
 gtfs-viz clean                      # Stop daemon and remove all local data
 ```
 
@@ -65,6 +66,19 @@ gtfs-viz station_routes "South Station" --data --node-id door-sstat-1
 gtfs-viz station_shortest_route "South Station"                       # Fastest entrance-to-exit
 gtfs-viz station_shortest_route "South Station" --data                # Print it
 ```
+
+## Missing Connection Checks
+
+Use station parts and network functions only for internal station connectivity checks. Do not use `StopsTable` for this task.
+
+```bash
+gtfs-viz query --name station-stops --args-json '{"stationId":"place-pktrm"}' --data
+gtfs-viz query --name station-pathways --args-json '{"stationId":"place-pktrm"}' --data
+gtfs-viz station_routes place-pktrm --data
+gtfs-viz station_pathways place-pktrm --node-id NODE_ID --data
+```
+
+For SQL audit patterns, read `gtfs-schedule-reference.md` and `procedures.md`.
 
 ## Edit Dashboard Forms
 

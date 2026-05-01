@@ -2,6 +2,7 @@ export interface DuckDBContextType {
   db: any;
   conn: any;
   loading: boolean;
+  isCliLaunch: boolean;
   initialized: boolean;
   setInitialized: (value: boolean) => void;
   hasStations: boolean;

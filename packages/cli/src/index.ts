@@ -79,6 +79,110 @@ const openBrowser = (url: string) => {
 const escapeSql = (value: string) => value.replace(/'/g, "''");
 const sqlString = (value: string) => `'${escapeSql(value)}'`;
 
+const refreshPathwayNetwork = async (dbPath: string) => {
+  await executeRows(
+    dbPath,
+    `DROP VIEW IF EXISTS pathway_network;
+     CREATE VIEW pathway_network AS
+     SELECT
+       p.row_id,
+       p.pathway_id,
+       p.from_stop_id,
+       p.to_stop_id,
+       p.pathway_mode,
+       p.is_bidirectional,
+       p.length,
+       p.traversal_time,
+       p.stair_count,
+       p.max_slope,
+       p.min_width,
+       p.signposted_as,
+       p.reversed_signposted_as,
+       p.pathway_mode_name,
+       p.direction_type,
+       COALESCE(NULLIF(s1.parent_station, ''), s1.stop_id) AS from_parent_station,
+       s1.stop_lat AS from_lat,
+       s1.stop_lon AS from_lon,
+       s1.location_type_name AS from_location_type_name,
+       COALESCE(NULLIF(s2.parent_station, ''), s2.stop_id) AS to_parent_station,
+       s2.stop_lat AS to_lat,
+       s2.stop_lon AS to_lon,
+       s2.location_type_name AS to_location_type_name,
+       CASE
+         WHEN s1.stop_lat IS NOT NULL AND s1.stop_lon IS NOT NULL
+              AND s2.stop_lat IS NOT NULL AND s2.stop_lon IS NOT NULL
+         THEN DEGREES(
+           ATAN2(
+             s2.stop_lon - s1.stop_lon,
+             s2.stop_lat - s1.stop_lat
+           )
+         )
+         ELSE NULL
+       END AS angle
+     FROM PathwaysView p
+     JOIN StopsView s1 ON p.from_stop_id = s1.stop_id
+     JOIN StopsView s2 ON p.to_stop_id = s2.stop_id;
+     CREATE OR REPLACE MACRO get_station_info(station_id) AS TABLE (
+       WITH station_base AS (
+         SELECT
+           row_id,
+           stop_id,
+           stop_name,
+           stop_lat,
+           stop_lon,
+           '🔵' AS status,
+           location_type_name,
+           parent_station,
+           wheelchair_status
+         FROM StopsView
+         WHERE location_type_name = 'Station'
+           AND stop_id = station_id
+       ),
+       exit_counts AS (
+         SELECT
+           COUNT(*) AS exit_count
+         FROM StopsView
+         WHERE location_type_name = 'Exit/Entrance'
+           AND parent_station = station_id
+       ),
+       pathway_counts AS (
+         SELECT
+           COUNT(DISTINCT p.pathway_id) AS pathway_count
+         FROM PathwaysView p
+         JOIN StopsView s1 ON p.from_stop_id = s1.stop_id
+         JOIN StopsView s2 ON p.to_stop_id = s2.stop_id
+         WHERE (
+           COALESCE(NULLIF(s1.parent_station, ''), s1.stop_id) = station_id
+           AND COALESCE(NULLIF(s2.parent_station, ''), s2.stop_id) = station_id
+         )
+       )
+       SELECT
+         s.row_id,
+         s.stop_id,
+         s.stop_name,
+         s.stop_lat,
+         s.stop_lon,
+         s.status,
+         COALESCE(e.exit_count, 0) AS exit_count,
+         s.location_type_name,
+         s.parent_station,
+         s.wheelchair_status,
+         COALESCE(pc.pathway_count, 0) AS pathway_count,
+         CASE
+           WHEN COALESCE(pc.pathway_count, 0) = 0 THEN '❌'
+           WHEN COALESCE(pc.pathway_count, 0) > 0 THEN '✅'
+           WHEN COALESCE(pc.pathway_count, 0) = 0
+             AND COALESCE(e.exit_count, 0) > 0
+           THEN '🟡'
+           ELSE '❌'
+         END AS pathways_status
+       FROM station_base s
+       CROSS JOIN exit_counts e
+       CROSS JOIN pathway_counts pc
+     )`,
+  );
+};
+
 const extractZipEntry = (zipPath: string, entry: string, targetPath: string) =>
   new Promise<void>((resolve, reject) => {
     const child = spawn("unzip", ["-p", zipPath, entry], {
@@ -331,33 +435,47 @@ async function spawnDaemon(): Promise<DaemonMetadata> {
   const cliEntry = path.join(packageRoot, "dist", "index.js");
   const child = spawn(process.execPath, [cliEntry, "__daemon__"], {
     detached: true,
-    stdio: ["ignore", "pipe", "ignore"],
+    stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env, GTFS_VIZ_DAEMON: "1" },
   });
 
-  const startupInfo = await new Promise<string>((resolve) => {
+  const startupInfo = await new Promise<string>((resolve, reject) => {
     let data = "";
+    let stderr = "";
     const timer = setTimeout(() => {
       child.stdout?.removeAllListeners();
-      resolve(data);
+      child.stderr?.removeAllListeners();
+      reject(new Error(stderr.trim() || "Timed out waiting for dashboard daemon to start"));
     }, 5000);
     child.stdout?.on("data", (chunk: Buffer) => {
       data += chunk.toString("utf8");
       if (data.includes("\n")) {
         clearTimeout(timer);
         child.stdout?.removeAllListeners();
+        child.stderr?.removeAllListeners();
         resolve(data.split("\n")[0]);
       }
     });
-    child.on("error", () => {
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString("utf8");
+    });
+    child.on("error", (error) => {
       clearTimeout(timer);
-      resolve("");
+      reject(error);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      child.stdout?.removeAllListeners();
+      child.stderr?.removeAllListeners();
+      reject(new Error(stderr.trim() || `Dashboard daemon exited with code ${code}`));
     });
   });
 
   child.stdout?.destroy();
+  child.stderr?.destroy();
   child.unref();
 
+  if (!startupInfo.trim()) throw new Error("Dashboard daemon did not return startup metadata");
   const info = JSON.parse(startupInfo) as DaemonMetadata;
   return info;
 }
@@ -713,6 +831,14 @@ const commandStatus = async () => {
 const commandStopSession = async () => {
   const stopped = await stopDaemon();
   console.log(stopped ? "Session stopped." : "No running session found.");
+};
+
+const commandRestartSession = async () => {
+  const stopped = await stopDaemon().catch(() => false);
+  await rm(currentDataDir, { recursive: true, force: true }).catch(() => {});
+  console.log(stopped ? "Session stopped." : "No running session found.");
+  console.log("Removed local DuckDB data.");
+  console.log("Run gtfs-viz import /path/to/feed.zip to start fresh.");
 };
 
 const commandClean = async () => {
@@ -1172,6 +1298,7 @@ const commandAddConnection = async (args: Args) => {
     `INSERT INTO EditPathwayTable (row_id, pathway_id, from_stop_id, to_stop_id, pathway_mode, is_bidirectional, traversal_time, length, stair_count, max_slope, min_width, signposted_as, reversed_signposted_as, status)
      VALUES (${rowId}, ${sqlString(pathwayId)}, ${sqlString(from)}, ${sqlString(to)}, ${mode}, ${bidir}, ${sqlVal(time)}, ${sqlVal(len)}, ${sqlVal(stairs)}, ${sqlVal(slope)}, ${sqlVal(width)}, ${sqlVal(sign)}, ${sqlVal(revSign)}, 'new')`,
   );
+  await refreshPathwayNetwork(ds.dbPath);
   console.log(`Added connection ${pathwayId}: ${from} -> ${to}`);
 };
 
@@ -1229,9 +1356,10 @@ const commandUpdateConnection = async (args: Args) => {
       ds.dbPath,
       `DELETE FROM EditPathwayTable WHERE row_id = ${sqlV(row.row_id)};
        INSERT INTO EditPathwayTable (row_id, pathway_id, from_stop_id, to_stop_id, pathway_mode, is_bidirectional, traversal_time, length, stair_count, max_slope, min_width, signposted_as, reversed_signposted_as, status)
-       VALUES (${sqlV(row.row_id)}, ${sqlV(row.pathway_id)}, ${sqlV(row.from_stop_id)}, ${sqlV(row.to_stop_id)}, ${sqlV(row.pathway_mode)}, ${sqlV(row.is_bidirectional)}, ${sqlV(row.traversal_time)}, ${sqlV(row.length)}, ${sqlV(row.stair_count)}, ${sqlV(row.max_slope)}, ${sqlV(row.min_width)}, ${sqlV(row.signposted_as)}, ${sqlV(row.reversed_signposted_as)}, ${sqlV(newStatus)})`,
+      VALUES (${sqlV(row.row_id)}, ${sqlV(row.pathway_id)}, ${sqlV(row.from_stop_id)}, ${sqlV(row.to_stop_id)}, ${sqlV(row.pathway_mode)}, ${sqlV(row.is_bidirectional)}, ${sqlV(row.traversal_time)}, ${sqlV(row.length)}, ${sqlV(row.stair_count)}, ${sqlV(row.max_slope)}, ${sqlV(row.min_width)}, ${sqlV(row.signposted_as)}, ${sqlV(row.reversed_signposted_as)}, ${sqlV(newStatus)})`,
     );
   }
+  await refreshPathwayNetwork(ds.dbPath);
   console.log(`Updated connection ${pathwayId}`);
 };
 
@@ -1263,9 +1391,10 @@ const commandDeleteConnection = async (args: Args) => {
       ds.dbPath,
       `DELETE FROM EditPathwayTable WHERE pathway_id = ${sqlString(pathwayId)};
        INSERT INTO EditPathwayTable (row_id, pathway_id, from_stop_id, to_stop_id, pathway_mode, is_bidirectional, traversal_time, length, stair_count, max_slope, min_width, signposted_as, reversed_signposted_as, status)
-       VALUES (${sqlV(current.row_id)}, ${sqlV(current.pathway_id)}, ${sqlV(current.from_stop_id)}, ${sqlV(current.to_stop_id)}, ${sqlV(current.pathway_mode)}, ${sqlV(current.is_bidirectional)}, ${sqlV(current.traversal_time)}, ${sqlV(current.length)}, ${sqlV(current.stair_count)}, ${sqlV(current.max_slope)}, ${sqlV(current.min_width)}, ${sqlV(current.signposted_as)}, ${sqlV(current.reversed_signposted_as)}, 'deleted')`,
+      VALUES (${sqlV(current.row_id)}, ${sqlV(current.pathway_id)}, ${sqlV(current.from_stop_id)}, ${sqlV(current.to_stop_id)}, ${sqlV(current.pathway_mode)}, ${sqlV(current.is_bidirectional)}, ${sqlV(current.traversal_time)}, ${sqlV(current.length)}, ${sqlV(current.stair_count)}, ${sqlV(current.max_slope)}, ${sqlV(current.min_width)}, ${sqlV(current.signposted_as)}, ${sqlV(current.reversed_signposted_as)}, 'deleted')`,
     );
   }
+  await refreshPathwayNetwork(ds.dbPath);
   console.log(`Deleted connection ${pathwayId}`);
 };
 
@@ -1290,6 +1419,7 @@ const commandAddNode = async (args: Args) => {
     `INSERT INTO EditStopTable (row_id, stop_id, stop_name, stop_lat, stop_lon, location_type_name, parent_station, level_id, wheelchair_status, status)
      VALUES (${sqlString(rowId)}, ${sqlString(stopId)}, ${sqlString(stopName)}, ${lat}, ${lon}, ${sqlString(locationType)}, ${sqlV(parentStation)}, ${sqlV(levelId)}, ${sqlV(wheelchair)}, 'new')`,
   );
+  await refreshPathwayNetwork(ds.dbPath);
   console.log(`Added node ${stopId} (${locationType})`);
 };
 
@@ -1340,9 +1470,10 @@ const commandUpdateNode = async (args: Args) => {
       ds.dbPath,
       `DELETE FROM EditStopTable WHERE row_id = ${sqlV(row.row_id)};
        INSERT INTO EditStopTable (row_id, stop_id, stop_name, stop_lat, stop_lon, location_type_name, parent_station, level_id, wheelchair_status, status)
-       VALUES (${sqlV(row.row_id)}, ${sqlV(row.stop_id)}, ${sqlV(row.stop_name)}, ${sqlV(row.stop_lat)}, ${sqlV(row.stop_lon)}, ${sqlV(row.location_type_name)}, ${sqlV(row.parent_station)}, ${sqlV(row.level_id)}, ${sqlV(row.wheelchair_status)}, ${sqlV(newStatus)})`,
+      VALUES (${sqlV(row.row_id)}, ${sqlV(row.stop_id)}, ${sqlV(row.stop_name)}, ${sqlV(row.stop_lat)}, ${sqlV(row.stop_lon)}, ${sqlV(row.location_type_name)}, ${sqlV(row.parent_station)}, ${sqlV(row.level_id)}, ${sqlV(row.wheelchair_status)}, ${sqlV(newStatus)})`,
     );
   }
+  await refreshPathwayNetwork(ds.dbPath);
   console.log(`Updated node ${stopId}`);
 };
 
@@ -1374,9 +1505,10 @@ const commandDeleteNode = async (args: Args) => {
       ds.dbPath,
       `DELETE FROM EditStopTable WHERE stop_id = ${sqlString(stopId)};
        INSERT INTO EditStopTable (row_id, stop_id, stop_name, stop_lat, stop_lon, location_type_name, parent_station, level_id, wheelchair_status, status)
-       VALUES (${sqlV(current.row_id)}, ${sqlV(current.stop_id)}, ${sqlV(current.stop_name)}, ${sqlV(current.stop_lat)}, ${sqlV(current.stop_lon)}, ${sqlV(current.location_type_name)}, ${sqlV(current.parent_station)}, ${sqlV(current.level_id)}, ${sqlV(current.wheelchair_status)}, 'deleted')`,
+      VALUES (${sqlV(current.row_id)}, ${sqlV(current.stop_id)}, ${sqlV(current.stop_name)}, ${sqlV(current.stop_lat)}, ${sqlV(current.stop_lon)}, ${sqlV(current.location_type_name)}, ${sqlV(current.parent_station)}, ${sqlV(current.level_id)}, ${sqlV(current.wheelchair_status)}, 'deleted')`,
     );
   }
+  await refreshPathwayNetwork(ds.dbPath);
   console.log(`Deleted node ${stopId}`);
 };
 
@@ -1539,40 +1671,34 @@ const commandSkillPath = () => {
   console.log(path.join(packageRoot, "skills", "gtfs-viz", "SKILL.md"));
 };
 
-type SkillAgent = "claude" | "codex" | "opencode";
+type SkillAgent = "claude" | "codex" | "opensource";
 
 const normalizeSkillAgent = (value: string): SkillAgent => {
   const n = value.trim().toLowerCase().replace(/\s+/g, "-");
   if (n === "claude" || n === "claude-code") return "claude";
   if (n === "codex") return "codex";
-  if (n === "opencode" || n === "open-code") return "opencode";
-  throw new Error("Choose --agent claude, --agent codex, or --agent opencode");
+  if (n === "opensource" || n === "open-source" || n === "opencode" || n === "open-code")
+    return "opensource";
+  throw new Error("Choose --agent claude, --agent codex, or --agent opensource");
 };
 
 const defaultSkillRoot = (agent: SkillAgent) => {
   if (agent === "claude")
     return path.join(process.env.CLAUDE_HOME || path.join(os.homedir(), ".claude"), "skills");
-  if (agent === "opencode")
-    return (
-      process.env.OPENCODE_SKILLS_DIR ||
-      path.join(
-        process.env.OPENCODE_HOME || path.join(os.homedir(), ".config", "opencode"),
-        "skills",
-      )
-    );
-  return path.join(process.env.CODEX_HOME || path.join(os.homedir(), ".codex"), "skills");
+  if (agent === "codex")
+    return path.join(process.env.CODEX_HOME || path.join(os.homedir(), ".codex"), "skills");
+  return path.join(os.homedir(), ".skills");
 };
 
 const commandInstallSkill = async (args: Args) => {
   const agentFlag = getFlagString(args.flags, "agent");
   let agent: SkillAgent | undefined;
-  let customTargetDir: string | undefined;
 
   if (agentFlag) {
     agent = normalizeSkillAgent(agentFlag);
   } else if (!processStdin.isTTY) {
     throw new Error(
-      "Pass --agent claude, --agent codex, or --agent opencode in non-interactive shells",
+      "Pass --agent claude, --agent codex, or --agent opensource in non-interactive shells",
     );
   } else {
     const rl = readline.createInterface({
@@ -1581,23 +1707,20 @@ const commandInstallSkill = async (args: Args) => {
     });
     console.log("\nInstall GTFS Viz skill for:");
     console.log("  1. Claude Code (~/.claude/skills)");
-    console.log("  2. Open source (~/.skills)");
-    console.log("  3. Codex (~/.codex/skills)");
-    console.log("  4. OpenCode (~/.config/opencode/skills)");
-    const answer = await new Promise<string>((r) => rl.question("Choose 1-4: ", r));
+    console.log("  2. Codex (~/.codex/skills)");
+    console.log("  3. Open source (~/.skills)");
+    const answer = await new Promise<string>((r) => rl.question("Choose 1-3: ", r));
     rl.close();
     if (answer.trim() === "1") agent = "claude";
-    else if (answer.trim() === "2") customTargetDir = path.join(os.homedir(), ".skills");
-    else if (answer.trim() === "3") agent = "codex";
-    else if (answer.trim() === "4") agent = "opencode";
+    else if (answer.trim() === "2") agent = "codex";
+    else if (answer.trim() === "3") agent = "opensource";
     else agent = normalizeSkillAgent(answer);
   }
 
   const targetRoot =
     getFlagString(args.flags, "target-dir") ||
     getFlagString(args.flags, "target") ||
-    customTargetDir ||
-    (agent ? defaultSkillRoot(agent) : path.join(os.homedir(), ".skills"));
+    defaultSkillRoot(agent || "opensource");
   const sourceDir = path.join(packageRoot, "skills", "gtfs-viz");
   const targetDir = path.join(targetRoot, "gtfs-viz");
   const force = hasFlag(args.flags, "force");
@@ -1646,6 +1769,10 @@ const main = async () => {
   }
   if (args.command === "stop") {
     await commandStopSession();
+    return;
+  }
+  if (args.command === "restart") {
+    await commandRestartSession();
     return;
   }
   if (args.command === "clean") {

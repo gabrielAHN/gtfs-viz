@@ -376,6 +376,7 @@ export const DuckDBProvider: FC<{ children: ReactNode }> = ({ children }) => {
         db: dbInstance,
         conn: connInstance,
         loading,
+        isCliLaunch: Boolean(cliProfile),
         initialized,
         setInitialized,
         hasStations,

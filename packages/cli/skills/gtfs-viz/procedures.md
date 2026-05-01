@@ -146,6 +146,69 @@ SELECT * FROM find_station_hubs_direct('place-pktrm', 10);
 
 Returns: `stop_id`, `importance_score`, `stop_name`, `location_type_name`
 
+## Missing Station-Part Connections
+
+Use only station-part and network macros for internal station connectivity audits:
+
+1. `get_station_stops(station_id)` identifies the station parts to audit.
+2. `get_station_pathways(station_id)` identifies direct pathway edges between those parts.
+3. `get_station_routes(station_id)` identifies reachable station-part pairs.
+4. `find_shortest_path(station_id, start_stop, end_stop, max_hops)` inspects one suspected gap.
+5. `find_reachable_stops(station_id, start_stop, max_time, max_hops)` checks the reachable subgraph from a station part.
+
+Do not use `StopsTable` for this task. It contains standalone stops, not the station parts that make up a station's internal pathway graph.
+
+Find station parts with no direct pathway edge:
+
+```sql
+WITH parts AS (
+  SELECT stop_id, stop_name, location_type_name
+  FROM get_station_stops('place-pktrm')
+  WHERE location_type_name IN ('Platform', 'Exit/Entrance', 'Pathway Node', 'Boarding Area')
+),
+edges AS (
+  SELECT from_stop_id AS stop_id FROM get_station_pathways('place-pktrm')
+  UNION
+  SELECT to_stop_id AS stop_id FROM get_station_pathways('place-pktrm')
+)
+SELECT p.stop_id, p.stop_name, p.location_type_name
+FROM parts p
+LEFT JOIN edges e USING (stop_id)
+WHERE e.stop_id IS NULL
+ORDER BY p.location_type_name, p.stop_name, p.stop_id;
+```
+
+Find platforms or boarding areas that cannot reach an entrance:
+
+```sql
+WITH routes AS (
+  SELECT *
+  FROM get_station_routes('place-pktrm')
+  WHERE shortest_time IS NOT NULL
+),
+targets AS (
+  SELECT stop_id, stop_name, location_type_name
+  FROM get_station_stops('place-pktrm')
+  WHERE location_type_name IN ('Platform', 'Boarding Area')
+),
+reachable_exits AS (
+  SELECT start_stop AS stop_id
+  FROM routes
+  WHERE from_location_type_name IN ('Platform', 'Boarding Area')
+    AND to_location_type_name = 'Exit/Entrance'
+  UNION
+  SELECT end_stop AS stop_id
+  FROM routes
+  WHERE to_location_type_name IN ('Platform', 'Boarding Area')
+    AND from_location_type_name = 'Exit/Entrance'
+)
+SELECT t.stop_id, t.stop_name, t.location_type_name
+FROM targets t
+LEFT JOIN reachable_exits r USING (stop_id)
+WHERE r.stop_id IS NULL
+ORDER BY t.location_type_name, t.stop_name, t.stop_id;
+```
+
 ## Named Queries
 
 Use with `gtfs-viz query --name <name>`. Add `--data` to print rows.

@@ -344,6 +344,19 @@ const commandHelp: Record<string, string> = {
     stations/pathways/flow/radial, stations/pathways/map/directional,
     stations/pathways/table/start, stations/pathways/table/end,
     stops/map, stops/table`,
+
+  stop: `gtfs-viz stop
+
+  Stop the dashboard daemon and clear session metadata. Imported data remains available.`,
+
+  restart: `gtfs-viz restart
+
+  Stop the dashboard daemon and remove the local DuckDB/feed import.
+  Run gtfs-viz import <feed.zip> again before opening dashboard views.`,
+
+  clean: `gtfs-viz clean
+
+  Stop the dashboard daemon and remove all imported data and session metadata.`,
 };
 
 const commandAliases: Record<string, string> = {
@@ -420,7 +433,8 @@ Export & Query:
 
 Session:
   view [--view <route>]              Open dashboard view
-  stop                               Stop dashboard session
+  stop                               Stop dashboard session and clear session state
+  restart                            Stop session + remove local import
   clean                              Stop daemon + remove all data
   install-skill                      Install agent skills
   examples                           Show usage examples
@@ -476,5 +490,6 @@ SQL:
 
 Cleanup:
   gtfs-viz stop
+  gtfs-viz restart
   gtfs-viz clean`);
 };

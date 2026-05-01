@@ -84,6 +84,11 @@ export const removeSession = async (sessionId: string) => {
   }
 };
 
+export const removeAllSessions = async () => {
+  await rm(sessionsDir, { recursive: true, force: true });
+  await rm(latestFile, { force: true });
+};
+
 const DATASET_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export const readDatasetState = async () => {

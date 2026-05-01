@@ -12,7 +12,13 @@ import {
 } from "@/lib/duckdb/DataEditing/editingFn";
 import { validateTableData } from "@/lib/duckdb/DataEditing/validatingData";
 import { logger } from "@/lib/logger";
-import { createStationsTable, createStopsTable, createStopsView } from "@/lib/extensions";
+import {
+  createStationsTable,
+  createStopsTable,
+  createStopsView,
+  recreatePathwaysView,
+  recreateStopsView,
+} from "@/lib/extensions";
 import { LOCATION_TYPE_CONFIGS } from "@/components/forms/FormComponent";
 
 const INVALIDATION_KEYS = [
@@ -76,10 +82,17 @@ export function useStopStationForm({
     : LOCATION_TYPE_CONFIGS.STOP;
 
   const refreshProcedures = useCallback(async () => {
-    await createStopsView(conn);
+    if (isChildNode) {
+      await recreateStopsView(conn);
+    } else {
+      await createStopsView(conn);
+    }
     await createStationsTable(conn);
     await createStopsTable(conn);
-  }, [conn]);
+    if (isChildNode) {
+      await recreatePathwaysView(conn);
+    }
+  }, [conn, isChildNode]);
 
   const invalidateQueries = useCallback(() => {
     INVALIDATION_KEYS.forEach((key) => {

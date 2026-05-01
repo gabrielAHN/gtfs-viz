@@ -83,3 +83,48 @@ ORDER BY count DESC;
 
 -- Network stats for a station (requires onager procedures)
 SELECT * FROM get_station_network_stats('place-pktrm');
+
+-- Station parts with no direct pathway edge
+WITH parts AS (
+  SELECT stop_id, stop_name, location_type_name
+  FROM get_station_stops('place-pktrm')
+  WHERE location_type_name IN ('Platform', 'Exit/Entrance', 'Pathway Node', 'Boarding Area')
+),
+edges AS (
+  SELECT from_stop_id AS stop_id FROM get_station_pathways('place-pktrm')
+  UNION
+  SELECT to_stop_id AS stop_id FROM get_station_pathways('place-pktrm')
+)
+SELECT p.stop_id, p.stop_name, p.location_type_name
+FROM parts p
+LEFT JOIN edges e USING (stop_id)
+WHERE e.stop_id IS NULL
+ORDER BY p.location_type_name, p.stop_name, p.stop_id;
+
+-- Platforms or boarding areas that cannot reach an entrance
+WITH routes AS (
+  SELECT *
+  FROM get_station_routes('place-pktrm')
+  WHERE shortest_time IS NOT NULL
+),
+targets AS (
+  SELECT stop_id, stop_name, location_type_name
+  FROM get_station_stops('place-pktrm')
+  WHERE location_type_name IN ('Platform', 'Boarding Area')
+),
+reachable_exits AS (
+  SELECT start_stop AS stop_id
+  FROM routes
+  WHERE from_location_type_name IN ('Platform', 'Boarding Area')
+    AND to_location_type_name = 'Exit/Entrance'
+  UNION
+  SELECT end_stop AS stop_id
+  FROM routes
+  WHERE to_location_type_name IN ('Platform', 'Boarding Area')
+    AND from_location_type_name = 'Exit/Entrance'
+)
+SELECT t.stop_id, t.stop_name, t.location_type_name
+FROM targets t
+LEFT JOIN reachable_exits r USING (stop_id)
+WHERE r.stop_id IS NULL
+ORDER BY t.location_type_name, t.stop_name, t.stop_id;

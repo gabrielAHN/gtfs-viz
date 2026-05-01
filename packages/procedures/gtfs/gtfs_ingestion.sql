@@ -21,7 +21,18 @@ CREATE OR REPLACE MACRO gtfs_import_pathways() AS (
 
 -- Reformat stops table (add row_id, location_type_name, wheelchair_status)
 CREATE OR REPLACE MACRO gtfs_reformat_stops() AS TABLE (
-  WITH stops_temp AS (SELECT * FROM stops),
+  WITH stops_temp AS (
+    SELECT * FROM stops
+    UNION ALL BY NAME
+    SELECT
+      NULL::VARCHAR AS parent_station,
+      NULL::INTEGER AS location_type,
+      NULL::INTEGER AS wheelchair_boarding,
+      NULL::INTEGER AS row_id,
+      NULL::VARCHAR AS location_type_name,
+      NULL::VARCHAR AS wheelchair_status
+    WHERE false
+  ),
   stops_with_casts AS (
     SELECT
       *,
@@ -40,8 +51,22 @@ CREATE OR REPLACE MACRO gtfs_reformat_stops() AS TABLE (
     COALESCE(parent_station_casted, TRY_CAST(parent_station AS VARCHAR)) AS parent_station,
     location_type_coalesced AS location_type,
     wheelchair_boarding_coalesced AS wheelchair_boarding,
-    * EXCLUDE (stop_id, parent_station, location_type, wheelchair_boarding,
-               stop_id_casted, parent_station_casted, location_type_coalesced, wheelchair_boarding_coalesced),
+    * EXCLUDE (
+      row_id,
+      stop_id,
+      stop_name,
+      stop_lat,
+      stop_lon,
+      parent_station,
+      location_type,
+      wheelchair_boarding,
+      location_type_name,
+      wheelchair_status,
+      stop_id_casted,
+      parent_station_casted,
+      location_type_coalesced,
+      wheelchair_boarding_coalesced
+    ),
     location_type_to_name(location_type_coalesced, COALESCE(parent_station_casted, TRY_CAST(parent_station AS VARCHAR))) AS location_type_name,
     wheelchair_to_emoji(wheelchair_boarding_coalesced) AS wheelchair_status
   FROM stops_with_casts
@@ -49,7 +74,17 @@ CREATE OR REPLACE MACRO gtfs_reformat_stops() AS TABLE (
 
 -- Reformat pathways table (add row_id, pathway_mode_name, direction_type)
 CREATE OR REPLACE MACRO gtfs_reformat_pathways() AS TABLE (
-  WITH pathways_temp AS (SELECT * FROM pathways),
+  WITH pathways_temp AS (
+    SELECT * FROM pathways
+    UNION ALL BY NAME
+    SELECT
+      NULL::INTEGER AS row_id,
+      NULL::INTEGER AS pathway_mode,
+      NULL::INTEGER AS is_bidirectional,
+      NULL::VARCHAR AS pathway_mode_name,
+      NULL::VARCHAR AS direction_type
+    WHERE false
+  ),
   pathways_with_casts AS (
     SELECT
       *,
@@ -67,9 +102,21 @@ CREATE OR REPLACE MACRO gtfs_reformat_pathways() AS TABLE (
     COALESCE(to_stop_id_casted, CAST(to_stop_id AS VARCHAR)) AS to_stop_id,
     pathway_mode_coalesced AS pathway_mode,
     is_bidirectional_coalesced AS is_bidirectional,
-    * EXCLUDE (pathway_id, from_stop_id, to_stop_id, pathway_mode, is_bidirectional,
-               pathway_id_casted, from_stop_id_casted, to_stop_id_casted,
-               pathway_mode_coalesced, is_bidirectional_coalesced),
+    * EXCLUDE (
+      row_id,
+      pathway_id,
+      from_stop_id,
+      to_stop_id,
+      pathway_mode,
+      is_bidirectional,
+      pathway_mode_name,
+      direction_type,
+      pathway_id_casted,
+      from_stop_id_casted,
+      to_stop_id_casted,
+      pathway_mode_coalesced,
+      is_bidirectional_coalesced
+    ),
     pathway_mode_to_name(pathway_mode_coalesced) AS pathway_mode_name,
     bidirectional_to_direction(is_bidirectional_coalesced) AS direction_type
   FROM pathways_with_casts

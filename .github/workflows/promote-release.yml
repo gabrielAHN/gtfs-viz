@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 concurrency:
   group: promote-release-main
@@ -106,7 +107,7 @@ jobs:
           if [ "$LOCAL_VERSION" != "$PUBLISHED" ]; then
             yarn install --frozen-lockfile --ignore-engines
             yarn build
-            cd packages/cli && npm publish --access public
+            cd packages/cli && npm publish --access public --provenance
           else
             echo "CLI $LOCAL_VERSION already published — skipping"
           fi
