@@ -38,6 +38,7 @@
     "cli:publish-dry": "yarn build && npm publish ./packages/cli --dry-run",
     "check": "yarn workspace @gtfs-viz/duckdb-extension run check && yarn workspace @gtfs-viz/web run check && yarn workspace @gabrielahn/gtfs-viz-cli run check",
     "preview": "yarn workspace @gtfs-viz/web run preview",
+    "start": "yarn workspace @gtfs-viz/web run preview --host 0.0.0.0 --port ${PORT:-4173}",
     "postinstall": "node scripts/fix-duckdb-sourcemaps.mjs",
     "version": "echo v$(node -p \"require('./package.json').version\")",
     "release:patch": "npm version patch -m 'chore: release v%s'",
