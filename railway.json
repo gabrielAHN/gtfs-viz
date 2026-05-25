@@ -12,7 +12,7 @@
     ]
   },
   "deploy": {
-    "startCommand": "yarn start",
+    "startCommand": "caddy run --config /Caddyfile --adapter caddyfile 2>&1",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
