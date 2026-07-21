@@ -1,11 +1,6 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
-import {
-  BiCheck,
-  BiXCircle,
-  BiChevronDown,
-  BiX,
-} from "react-icons/bi"
+import { BiCheck, BiXCircle, BiChevronDown, BiX } from "react-icons/bi";
 
 import { cn } from "@/lib/utils"
 import { Separator } from "@/components/ui/separator"

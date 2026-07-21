@@ -1,12 +1,12 @@
 import { FetchProps } from "@/types/objectTypes";
-import { buildAndQuery, executeQuery, executeColumnQuery } from "@/lib/duckdb/QueryHelper";
+import { buildAndQuery, executeQuery, executeColumnQuery, checkTablesExist } from "@/lib/duckdb/QueryHelper";
 import { logger } from "@/lib/logger";
 import { recreateStopsView } from "@/lib/extensions";
 
 let viewRecreated = false;
 
 const ensureProceduresLoaded = async (conn: any) => {
-  
+
   if (!viewRecreated) {
     await recreateStopsView(conn);
     viewRecreated = true;
@@ -16,20 +16,6 @@ const ensureProceduresLoaded = async (conn: any) => {
 
 export const resetStationInfoProceduresFlag = () => {
   viewRecreated = false;
-};
-
-const checkTablesExist = async (conn: any): Promise<boolean> => {
-  try {
-    const result = await conn.query(`
-      SELECT COUNT(*) as count
-      FROM information_schema.tables
-      WHERE table_name IN ('stops', 'pathways')
-    `);
-    const count = result.toArray()[0]?.count || 0;
-    return Number(count) >= 1; 
-  } catch (error) {
-    return false;
-  }
 };
 
 const addConditions = (props: FetchProps): string[] => {
@@ -148,7 +134,7 @@ export const fetchCheckStationInfo = async (props) => {
 
   try {
     
-    const tablesExist = await checkTablesExist(conn);
+    const tablesExist = await checkTablesExist(conn, ["stops"]);
     if (!tablesExist) {
       logger.log('⚠️ Required tables (stops, pathways) do not exist yet');
       return null;

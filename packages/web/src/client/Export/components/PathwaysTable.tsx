@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { BiMap } from "react-icons/bi";
@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { useDuckDB } from "@/context/duckdb.client";
 import { logger } from "@/lib/logger";
 import { fetchTableData } from "@/lib/duckdb/DataFetching/fetchGTFSData";
+import { fetchOriginalPathways, fetchStopMetadataForPathways } from "@/lib/duckdb/DataFetching/fetchExportData";
 import { mutationExportFn } from "@/lib/duckdb/DataEditing/editingFn";
 import {
   createEditPathwayTable,
   createEditStopTable,
   recreatePathwaysView,
 } from "@/lib/extensions";
-import { formatSqlValue } from "@/lib/duckdb/QueryHelper";
 
 import EditeTables from "./TableComponent";
 
@@ -82,8 +82,8 @@ const PathwaysTable = ({ FileTypes, setFileTypes }) => {
   useEffect(() => {
     const fetchSupportingData = async () => {
       if (!conn || tableData.length === 0) {
-        setOriginalDataMap({});
-        setStopMetadataMap({});
+        setOriginalDataMap((prev) => Object.keys(prev).length > 0 ? {} : prev);
+        setStopMetadataMap((prev) => Object.keys(prev).length > 0 ? {} : prev);
         return;
       }
 
@@ -106,74 +106,22 @@ const PathwaysTable = ({ FileTypes, setFileTypes }) => {
       );
 
       try {
-        const [originalRows, stopRows] = await Promise.all([
-          editedItems.length > 0
-            ? conn
-                .query(
-                  `SELECT * FROM pathways WHERE pathway_id IN (${editedItems
-                    .map((item: any) => formatSqlValue(item.pathway_id))
-                    .join(", ")})`,
-                )
-                .then((result: any) =>
-                  result.toArray().map((row: any) => row.toJSON()),
-                )
-            : Promise.resolve([]),
-          stopIds.length > 0
-            ? conn
-                .query(`
-                  SELECT
-                    edt.stop_id,
-                    edt.stop_name,
-                    edt.parent_station,
-                    edt.location_type_name
-                  FROM EditStopTable edt
-                  WHERE edt.stop_id IN (${stopIds.map((stopId) => formatSqlValue(stopId)).join(", ")})
-                    AND edt.status IN ('new', 'edit', 'new edit')
-
-                  UNION ALL
-
-                  SELECT
-                    st.stop_id,
-                    st.stop_name,
-                    st.parent_station,
-                    st.location_type_name
-                  FROM stops st
-                  WHERE st.stop_id IN (${stopIds.map((stopId) => formatSqlValue(stopId)).join(", ")})
-                    AND NOT EXISTS (
-                      SELECT 1
-                      FROM EditStopTable edt
-                      WHERE edt.stop_id = st.stop_id
-                        AND edt.status IN ('new', 'edit', 'new edit')
-                    )
-                `)
-                .then((result: any) =>
-                  result.toArray().map((row: any) => row.toJSON()),
-                )
-            : Promise.resolve([]),
+        const [origMap, stopMap] = await Promise.all([
+          fetchOriginalPathways(conn, editedItems.map((item: any) => item.pathway_id)),
+          fetchStopMetadataForPathways(conn, stopIds as string[]),
         ]);
-
-        setOriginalDataMap(
-          originalRows.reduce((acc: Record<string, any>, row: any) => {
-            acc[row.pathway_id] = row;
-            return acc;
-          }, {}),
-        );
-
-        setStopMetadataMap(
-          stopRows.reduce((acc: Record<string, any>, row: any) => {
-            acc[row.stop_id] = row;
-            return acc;
-          }, {}),
-        );
+        setOriginalDataMap(origMap);
+        setStopMetadataMap(stopMap);
       } catch (supportingDataError) {
         logger.error("Error fetching original pathway export data:", supportingDataError);
-        setOriginalDataMap({});
-        setStopMetadataMap({});
+        setOriginalDataMap((prev) => Object.keys(prev).length > 0 ? {} : prev);
+        setStopMetadataMap((prev) => Object.keys(prev).length > 0 ? {} : prev);
       }
     };
 
     fetchSupportingData();
-  }, [conn, tableData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conn, tableData.length]);
 
   const mutation = useMutation({
     mutationFn: async (mutateType: "row" | "table") => {
@@ -200,16 +148,14 @@ const PathwaysTable = ({ FileTypes, setFileTypes }) => {
 
   const hasData = useMemo(() => tableData.length > 0, [tableData]);
 
+  const hasDataRef = useRef(hasData);
+  const setFileTypesRef = useRef(setFileTypes);
+  setFileTypesRef.current = setFileTypes;
   useEffect(() => {
-    setFileTypes((prev) => {
-      const nextValue = hasData;
-      if (prev.pathways === nextValue) {
-        return prev;
-      }
-
-      return { ...prev, pathways: nextValue };
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (hasDataRef.current !== hasData) {
+      hasDataRef.current = hasData;
+      setFileTypesRef.current((prev: any) => ({ ...prev, pathways: hasData }));
+    }
   }, [hasData]);
 
   const handleButtonClick = () => {

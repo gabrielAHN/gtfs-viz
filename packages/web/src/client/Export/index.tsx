@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useDuckDB } from "@/context/duckdb.client";
 
-import { BiDownload } from 'react-icons/bi';
+import { BiDownload } from "react-icons/bi";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
@@ -12,6 +12,9 @@ import { exportingData } from "@/lib/duckdb/DataExporting/exportingData";
 import StopsTable from "./components/StopsTable"
 import PathwaysTable from "./components/PathwaysTable";
 import RoutesTable from "./components/RoutesTable";
+import StopTimesTable from "./components/StopTimesTable";
+import CalendarTable from "./components/CalendarTable";
+import TripsEditTable from "./components/TripsEditTable";
 
 function Export() {
   const [FileTypes, setFileTypes] = useState({});
@@ -92,6 +95,9 @@ function Export() {
       <StopsTable setFileTypes={setFileTypes} FileTypes={FileTypes} />
       <PathwaysTable setFileTypes={setFileTypes} FileTypes={FileTypes} />
       <RoutesTable setFileTypes={setFileTypes} FileTypes={FileTypes} />
+      <StopTimesTable setFileTypes={setFileTypes} FileTypes={FileTypes} />
+      <CalendarTable setFileTypes={setFileTypes} FileTypes={FileTypes} />
+      <TripsEditTable setFileTypes={setFileTypes} FileTypes={FileTypes} />
     </div>
   )
 }

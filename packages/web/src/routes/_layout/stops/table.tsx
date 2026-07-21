@@ -57,7 +57,7 @@ const ToggleTabs = [
 function StopsTablePage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { conn } = useDuckDB();
+  const { conn } = useDuckDB() ?? {};
   const { theme } = useThemeContext();
 
   const [Open, setOpen] = useState({ formType: null, state: false });

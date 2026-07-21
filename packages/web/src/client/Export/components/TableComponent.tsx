@@ -18,19 +18,7 @@ import {
   SelectTrigger,
   SelectContent,
 } from "@/components/ui/select";
-import {
-  BiChevronUp,
-  BiChevronDown,
-  BiCheck,
-  BiRefresh,
-  BiUndo,
-  BiX,
-  BiChevronRight,
-  BiChevronLeft,
-  BiChevronsRight,
-  BiChevronsLeft,
-  BiRightArrow,
-} from "react-icons/bi";
+import { BiChevronUp, BiChevronDown, BiCheck, BiRefresh, BiUndo, BiX, BiChevronRight, BiChevronLeft, BiChevronsRight, BiChevronsLeft, BiRightArrow } from "react-icons/bi";
 import { Badge } from "@/components/ui/badge";
 
 function EditeTables(props) {

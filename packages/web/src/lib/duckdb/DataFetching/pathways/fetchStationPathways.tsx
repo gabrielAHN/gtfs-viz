@@ -1,6 +1,6 @@
 
 
-import { executeQuery } from "@/lib/duckdb/QueryHelper";
+import { executeQuery, checkTablesExist } from "@/lib/duckdb/QueryHelper";
 import { logger } from "@/lib/logger";
 import { TimeIntervalColors } from "@/components/style";
 import {
@@ -45,20 +45,6 @@ const ensureProceduresLoaded = async (conn: any) => {
 
 export const resetProceduresFlag = () => {
   viewRecreated = false;
-};
-
-const checkTablesExist = async (conn: any): Promise<boolean> => {
-  try {
-    const result = await conn.query(`
-      SELECT COUNT(*) as count
-      FROM information_schema.tables
-      WHERE table_name IN ('pathways', 'stops')
-    `);
-    const count = result.toArray()[0]?.count || 0;
-    return Number(count) === 2; 
-  } catch (error) {
-    return false;
-  }
 };
 
 export interface StationPathwaysData {
@@ -114,7 +100,7 @@ export const fetchStationPathwaysComplete = async (props: {
 
     logger.log(`🔍 Fetching pathways for station ${stationId}`);
 
-    const tablesExist = await checkTablesExist(conn);
+    const tablesExist = await checkTablesExist(conn, ["pathways", "stops"]);
     if (!tablesExist) {
       logger.log('⚠️ Required tables (pathways, stops) do not exist yet');
       return {

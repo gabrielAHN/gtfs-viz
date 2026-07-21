@@ -9,13 +9,15 @@ export const isCliSession = (): boolean => {
 
   const params = new URLSearchParams(window.location.search);
   if (params.has("gtfsSource") && params.has("cliSession") && params.has("cliApi")) {
+    // Persist CLI flag so new tabs/root navigation also detect CLI mode
+    try { window.localStorage.setItem("gtfs_viz_cli_session", "true"); } catch {}
     return true;
   }
 
   try {
-    const stored = window.sessionStorage.getItem("gtfs_viz_cli_launch_profile");
-    return stored !== null;
-  } catch {
-    return false;
-  }
+    if (window.sessionStorage.getItem("gtfs_viz_cli_launch_profile") !== null) return true;
+    if (window.localStorage.getItem("gtfs_viz_cli_session") === "true") return true;
+  } catch {}
+
+  return false;
 };

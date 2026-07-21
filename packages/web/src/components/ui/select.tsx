@@ -1,6 +1,6 @@
 import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
-import { BiCheck, BiChevronDown, BiChevronUp } from "react-icons/bi"
+import { BiCheck, BiChevronDown, BiChevronUp } from "react-icons/bi";
 
 import { cn } from "@/lib/utils"
 

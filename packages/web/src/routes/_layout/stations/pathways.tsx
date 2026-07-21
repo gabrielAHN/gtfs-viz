@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BiMap, BiTable, BiInfoCircle, BiMapAlt, BiGridAlt, BiNetworkChart } from "react-icons/bi";
+import { BiMap, BiTable, BiInfoCircle, BiGridAlt, BiNetworkChart } from "react-icons/bi";
 import { useDuckDB } from "@/context/duckdb.client";
 import { fetchCheckStationInfo } from "@/lib/duckdb/DataFetching/fetchStationInfoData";
 import { fetchStationPathwaysComplete } from "@/lib/duckdb/DataFetching/pathways";
@@ -227,7 +227,7 @@ function StationPathwaysLayout() {
   MainTabs.push({
     value: "pathways",
     label: "Pathways",
-    icon: <BiMapAlt />,
+    icon: <BiMap />,
     path: pathwaysTabPath,
   });
 

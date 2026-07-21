@@ -7,13 +7,7 @@ import {
 } from "@tanstack/react-router";
 import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  BiMap,
-  BiTable,
-  BiInfoCircle,
-  BiMapAlt,
-  BiGridAlt,
-} from "react-icons/bi";
+import { BiMap, BiTable, BiInfoCircle, BiGridAlt } from "react-icons/bi";
 import { useDuckDB } from "@/context/duckdb.client";
 import {
   fetchCheckStationData,
@@ -187,7 +181,7 @@ function StationPartsLayout() {
     {
       value: "pathways",
       label: "Pathways",
-      icon: <BiMapAlt />,
+      icon: <BiMap />,
       path: pathwayTabPath,
     },
   ];

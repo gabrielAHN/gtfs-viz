@@ -1,6 +1,7 @@
 # GTFS Viz CLI — Command Reference
 
-Install: `npm install -g @gabrielahn/gtfs-viz-cli`
+Install skill: `npx skills add gabrielAHN/gtfs-viz`
+Install CLI: `npm install -g @gabrielahn/gtfs-viz-cli`
 
 ## Import & Status
 
@@ -72,6 +73,56 @@ Flags: `--service`, `--service-id`, `--trip`, `--trip-id`, `--compare <t1,t2,...
 
 `--compare` requires `--service` and accepts up to 5 comma-separated trip IDs.
 
+## Trips & Stop Times
+
+```bash
+gtfs-viz trips --data                              # List all trips with stop counts
+gtfs-viz trips --route R1 --data                   # Trips for a route
+gtfs-viz trips --route R1 --service SAT --data     # Trips for route+service
+gtfs-viz trips trip-123 --data                     # Stop times for a trip
+gtfs-viz trips --compare t1,t2 --data              # Compare stop times side-by-side
+gtfs-viz trips --compare t1,t2,t3                  # Compare trips in dashboard
+gtfs-viz trips --compare t1,t2 --view map          # Compare on map
+```
+
+```bash
+gtfs-viz trip trip-123                              # Open trip in dashboard
+gtfs-viz trip trip-123 --data                      # Print stop times with stop names
+gtfs-viz trip trip-123 --data --view info           # Print trip metadata
+gtfs-viz trip trip-123 --compare trip-456 --data   # Compare two trips
+gtfs-viz trip trip-123 --view timeline              # Open timeline view
+gtfs-viz trip trip-123 --view map                  # Open map view
+gtfs-viz trip trip-123 --compare trip-456 --view map # Compare on map
+```
+
+Flags: `--route`, `--route-id`, `--service`, `--service-id`, `--trip`, `--trip-id`, `--compare <t1,t2,...>`, `--view <timetable|timeline|map|info>`
+
+Views: `timetable` (default, table of stops), `timeline` (time-based chart), `map` (stops on map), `info` (trip metadata, --data only).
+
+**Compare pattern**: `--compare` lists all trip IDs to compare. Example: to compare trips A, B, C use `--compare A,B,C`. With `trip` command, the positional trip ID is automatically included: `gtfs-viz trip A --compare B,C` compares A, B, C.
+
+## Calendar & Services
+
+```bash
+gtfs-viz calendar --data                           # List all services with trip counts
+gtfs-viz calendar --route R1 --data                # Services for a route
+gtfs-viz calendar SAT-1 --data                     # Calendar + dates for a service
+gtfs-viz calendar SAT-1                            # Open service view in dashboard
+```
+
+Flags: `--service-id`, `--service`, `--route-id`, `--route`
+
+## Shapes
+
+```bash
+gtfs-viz shapes --data                             # List all shapes with stats
+gtfs-viz shapes --route R1 --data                  # Shapes for a route
+gtfs-viz shapes shape-123 --data                   # Points for a shape
+gtfs-viz shapes                                    # Open route map in dashboard
+```
+
+Flags: `--shape-id`, `--shape`, `--route-id`, `--route`
+
 ## Pathways & Connections
 
 ```bash
@@ -105,6 +156,9 @@ gtfs-viz edit_table                                          # Show all edits
 gtfs-viz edit_table pathways                                 # Show pathway edits
 gtfs-viz edit_table routes                                   # Show route edits
 gtfs-viz edit_table stops --format json                      # JSON output
+gtfs-viz edit_table stop_times                               # Show stop time edits
+gtfs-viz edit_table calendar                                 # Show calendar edits
+gtfs-viz edit_table trips                                    # Show trip edits
 ```
 
 ## Data Editing (CLI)

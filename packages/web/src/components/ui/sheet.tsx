@@ -1,7 +1,7 @@
 import * as React from "react"
 import * as SheetPrimitive from "@radix-ui/react-dialog"
 import { cva, type VariantProps } from "class-variance-authority"
-import { BiX } from "react-icons/bi"
+import { BiX } from "react-icons/bi";
 
 import { cn } from "@/lib/utils"
 

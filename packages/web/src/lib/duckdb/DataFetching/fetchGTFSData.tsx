@@ -2,6 +2,7 @@ import {
   executeQuery,
   buildAndQuery,
   executeColumnQuery,
+  fetchDistinctColumnValues,
 } from "@/lib/duckdb/QueryHelper";
 import { logger } from "@/lib/logger";
 
@@ -88,49 +89,13 @@ export const fetchStationsData = async (
   }
 };
 
-export const fetchPathwaysStatusData = async (
-  props
-): Promise<string[]> => {
+// Generic distinct column fetcher — all 4 variants below use this
+const fetchDistinctWithFilters = async (props: any, column: string) => {
   const { conn, table } = props;
-  let baseQuery = `SELECT DISTINCT pathways_status FROM ${table}`;
-  const conditions = addConditions(props);
-
-  const query = buildAndQuery(baseQuery, conditions);
-
-  return executeColumnQuery(conn, query, "pathways_status");
+  return fetchDistinctColumnValues(conn, table, column, addConditions(props));
 };
 
-export const fetchStopsIdData = async (
-  props
-): Promise<string[]> => {
-  const { conn, table } = props;
-  let baseQuery = `SELECT DISTINCT stop_id FROM ${table}`;
-  const conditions = addConditions(props);
-
-  const query = buildAndQuery(baseQuery, conditions);
-  return executeColumnQuery(conn, query, "stop_id");
-};
-
-export const fetchStopsNamesData = async (
-  props
-): Promise<string[]> => {
-  const { conn, table } = props;
-  let baseQuery = `SELECT DISTINCT stop_name FROM ${table}`;
-  const conditions = addConditions(props);
-
-  const query = buildAndQuery(baseQuery, conditions);
-
-  return executeColumnQuery(conn, query, "stop_name");
-};
-
-export const fetchWheelchairStatusData = async (
-  props
-): Promise<string[]> => {
-  const { conn, table } = props;
-  let baseQuery = `SELECT DISTINCT wheelchair_status FROM ${table}`;
-  const conditions = addConditions(props);
-
-  const query = buildAndQuery(baseQuery, conditions);
-
-  return executeColumnQuery(conn, query, "wheelchair_status");
-};
+export const fetchPathwaysStatusData = (props: any) => fetchDistinctWithFilters(props, "pathways_status");
+export const fetchStopsIdData = (props: any) => fetchDistinctWithFilters(props, "stop_id");
+export const fetchStopsNamesData = (props: any) => fetchDistinctWithFilters(props, "stop_name");
+export const fetchWheelchairStatusData = (props: any) => fetchDistinctWithFilters(props, "wheelchair_status");

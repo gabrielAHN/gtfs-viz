@@ -51,7 +51,7 @@ export const Route = createFileRoute("/_layout/stations/parts/map")({
 function PartsMapPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { conn } = useDuckDB();
+  const { conn } = useDuckDB() ?? {};
 
   const [Open, setOpen] = useState({ formType: null, state: false });
   const [ClickInfo, setClickInfo] = useState();

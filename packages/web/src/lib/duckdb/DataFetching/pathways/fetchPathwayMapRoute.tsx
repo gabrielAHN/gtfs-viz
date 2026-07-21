@@ -1,30 +1,6 @@
-import { executeQuery } from "@/lib/duckdb/QueryHelper";
+import { executeQuery, toSqlString, toSqlNumber, toSqlStringList } from "@/lib/duckdb/QueryHelper";
 import { logger } from "@/lib/logger";
 import { getPathwayRouteFilterData } from "@/lib/pathways/routeFilterGraph";
-
-const toSqlString = (value?: string | null) => {
-  if (value == null || value === "") {
-    return "NULL";
-  }
-
-  return `'${String(value).replace(/'/g, "''")}'`;
-};
-
-const toSqlNumber = (value?: number | null) => {
-  if (value == null || Number.isNaN(value)) {
-    return "NULL";
-  }
-
-  return String(value);
-};
-
-const toSqlStringList = (values?: string[] | null) => {
-  if (!values || values.length === 0) {
-    return "NULL";
-  }
-
-  return `[${values.map((value) => toSqlString(value)).join(", ")}]`;
-};
 
 export const fetchPathwayMapRouteData = async ({
   conn,

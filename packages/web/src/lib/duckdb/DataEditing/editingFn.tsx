@@ -1,9 +1,17 @@
 import {
     insertTableRow, editTableRow, editNewTableRow,
-    deleteEditRow, truncateTable
+    deleteEditRow, truncateTable, refreshMaterializedTable
 } from "@/lib/duckdb/DataEditing/insertData";
 import { formatSqlValue } from "@/lib/duckdb/QueryHelper";
 import { logger } from "@/lib/logger";
+
+const EDIT_TABLE_TO_MATERIALIZED: Record<string, string[]> = {
+    EditStopTable: ['StopsTable', 'StationsTable'],
+    EditRouteTable: ['RoutesTable'],
+    EditTripsTable: ['TripsTable'],
+    EditCalendarTable: ['CalendarTable'],
+    EditStopTimesTable: ['TripsTable'],
+};
 
 export const mutationEditStationFn = async ({conn, formData, SelectStation}) => {
     if ( SelectStation.status === '') {
@@ -97,6 +105,14 @@ export const mutationExportFn = async ({
     TableName,
     tableName,
     rowIdField = 'stop_id',
+}: {
+    conn: any;
+    mutateType: string;
+    SelectStation?: any;
+    selectedRow?: any;
+    TableName?: string;
+    tableName?: string;
+    rowIdField?: string;
 }) => {
     const rowToRevert = selectedRow ?? SelectStation;
     const targetTable = tableName ?? TableName;
@@ -116,7 +132,12 @@ export const mutationExportFn = async ({
             conn,
             table: targetTable
         })
-    } 
+    }
+    // Refresh materialized tables affected by this edit table
+    const toRefresh = EDIT_TABLE_TO_MATERIALIZED[targetTable] || [];
+    for (const t of toRefresh) {
+        await refreshMaterializedTable(conn, t);
+    }
 }
 
 export const mutationUpgradeToStationFn = async ({conn, SelectStation}) => {

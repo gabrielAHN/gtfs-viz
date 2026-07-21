@@ -17,7 +17,7 @@ import { fetchPathwayMapRouteData } from "@/lib/duckdb/DataFetching/pathways/fet
 import { getPathwayRouteFilterData } from "@/lib/pathways/routeFilterGraph";
 import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
-import { BiEdit, BiReset } from "react-icons/bi";
+import { BiPencil, BiReset } from "react-icons/bi";
 import { usePathwaysNavigate } from "../-usePathwaysNavigate";
 import { getPathwayMapTargetViewState } from "./-pathwayMapViewState";
 
@@ -349,7 +349,7 @@ function PathwayTypesMapPage() {
                 onClick={() => handleEditStopInFlow(clickData?.stop_id)}
                 className="w-full justify-center"
               >
-                <BiEdit className="mr-2 h-4 w-4 shrink-0" />
+                <BiPencil className="mr-2 h-4 w-4 shrink-0" />
                 edit
               </Button>
             </div>
@@ -389,7 +389,7 @@ function PathwayTypesMapPage() {
                 }
                 className="w-full justify-center"
               >
-                <BiEdit className="mr-2 h-4 w-4 shrink-0" />
+                <BiPencil className="mr-2 h-4 w-4 shrink-0" />
                 edit
               </Button>
             </div>

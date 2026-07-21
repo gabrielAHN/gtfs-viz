@@ -4,9 +4,12 @@ import Intro from "@/client/Intro";
 
 export const Route = createFileRoute("/")({
   beforeLoad: () => {
-    // CLI sessions should never see the import page — redirect to data views
     if (isCliSession()) {
-      throw redirect({ to: "/stations/map" });
+      throw redirect({ to: "/routes/table" });
+    }
+    // Non-CLI: check if data was already imported via browser
+    if (typeof window !== "undefined" && localStorage.getItem("gtfs_data_initialized") === "true") {
+      throw redirect({ to: "/routes/table" });
     }
   },
   component: Intro,

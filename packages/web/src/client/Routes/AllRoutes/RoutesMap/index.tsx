@@ -11,7 +11,7 @@ import { EditIndicator } from "@/components/ui/EditIndicator";
 import MapSection from "./Components/MapSection";
 import { getRouteTypeColor, getRouteTypeLegendItems } from "@/client/Routes/routeTypeColors";
 import { useDuckDB } from "@/context/duckdb.client";
-import { fetchRouteMapBounds } from "@/lib/duckdb/DataFetching/fetchRouteData";
+import { fetchRouteMapBounds, fetchFitZoom } from "@/lib/duckdb/DataFetching/fetchRouteData";
 
 function RoutesMap({
   routes,
@@ -95,9 +95,7 @@ function RoutesMap({
     }
     if (count === 0) return;
     try {
-      const result = await conn.query(`SELECT fit_zoom(${minLon}, ${maxLon}, ${minLat}, ${maxLat}) AS zoom`);
-      const row = result.toArray()[0];
-      const zoom = Number(row?.zoom ?? row?.toJSON?.()?.zoom ?? 10);
+      const zoom = await fetchFitZoom(conn, minLon, maxLon, minLat, maxLat);
       setViewState((prev: any) => ({
         ...prev,
         longitude: (minLon + maxLon) / 2,

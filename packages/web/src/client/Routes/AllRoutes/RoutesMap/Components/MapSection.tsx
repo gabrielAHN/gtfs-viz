@@ -6,22 +6,7 @@ import { getHighlightColor } from "@/components/style";
 import { useThemeContext } from "@/context/theme.client";
 import { getRouteTypeColor } from "@/client/Routes/routeTypeColors";
 import { useDuckDB } from "@/context/duckdb.client";
-
-const hexToRgb = (value: string | undefined) => {
-  const normalized = (value || "#4f46e5").replace("#", "");
-  const full =
-    normalized.length === 3
-      ? normalized
-          .split("")
-          .map((char) => char + char)
-          .join("")
-      : normalized.padEnd(6, "0").slice(0, 6);
-  const n = Number.parseInt(full, 16);
-  if (!Number.isFinite(n)) return [79, 70, 229];
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-};
-
-const withAlpha = (color: number[], alpha: number) => [color[0], color[1], color[2], alpha];
+import { safeHexToRgb, withAlpha } from "@/components/colorUtil";
 
 const DEFAULT_VIEW_STATE = {
   longitude: -98.5795,
@@ -208,7 +193,7 @@ function MapSection({
           getPath: (row: any) => row.path,
           getColor: (row: any) => {
             const routeId = String(row.route_id);
-            const color = hexToRgb(getRouteTypeColor(row.route_type_name));
+            const color = safeHexToRgb(getRouteTypeColor(row.route_type_name));
             if (!activeRouteId || activeRouteId === routeId) return withAlpha(color, 255);
             return withAlpha(color, 110);
           },
@@ -229,7 +214,7 @@ function MapSection({
         new ScatterplotLayer({
           id: "routes-stop-view",
           data: fallbackStops,
-          getFillColor: (row: any) => hexToRgb(getRouteTypeColor(row.route_type_name)),
+          getFillColor: (row: any) => safeHexToRgb(getRouteTypeColor(row.route_type_name)),
           getPosition: (row: any) => [Number(row.stop_lon), Number(row.stop_lat)],
           pickable: true,
           getLineWidth: 0.025,

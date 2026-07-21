@@ -1,10 +1,11 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import DeckGL from "@deck.gl/react";
 import maplibregl from "maplibre-gl";
-
-import { Map } from "react-map-gl/maplibre";
 import { useThemeContext } from "@/context/theme.client";
+
+// Direct internal import avoids the barrel `export const Map` that shadows JS built-in Map
+import MapGLComponent from "react-map-gl/dist/esm/components/map";
 
 const MAP_STYLES = {
   light:
@@ -24,7 +25,7 @@ export default function DeckglMap({
   maxPitch = 60,
   setClickInfo,
   setHoverInfo,
-}) {
+}: any) {
   const { theme } = useThemeContext();
 
   const onRestrictStateChange = useCallback(
@@ -101,7 +102,7 @@ export default function DeckglMap({
       getTooltip={getTooltip}
       pickingRadius={5}
     >
-      <Map
+      <MapGLComponent
         mapLib={maplibregl}
         mapStyle={MAP_STYLES[theme]}
         reuseMaps={true}

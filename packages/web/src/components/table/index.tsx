@@ -16,18 +16,9 @@ import {
   SelectTrigger,
   SelectContent,
 } from "@/components/ui/select";
-import {
-  BiChevronUp,
-  BiChevronDown,
-  BiChevronRight,
-  BiChevronLeft,
-  BiChevronsRight,
-  BiChevronsLeft,
-  BiRightArrow,
-} from "react-icons/bi";
+import { BiChevronUp, BiChevronDown, BiChevronRight, BiChevronLeft, BiChevronsRight, BiChevronsLeft, BiRightArrow } from "react-icons/bi";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { BiPencil } from "react-icons/bi";
+import { EditIndicator } from "@/components/ui/EditIndicator";
 
 function TableComponent({
   data,
@@ -208,13 +199,7 @@ function TableComponent({
                     onClick={() => handleRowClick(row.original)}
                   >
                     <TableCell className="w-8 px-2">
-                      {isEdited && (
-                        <Avatar>
-                          <AvatarFallback className="bg-primary">
-                            <BiPencil className="h-4 w-4" />
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
+                      {isEdited && <EditIndicator status={row.original.status} className="h-5 w-5" />}
                     </TableCell>
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>

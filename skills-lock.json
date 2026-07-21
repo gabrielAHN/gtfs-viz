@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "tanstack-router": {
+      "source": "tanstack-skills/tanstack-skills",
+      "sourceType": "github",
+      "skillPath": "plugins/tanstack-router/skills/tanstack-router/SKILL.md",
+      "computedHash": "24beccc4016f91bab65547209cfd849ea5e66f3d5d92820683a9dd84669ced56"
+    }
+  }
+}

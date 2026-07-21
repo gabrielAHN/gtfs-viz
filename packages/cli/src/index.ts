@@ -69,6 +69,7 @@ const supportedViews = new Set([
   "routes/service",
   "routes/table",
   "routes/trips",
+  "trips/table",
   "stops/map",
   "stops/table",
 ]);
@@ -914,6 +915,9 @@ const commandImport = async (args: Args) => {
     console.log(
       `Stops: ${metadata.counts.stops}  Stations: ${metadata.counts.stations}  Pathways: ${metadata.counts.pathways}  Routes: ${metadata.counts.routes}`,
     );
+    // Start session so dashboard is accessible without opening browser
+    const daemon = await spawnDaemon();
+    console.log(`Dashboard: ${daemon.dashboardUrl}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`Import failed: ${path.basename(feedArg)}`);
@@ -1014,13 +1018,9 @@ const addRouteServiceParams = (args: Args, params: Record<string, string>) => {
   const compare = getFlagString(args.flags, "compare");
   if (serviceId) params.selectedServiceId = serviceId;
   if (compare) {
-    // First trip becomes selectedTripId so the trip panel renders,
-    // ALL trips go to compareTripIds so they all show in compare view
-    const trips = compare.split(",").map((s) => s.trim()).filter(Boolean);
-    if (trips.length > 0) {
-      params.selectedTripId = tripId || trips[0];
-      params.compareTripIds = compare;
-    }
+    const allIds = compare.split(",").map((s) => s.trim()).filter(Boolean);
+    if (tripId && !allIds.includes(tripId)) allIds.unshift(tripId);
+    params.compareTripIds = allIds.join(",");
   } else if (tripId) {
     params.selectedTripId = tripId;
   }
@@ -1164,7 +1164,10 @@ const printOrNone = (rows: Record<string, unknown>[], args: Args) => {
     console.log("No results found.");
     return;
   }
-  printResult({ columns: Object.keys(rows[0]), rows }, args.flags);
+  // Union of all keys across all rows (handles compare where trips have different stop_sequences)
+  const colSet = new Set<string>();
+  for (const row of rows) for (const key of Object.keys(row)) colSet.add(key);
+  printResult({ columns: Array.from(colSet), rows }, args.flags);
 };
 
 const commandRoutes = async (args: Args) => {
@@ -1208,7 +1211,17 @@ const commandRoutes = async (args: Args) => {
     params.selectedRouteId = id;
   }
   addRouteServiceParams(args, params);
-  await openDashboardView(serviceRoutesViewForRoute(getViewFlag(args), id), params);
+  // When comparing trips or selecting a specific trip, use trips/table which supports those params
+  const compareRaw = getFlagString(args.flags, "compare");
+  const tripId = getFlagString(args.flags, "trip-id") || getFlagString(args.flags, "trip");
+  if (compareRaw || tripId) {
+    if (id) params.routeId = id; // trips/table uses routeId for filtering
+    const view = getViewFlag(args);
+    if (view === "timeline" || view === "map") params.view = view;
+    await openDashboardView("trips/table", params);
+  } else {
+    await openDashboardView(serviceRoutesViewForRoute(getViewFlag(args), id), params);
+  }
 };
 
 const commandRoute = async (args: Args) => {
@@ -1229,7 +1242,250 @@ const commandRoute = async (args: Args) => {
   params.cliSelectedRoute = route.routeId;
   params.selectedRouteId = route.routeId;
   addRouteServiceParams(args, params);
-  await openDashboardView(serviceRoutesViewForRoute(getViewFlag(args), route.routeId), params);
+  const compareRaw = getFlagString(args.flags, "compare");
+  const tripId = getFlagString(args.flags, "trip-id") || getFlagString(args.flags, "trip");
+  if (compareRaw || tripId) {
+    params.routeId = route.routeId; // trips/table uses routeId for filtering
+    const view = getViewFlag(args);
+    if (view === "timeline" || view === "map") params.view = view;
+    await openDashboardView("trips/table", params);
+  } else {
+    await openDashboardView(serviceRoutesViewForRoute(getViewFlag(args), route.routeId), params);
+  }
+};
+
+const commandTrips = async (args: Args) => {
+  ensureOutputMode(args);
+  const routeId = getFlagString(args.flags, "route-id") || getFlagString(args.flags, "route") || getFlagString(args.flags, "id");
+  const serviceId = getFlagString(args.flags, "service-id") || getFlagString(args.flags, "service");
+  const tripId = getFlagString(args.flags, "trip-id") || getFlagString(args.flags, "trip") || getPositionalId(args);
+  const compareRaw = getFlagString(args.flags, "compare");
+
+  if (wantsDataOutput(args.flags)) {
+    const ds = await readDatasetState();
+
+    // --compare trip1,trip2,... — side-by-side stop times
+    if (compareRaw) {
+      const tripIds = compareRaw.split(",").map((s) => s.trim()).filter(Boolean);
+      if (tripIds.length === 0) {
+        console.log("Provide comma-separated trip IDs: --compare trip1,trip2");
+        return;
+      }
+      if (tripIds.length > MAX_COMPARE_TRIPS) {
+        console.log(`Maximum ${MAX_COMPARE_TRIPS} trips can be compared.`);
+        return;
+      }
+      const allRows: Record<string, unknown>[] = [];
+      for (const tid of tripIds) {
+        const rows = await queryRows(
+          ds.dbPath,
+          `SELECT st.stop_sequence, st.stop_id, s.stop_name, st.arrival_time, st.departure_time
+           FROM stop_times st LEFT JOIN stops s ON s.stop_id = st.stop_id
+           WHERE st.trip_id = ${sqlString(tid)} ORDER BY st.stop_sequence`,
+        );
+        if (rows.length === 0) { console.log(`No stop_times for trip "${tid}".`); return; }
+        for (const row of rows) {
+          const key = Number(row.stop_sequence);
+          if (!allRows[key]) allRows[key] = { stop_sequence: row.stop_sequence, stop_id: row.stop_id, stop_name: row.stop_name };
+          (allRows[key] as any)[`${tid}_arr`] = row.arrival_time;
+          (allRows[key] as any)[`${tid}_dep`] = row.departure_time;
+        }
+      }
+      printOrNone(Object.values(allRows).filter(Boolean).sort((a: any, b: any) => Number(a.stop_sequence) - Number(b.stop_sequence)) as Record<string, unknown>[], args);
+      return;
+    }
+
+    const filters: string[] = [];
+    if (routeId) filters.push(`t.route_id = ${sqlString(routeId)}`);
+    if (serviceId) filters.push(`t.service_id = ${sqlString(serviceId)}`);
+    if (tripId) filters.push(`t.trip_id = ${sqlString(tripId)}`);
+    const where = filters.length > 0 ? ` WHERE ${filters.join(" AND ")}` : "";
+
+    if (tripId && !routeId) {
+      const rows = await queryRows(
+        ds.dbPath,
+        `SELECT st.stop_sequence, st.stop_id, s.stop_name, st.arrival_time, st.departure_time
+         FROM stop_times st LEFT JOIN stops s ON s.stop_id = st.stop_id
+         WHERE st.trip_id = ${sqlString(tripId)} ORDER BY st.stop_sequence`,
+      );
+      printOrNone(rows, args);
+    } else {
+      const rows = await queryRows(
+        ds.dbPath,
+        `SELECT t.trip_id, t.route_id, t.service_id, t.trip_headsign, t.direction_id, t.shape_id,
+                COUNT(st.stop_id) AS stop_count
+         FROM trips t LEFT JOIN stop_times st ON st.trip_id = t.trip_id
+         ${where}
+         GROUP BY t.trip_id, t.route_id, t.service_id, t.trip_headsign, t.direction_id, t.shape_id
+         ORDER BY t.route_id, t.service_id, t.trip_id`,
+      );
+      printOrNone(rows, args);
+    }
+    return;
+  }
+
+  // Dashboard mode
+  const params = dashboardParamsFromFlags(args);
+  if (routeId) { params.selectedRouteId = routeId; params.cliSelectedRoute = routeId; params.routeId = routeId; }
+  if (tripId && !compareRaw) params.selectedTripId = tripId;
+  if (serviceId) params.selectedServiceId = serviceId;
+  const view = getViewFlag(args);
+  if (view === "timeline" || view === "map") params.view = view;
+  if (compareRaw) {
+    const allIds = compareRaw.split(",").map((s) => s.trim()).filter(Boolean);
+    if (tripId && !allIds.includes(tripId)) allIds.unshift(tripId);
+    params.compareTripIds = allIds.join(",");
+  }
+  await openDashboardView("trips/table", params);
+};
+
+const commandTrip = async (args: Args) => {
+  ensureOutputMode(args);
+  const tripId = getFlagString(args.flags, "trip-id") || getFlagString(args.flags, "id") || getPositionalId(args);
+  if (!tripId) throw new Error("Trip ID is required. Usage: gtfs-viz trip <trip-id>");
+  const compareRaw = getFlagString(args.flags, "compare");
+
+  if (wantsDataOutput(args.flags)) {
+    const ds = await readDatasetState();
+    const view = getViewFlag(args);
+
+    // --compare: side-by-side with other trips
+    if (compareRaw) {
+      const otherIds = compareRaw.split(",").map((s) => s.trim()).filter(Boolean);
+      const allIds = [tripId, ...otherIds];
+      const allRows: Record<string, unknown>[] = [];
+      for (const tid of allIds) {
+        const rows = await queryRows(
+          ds.dbPath,
+          `SELECT st.stop_sequence, st.stop_id, s.stop_name, st.arrival_time, st.departure_time
+           FROM stop_times st LEFT JOIN stops s ON s.stop_id = st.stop_id
+           WHERE st.trip_id = ${sqlString(tid)} ORDER BY st.stop_sequence`,
+        );
+        for (const row of rows) {
+          const key = Number(row.stop_sequence);
+          if (!allRows[key]) allRows[key] = { stop_sequence: row.stop_sequence, stop_id: row.stop_id, stop_name: row.stop_name };
+          (allRows[key] as any)[`${tid}_arr`] = row.arrival_time;
+          (allRows[key] as any)[`${tid}_dep`] = row.departure_time;
+        }
+      }
+      printOrNone(Object.values(allRows).filter(Boolean).sort((a: any, b: any) => Number(a.stop_sequence) - Number(b.stop_sequence)) as Record<string, unknown>[], args);
+      return;
+    }
+
+    if (view === "info") {
+      const rows = await queryRows(ds.dbPath, `SELECT t.* FROM trips t WHERE t.trip_id = ${sqlString(tripId)}`);
+      printOrNone(rows, args);
+    } else {
+      const rows = await queryRows(
+        ds.dbPath,
+        `SELECT st.stop_sequence, st.stop_id, s.stop_name, st.arrival_time, st.departure_time, s.stop_lat, s.stop_lon
+         FROM stop_times st LEFT JOIN stops s ON s.stop_id = st.stop_id
+         WHERE st.trip_id = ${sqlString(tripId)} ORDER BY st.stop_sequence`,
+      );
+      printOrNone(rows, args);
+    }
+    return;
+  }
+
+  // Dashboard mode
+  const ds = await readDatasetState();
+  const tripRows = await queryRows(ds.dbPath, `SELECT route_id, service_id FROM trips WHERE trip_id = ${sqlString(tripId)} LIMIT 1`);
+  if (tripRows.length === 0) { console.log(`No trip found with ID "${tripId}".`); return; }
+  const params = dashboardParamsFromFlags(args);
+  const resolvedRoute = String(tripRows[0].route_id);
+  params.selectedRouteId = resolvedRoute;
+  params.cliSelectedRoute = resolvedRoute;
+  params.routeId = resolvedRoute;
+  if (tripRows[0].service_id) params.selectedServiceId = String(tripRows[0].service_id);
+  const view = getViewFlag(args);
+  if (view === "timeline" || view === "map") params.view = view;
+  if (compareRaw) {
+    const allIds = compareRaw.split(",").map((s) => s.trim()).filter(Boolean);
+    if (!allIds.includes(tripId)) allIds.unshift(tripId);
+    params.compareTripIds = allIds.join(",");
+  } else {
+    params.selectedTripId = tripId;
+  }
+  await openDashboardView("trips/table", params);
+};
+
+const commandCalendar = async (args: Args) => {
+  ensureOutputMode(args);
+  const serviceId = getFlagString(args.flags, "service-id") || getFlagString(args.flags, "service") || getFlagString(args.flags, "id") || getPositionalId(args);
+  const routeId = getFlagString(args.flags, "route-id") || getFlagString(args.flags, "route");
+
+  if (wantsDataOutput(args.flags)) {
+    const ds = await readDatasetState();
+    if (serviceId) {
+      // Show calendar + dates for a specific service
+      const cal = await queryRows(ds.dbPath, `SELECT * FROM calendar WHERE service_id = ${sqlString(serviceId)}`);
+      if (cal.length > 0) {
+        console.log("Calendar:");
+        printOrNone(cal, args);
+      }
+      const dates = await queryRows(ds.dbPath, `SELECT * FROM calendar_dates WHERE service_id = ${sqlString(serviceId)} ORDER BY date`);
+      if (dates.length > 0) {
+        console.log("\nCalendar Dates:");
+        printOrNone(dates, args);
+      }
+      if (cal.length === 0 && dates.length === 0) console.log(`No calendar data for service "${serviceId}".`);
+    } else {
+      // List services with trip counts
+      const filters: string[] = [];
+      if (routeId) filters.push(`t.route_id = ${sqlString(routeId)}`);
+      const where = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
+      const rows = await queryRows(
+        ds.dbPath,
+        `SELECT c.service_id, c.monday, c.tuesday, c.wednesday, c.thursday, c.friday, c.saturday, c.sunday,
+                c.start_date, c.end_date, COUNT(DISTINCT t.trip_id) AS trip_count
+         FROM calendar c
+         LEFT JOIN trips t ON t.service_id = c.service_id ${where ? `AND ${filters.join(" AND ")}` : ""}
+         GROUP BY c.service_id, c.monday, c.tuesday, c.wednesday, c.thursday, c.friday, c.saturday, c.sunday, c.start_date, c.end_date
+         ORDER BY trip_count DESC`,
+      );
+      printOrNone(rows, args);
+    }
+    return;
+  }
+  // Dashboard — open service view
+  const params = dashboardParamsFromFlags(args);
+  if (routeId) { params.selectedRouteId = routeId; params.cliSelectedRoute = routeId; params.routeId = routeId; }
+  if (serviceId) params.selectedServiceId = serviceId;
+  await openDashboardView("routes/service", params);
+};
+
+const commandShapes = async (args: Args) => {
+  ensureOutputMode(args);
+  const shapeId = getFlagString(args.flags, "shape-id") || getFlagString(args.flags, "shape") || getFlagString(args.flags, "id") || getPositionalId(args);
+  const routeId = getFlagString(args.flags, "route-id") || getFlagString(args.flags, "route");
+
+  if (!wantsDataOutput(args.flags)) {
+    const params = dashboardParamsFromFlags(args);
+    if (routeId) { params.selectedRouteId = routeId; params.cliSelectedRoute = routeId; params.routeId = routeId; }
+    await openDashboardView("routes/map", params);
+    return;
+  }
+  const ds = await readDatasetState();
+  if (shapeId) {
+    const rows = await queryRows(
+      ds.dbPath,
+      `SELECT shape_pt_sequence, shape_pt_lat, shape_pt_lon, shape_dist_traveled
+       FROM shapes WHERE shape_id = ${sqlString(shapeId)} ORDER BY shape_pt_sequence`,
+    );
+    printOrNone(rows, args);
+  } else {
+    const filters: string[] = [];
+    if (routeId) filters.push(`t.route_id = ${sqlString(routeId)}`);
+    const joinClause = filters.length > 0 ? `JOIN trips t ON t.shape_id = s.shape_id WHERE ${filters.join(" AND ")}` : "";
+    const rows = await queryRows(
+      ds.dbPath,
+      `SELECT s.shape_id, COUNT(*) AS point_count, MIN(s.shape_pt_lat) AS min_lat, MAX(s.shape_pt_lat) AS max_lat,
+              MIN(s.shape_pt_lon) AS min_lon, MAX(s.shape_pt_lon) AS max_lon
+       FROM shapes s ${joinClause}
+       GROUP BY s.shape_id ORDER BY s.shape_id`,
+    );
+    printOrNone(rows, args);
+  }
 };
 
 const commandStatus = async () => {
@@ -1733,6 +1989,15 @@ const commandEditTable = async (args: Args) => {
   } else if (table === "stops" || table === "stop" || table === "EditStopTable") {
     const rows = await queryRows(ds.dbPath, "SELECT * FROM EditStopTable");
     printResult({ columns: rows.length > 0 ? Object.keys(rows[0]) : [], rows }, args.flags);
+  } else if (table === "stop_times" || table === "stop-times" || table === "EditStopTimesTable") {
+    const rows = await queryRows(ds.dbPath, "SELECT * FROM EditStopTimesTable");
+    printResult({ columns: rows.length > 0 ? Object.keys(rows[0]) : [], rows }, args.flags);
+  } else if (table === "calendar" || table === "EditCalendarTable") {
+    const rows = await queryRows(ds.dbPath, "SELECT * FROM EditCalendarTable");
+    printResult({ columns: rows.length > 0 ? Object.keys(rows[0]) : [], rows }, args.flags);
+  } else if (table === "trips" || table === "EditTripsTable") {
+    const rows = await queryRows(ds.dbPath, "SELECT * FROM EditTripsTable");
+    printResult({ columns: rows.length > 0 ? Object.keys(rows[0]) : [], rows }, args.flags);
   } else if (!table) {
     console.log("EditPathwayTable:");
     const pathwayRows = await queryRows(ds.dbPath, "SELECT * FROM EditPathwayTable");
@@ -1754,15 +2019,24 @@ const commandEditTable = async (args: Args) => {
     );
     console.log("\nEditStopTable:");
     const stopRows = await queryRows(ds.dbPath, "SELECT * FROM EditStopTable");
-    printResult(
-      {
-        columns: stopRows.length > 0 ? Object.keys(stopRows[0]) : [],
-        rows: stopRows,
-      },
-      args.flags,
-    );
+    printResult({ columns: stopRows.length > 0 ? Object.keys(stopRows[0]) : [], rows: stopRows }, args.flags);
+    try {
+      console.log("\nEditStopTimesTable:");
+      const stRows = await queryRows(ds.dbPath, "SELECT * FROM EditStopTimesTable");
+      printResult({ columns: stRows.length > 0 ? Object.keys(stRows[0]) : [], rows: stRows }, args.flags);
+    } catch { /* table may not exist */ }
+    try {
+      console.log("\nEditCalendarTable:");
+      const calRows = await queryRows(ds.dbPath, "SELECT * FROM EditCalendarTable");
+      printResult({ columns: calRows.length > 0 ? Object.keys(calRows[0]) : [], rows: calRows }, args.flags);
+    } catch { /* table may not exist */ }
+    try {
+      console.log("\nEditTripsTable:");
+      const tripRows = await queryRows(ds.dbPath, "SELECT * FROM EditTripsTable");
+      printResult({ columns: tripRows.length > 0 ? Object.keys(tripRows[0]) : [], rows: tripRows }, args.flags);
+    } catch { /* table may not exist */ }
   } else {
-    throw new Error("edit_table accepts: pathways, routes, stops, or no argument for all");
+    throw new Error("edit_table accepts: pathways, routes, stops, stop_times, calendar, trips, or no argument for all");
   }
 };
 
@@ -2344,6 +2618,22 @@ const main = async () => {
   }
   if (args.command === "route") {
     await commandRoute(args);
+    return;
+  }
+  if (args.command === "trips") {
+    await commandTrips(args);
+    return;
+  }
+  if (args.command === "trip") {
+    await commandTrip(args);
+    return;
+  }
+  if (args.command === "calendar" || args.command === "services") {
+    await commandCalendar(args);
+    return;
+  }
+  if (args.command === "shapes") {
+    await commandShapes(args);
     return;
   }
   if (args.command === "skill-path") {

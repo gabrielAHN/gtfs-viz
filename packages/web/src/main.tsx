@@ -11,9 +11,12 @@ const queryClient = new QueryClient();
 
 const router = createRouter({
   routeTree,
+  defaultPreload: "intent",
+  defaultPreloadStaleTime: 30_000,
   scrollRestoration: ({ location }) =>
     !location.pathname.startsWith("/stations/pathways"),
   scrollRestorationBehavior: "instant",
+  context: { queryClient },
 });
 
 declare module "@tanstack/react-router" {

@@ -1,7 +1,7 @@
 import * as React from "react"
 import { type DialogProps } from "@radix-ui/react-dialog"
 import { Command as CommandPrimitive } from "cmdk"
-import { BiSearch } from "react-icons/bi"
+import { BiSearch } from "react-icons/bi";
 
 import { cn } from "@/lib/utils"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
