@@ -667,8 +667,19 @@ async function resolveStopFromArgs(args: Args): Promise<{ stopId: string; stopNa
   try {
     return await resolveSelection(ds.dbPath, "StopsTable", si);
   } catch {
-    // Fall back to StationsTable so station names (e.g. "Alewife") also resolve
-    return resolveSelection(ds.dbPath, "StationsTable", si);
+    try {
+      // Fall back to StationsTable so station names (e.g. "Alewife") also resolve
+      return await resolveSelection(ds.dbPath, "StationsTable", si);
+    } catch {
+      // Last resort: raw stops table for IDs not in either view (e.g. subway platforms)
+      const { idE, idL, nmE, nmL, idC, nmC } = selectionExpressions(si);
+      const rows = await queryRows(ds.dbPath, `SELECT stop_id, stop_name, stop_lat, stop_lon FROM stops WHERE ${idE} OR ${idL} OR ${nmE} OR ${nmL} OR ${idC} OR ${nmC} LIMIT 1`);
+      if (rows.length > 0) {
+        const row = rows[0];
+        return { stopId: String(row.stop_id), stopName: typeof row.stop_name === "string" ? row.stop_name : undefined, stopLat: numberOrUndefined(row.stop_lat), stopLon: numberOrUndefined(row.stop_lon) };
+      }
+      throw new Error(`No stop matched "${si.value}" from --${si.flag}`);
+    }
   }
 }
 
@@ -960,8 +971,16 @@ const commandStations = async (args: Args) => {
       getFlagString(args.flags, "pathways-status") || getFlagString(args.flags, "pathways");
     if (id) filters.push(`stop_id = ${sqlString(id)}`);
     if (name) filters.push(`LOWER(stop_name) LIKE LOWER(${sqlString(`%${name}%`)})`);
-    if (wheelchair) filters.push(`wheelchair_status = ${sqlString(wheelchair)}`);
-    if (pathways) filters.push(`pathways_status = ${sqlString(pathways)}`);
+    if (wheelchair) {
+      const wMap: Record<string, string> = { accessible: "🟢", "not accessible": "🔴", "not-accessible": "🔴", unknown: "🔵", no: "🔴", yes: "🟢" };
+      const wVal = wMap[wheelchair.toLowerCase()] || wheelchair;
+      filters.push(`wheelchair_status = ${sqlString(wVal)}`);
+    }
+    if (pathways) {
+      const pMap: Record<string, string> = { yes: "✅", no: "❌", partial: "⚠️" };
+      const pVal = pMap[pathways.toLowerCase()] || pathways;
+      filters.push(`pathways_status = ${sqlString(pVal)}`);
+    }
     const where = filters.length > 0 ? ` WHERE ${filters.join(" AND ")}` : "";
     const rows = await queryRows(dataset.dbPath, `SELECT * FROM StationsTable${where}`);
     printOrNone(rows, args);
@@ -994,10 +1013,18 @@ const commandStops = async (args: Args) => {
     const locationType = getFlagString(args.flags, "location-type");
     if (id) filters.push(`stop_id = ${sqlString(id)}`);
     if (name) filters.push(`LOWER(stop_name) LIKE LOWER(${sqlString(`%${name}%`)})`);
-    if (wheelchair) filters.push(`wheelchair_status = ${sqlString(wheelchair)}`);
+    if (wheelchair) {
+      const wMap: Record<string, string> = { accessible: "🟢", "not accessible": "🔴", "not-accessible": "🔴", unknown: "🔵", no: "🔴", yes: "🟢" };
+      const wVal = wMap[wheelchair.toLowerCase()] || wheelchair;
+      filters.push(`wheelchair_status = ${sqlString(wVal)}`);
+    }
     if (locationType) filters.push(`location_type_name = ${sqlString(locationType)}`);
     const where = filters.length > 0 ? ` WHERE ${filters.join(" AND ")}` : "";
-    const rows = await queryRows(dataset.dbPath, `SELECT * FROM StopsTable${where}`);
+    let rows = await queryRows(dataset.dbPath, `SELECT * FROM StopsTable${where}`);
+    // Fall back to raw stops table for IDs not in StopsTable (e.g. subway platforms)
+    if (rows.length === 0 && id && filters.length === 1) {
+      rows = await queryRows(dataset.dbPath, `SELECT * FROM stops WHERE stop_id = ${sqlString(id)}`);
+    }
     printOrNone(rows, args);
     return;
   }
@@ -1193,7 +1220,7 @@ const commandRoutes = async (args: Args) => {
     if (type) {
       const numericType = Number(type);
       if (Number.isFinite(numericType)) filters.push(`route_type = ${numericType}`);
-      else filters.push(`route_type_name = ${sqlString(type)}`);
+      else filters.push(`LOWER(route_type_name) LIKE LOWER(${sqlString(`%${type}%`)})`);
     }
     const where = filters.length > 0 ? ` WHERE ${filters.join(" AND ")}` : "";
     const rows = await queryRows(dataset.dbPath, `SELECT * FROM RoutesTable${where}`);
@@ -2417,11 +2444,17 @@ const commandStopInfo = async (args: Args) => {
       ds.dbPath,
       `SELECT * FROM StopsTable WHERE stop_id = ${sqlString(st.stopId)}`,
     );
-    // If no stop row, try StationsTable (resolveStopFromArgs may have fallen back)
+    // If no stop row, try StationsTable, then raw stops table
     if (rows.length === 0) {
       rows = await queryRows(
         ds.dbPath,
         `SELECT * FROM StationsTable WHERE stop_id = ${sqlString(st.stopId)}`,
+      );
+    }
+    if (rows.length === 0) {
+      rows = await queryRows(
+        ds.dbPath,
+        `SELECT * FROM stops WHERE stop_id = ${sqlString(st.stopId)}`,
       );
     }
     printResult(
