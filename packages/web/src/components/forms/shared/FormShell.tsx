@@ -37,36 +37,39 @@ function FormShell({
   return (
     <form onSubmit={onSubmit} className="space-y-2 relative">
       {isBusy && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-background/80 backdrop-blur-[1px]">
-          <div className="rounded-md border bg-background px-4 py-2 text-sm font-medium shadow-sm">
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md bg-background/80 backdrop-blur-[2px]">
+          <div className="rounded-md border bg-background px-5 py-3 text-sm font-medium shadow-md flex items-center gap-3">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             {busyLabel}
           </div>
         </div>
       )}
       {!hideHeader && header && <h2 className="text-2xl font-bold mb-2">{header}</h2>}
       {children}
-      <div className="flex gap-2 pt-1">
-        <Button
-          type="submit"
-          variant="outline"
-          disabled={isSubmitDisabled || isBusy}
-          className={`px-6 ${error ? "bg-destructive text-destructive-foreground" : ""}`}
-        >
-          {isBusy ? busyLabel : error ? "Retry" : submitLabel}
-        </Button>
-        {onReset && (
+      {!isBusy && (
+        <div className="flex gap-2 pt-1">
           <Button
-            type="button"
-            variant="secondary"
-            onClick={onReset}
-            disabled={resetDisabled ?? isBusy}
-            className="px-6"
+            type="submit"
+            variant="outline"
+            disabled={isSubmitDisabled}
+            className={`px-6 ${error ? "bg-destructive text-destructive-foreground" : ""}`}
           >
-            Reset
+            {error ? "Retry" : submitLabel}
           </Button>
-        )}
-        {customActions}
-      </div>
+          {onReset && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onReset}
+              disabled={resetDisabled}
+              className="px-6"
+            >
+              Reset
+            </Button>
+          )}
+          {customActions}
+        </div>
+      )}
       {error && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           {error}

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { BiCrosshair, BiGitCompare, BiMapPin, BiPencil, BiPlus, BiReset, BiSave, BiUndo, BiX } from "react-icons/bi";
+import { BiChevronDown, BiChevronUp, BiCrosshair, BiGitCompare, BiMapPin, BiPencil, BiPlus, BiReset, BiSave, BiUndo, BiX } from "react-icons/bi";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -48,7 +48,8 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
   const setCompareTripIds = useCallback((updater: string[] | ((prev: string[]) => string[])) => {
     setCompareTripIdsRaw((prev) => {
       const next = typeof updater === "function" ? updater(prev) : updater;
-      updateSearch({ compareTripIds: next.length > 0 ? next.join(",") : undefined });
+      // Defer router update to avoid setState-in-render warning (Transitioner)
+      queueMicrotask(() => updateSearch({ compareTripIds: next.length > 0 ? next.join(",") : undefined }));
       setHiddenTripIndices(new Set());
       return next;
     });
@@ -544,11 +545,52 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
       )}
 
       {/* Validation errors */}
-      {editErrors.length > 0 && (
-        <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-700 dark:text-red-300 space-y-1">
-          {editErrors.map((err, i) => <div key={i}>{err}</div>)}
-        </div>
-      )}
+      {editErrors.length > 0 && (() => {
+        // Parse stop index from error strings like "Stop 3 (name): ..."
+        const parseStopIdx = (err: string) => {
+          const m = err.match(/^Stop (\d+)/);
+          return m ? parseInt(m[1]) - 1 : null;
+        };
+        const [errorsExpanded, setErrorsExpanded] = [editErrors.length <= 3, null]; // auto-expand if few
+        return (
+          <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-700 dark:text-red-300">
+            <button className="flex items-center gap-2 w-full text-left font-medium"
+              onClick={() => setEditErrors((prev) => prev.length > 0 ? prev : prev)}>
+              {editErrors.length <= 3
+                ? <BiChevronUp className="h-4 w-4 shrink-0" />
+                : <BiChevronDown className="h-4 w-4 shrink-0" />}
+              <span>{editErrors.length} validation error{editErrors.length !== 1 ? "s" : ""}</span>
+            </button>
+            <details open={editErrors.length <= 3} className="mt-1">
+              <summary className="sr-only">Show errors</summary>
+              <div className="space-y-1 pt-1">
+                {editErrors.map((err, i) => {
+                  const stopIdx = parseStopIdx(err);
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="flex-1">{err}</span>
+                      {stopIdx != null && (
+                        <button
+                          className="shrink-0 text-xs px-2 py-0.5 rounded border border-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                          onClick={() => {
+                            handleSelectEditStop(stopIdx);
+                            setTripView("timetable");
+                            setTimeout(() => {
+                              const el = document.querySelector(`[data-stop-idx="${stopIdx}"]`);
+                              el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                            }, 100);
+                          }}>
+                          Go to stop #{stopIdx + 1}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
+          </div>
+        );
+      })()}
 
       {/* Selected trip bar */}
       {selectedTrip && !isEditing && (
@@ -597,10 +639,10 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
             const noStops = editStops.length === 0 && stopTimes.length === 0;
             return (
               <div className="ml-auto flex items-center gap-1.5 shrink-0">
-                <Button variant="ghost" onClick={handleUndo} disabled={undoStack.length === 0} size="sm" className="flex items-center h-7 text-xs px-2">
+                <Button variant="ghost" onClick={handleUndo} disabled={undoStack.length === 0 || saveMutation.isPending} size="sm" className="flex items-center h-7 text-xs px-2">
                   <BiUndo className="mr-1 h-3 w-3" />Undo
                 </Button>
-                <Button variant="ghost" size="sm" disabled={noChanges}
+                <Button variant="ghost" size="sm" disabled={noChanges || saveMutation.isPending}
                   onClick={() => { setEditStops(stopTimes.map((s, i) => ({ ...s, _idx: i }))); setDeletedStopIndices(new Set()); setEditErrors([]); setUndoStack([]); setAddStopId(undefined); setAddArrival(""); setAddDeparture(""); setAddStopSeqManual(null); }}
                   className="flex items-center h-7 text-xs px-2">
                   <BiReset className="mr-1 h-3 w-3" />Reset
@@ -704,14 +746,24 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
         </TableComponent>
       )}
 
+      {/* Saving overlay — blocks all interaction while save is processing */}
+      {saveMutation.isPending && (
+        <div className="relative rounded-md border bg-background/80 backdrop-blur-[2px] p-8">
+          <div className="flex items-center justify-center gap-3 text-sm font-medium">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            Saving changes...
+          </div>
+        </div>
+      )}
+
       {/* Trip detail views */}
-      {selectedTrip && !isPicking && !hasStopTimes && (
+      {selectedTrip && !isPicking && !hasStopTimes && !saveMutation.isPending && (
         <div className="text-sm text-yellow-800 dark:text-yellow-200 p-3 border border-yellow-300 rounded-md bg-yellow-50 dark:bg-yellow-900/20">
           stop_times.txt not imported — stop times, editing, comparison, and timeline views are disabled
         </div>
       )}
 
-      {selectedTrip && !isPicking && hasStopTimes && (
+      {selectedTrip && !isPicking && hasStopTimes && !saveMutation.isPending && (
         <div className="space-y-3">
           {!isEditing && (
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md border p-3 text-sm">
@@ -782,7 +834,7 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
               {renderStopPanel()}
               {editStops.length > 0 && (
                 <Timetable editable stops={editStops} onUpdate={handleEditStopUpdate}
-                  originalStops={stopTimes} showOnlyChanged
+                  originalStops={stopTimes}
                   selectedStopIdx={selectedEditIdx}
                   onSelectStop={handleSelectEditStop}
                   addStopPreview={selectedEditIdx == null && selectedAddStop

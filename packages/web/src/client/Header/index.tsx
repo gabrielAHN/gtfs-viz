@@ -70,15 +70,15 @@ function Header() {
 
   const navigationGroups = useMemo(() => {
     const stationsViews = [
-      { id: "map", label: "Map", icon: Map, path: "/stations/map" },
+      { id: "map", label: "Map", icon: BiMap, path: "/stations/map" },
       { id: "table", label: "Table", icon: BiTable, path: "/stations/table" },
     ];
     const stopsViews = [
-      { id: "map", label: "Map", icon: Map, path: "/stops/map" },
+      { id: "map", label: "Map", icon: BiMap, path: "/stops/map" },
       { id: "table", label: "Table", icon: BiTable, path: "/stops/table" },
     ];
     const routesViews = [
-      ...(hasShapes ? [{ id: "map", label: "Map", icon: Map, path: "/routes/map" }] : []),
+      ...(hasShapes ? [{ id: "map", label: "Map", icon: BiMap, path: "/routes/map" }] : []),
       { id: "table", label: "Table", icon: BiTable, path: "/routes/table" },
     ];
     return [

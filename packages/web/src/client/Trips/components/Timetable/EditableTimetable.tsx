@@ -71,10 +71,13 @@ export function EditableTimetable({ stops, onUpdate, routeStops: _routeStops = [
               let seqOffset = 0;
 
               const stopStatus = new Map<number, string>();
+              // Detect if any reorder/add/delete happened
+              const structureChanged = originalStops
+                ? stops.length !== originalStops.length || stops.some((s, i) => s._idx !== i)
+                : false;
               if (originalStops) {
                 for (let i = 0; i < stops.length; i++) {
                   const st = stops[i];
-                  // Use _idx to find this stop's original data (identity-based, not position-based)
                   const origIdx = st._idx;
                   const orig = origIdx != null && origIdx < originalStops.length ? originalStops[origIdx] : undefined;
                   if (!orig) {
@@ -153,8 +156,10 @@ export function EditableTimetable({ stops, onUpdate, routeStops: _routeStops = [
                   const st = stops[i];
                   const seq = i + 1 + seqOffset;
                   const isSelected = selectedStopIdx === i;
-                  if (showOnlyChanged && stopStatus.size > 0 && !stopStatus.has(i) && !isSelected) {
-                    if (i === 0 || stopStatus.has(i - 1) || selectedStopIdx === i - 1) {
+                  if (showOnlyChanged && !structureChanged && stopStatus.size > 0 && !stopStatus.has(i) && !isSelected) {
+                    // Only collapse unchanged rows when no reorder/add/delete happened
+                    const prevWasVisible = i === 0 || stopStatus.has(i - 1) || selectedStopIdx === i - 1;
+                    if (prevWasVisible) {
                       rows.push(
                         <tr key={`skip-${i}`} className="border-t">
                           <td colSpan={8} className="px-3 py-1 text-center text-[10px] text-muted-foreground">

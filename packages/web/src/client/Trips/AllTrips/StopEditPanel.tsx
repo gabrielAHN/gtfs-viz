@@ -40,13 +40,14 @@ export function StopEditPanel({
   editStopsRef,
   onEditStopReplace,
 }: StopEditPanelProps) {
-  if (!isEditing) return null;
-
   const isEdit = selectedEditIdx != null;
   const isAdd = !isEdit && (addStopSeqManual != null || addStopId);
-  if (!isEdit && !isAdd) return null;
 
   const sequence = isEdit ? selectedEditIdx! + 1 : addStopSequence;
+
+  if (!isEditing) return null;
+  if (!isEdit && !isAdd) return null;
+
   const maxSequence = isEdit ? editStops.length : editStops.length + 1;
   const label = isEdit ? `Edit Stop #${sequence}` : `Add Stop #${sequence}`;
 
@@ -107,7 +108,7 @@ export function StopEditPanel({
             <div className="w-10 shrink-0">
               <div className="text-[10px] text-muted-foreground mb-0.5">#</div>
               <input type="number" min={1} max={maxSequence} value={sequence}
-                onChange={(e) => handleSequenceChange(parseInt(e.target.value))}
+                onChange={(e) => { const v = parseInt(e.target.value); if (Number.isFinite(v)) handleSequenceChange(v); }}
                 className="flex h-9 w-full rounded-md border border-input bg-background px-1 py-1 text-xs text-center font-medium text-amber-600 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             </div>
             <div className="flex-1 min-w-0">
@@ -164,7 +165,7 @@ export function StopEditPanel({
         <div className="w-14 shrink-0">
           <div className="text-[10px] text-muted-foreground mb-1">Order</div>
           <input type="number" min={1} max={maxSequence} value={sequence}
-            onChange={(e) => handleSequenceChange(parseInt(e.target.value))}
+            onChange={(e) => { const v = parseInt(e.target.value); if (Number.isFinite(v)) handleSequenceChange(v); }}
             className="flex h-10 w-full rounded-md border border-input bg-background px-2 py-2 text-sm text-center font-medium text-amber-600 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
         </div>
         <div className="flex-1 min-w-[120px]">

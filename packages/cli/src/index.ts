@@ -652,7 +652,7 @@ async function resolveStationFromArgs(args: Args): Promise<{ stopId: string; sto
   return resolveSelection(ds.dbPath, "StationsTable", si);
 }
 
-async function resolveStopFromArgs(args: Args): Promise<{ stopId: string; stopName?: string }> {
+async function resolveStopFromArgs(args: Args): Promise<{ stopId: string; stopName?: string; stopLat?: number; stopLon?: number }> {
   const positional = args.positionals.filter((p) => !VIEW_NAMES.has(p)).join(" ").trim();
   const flags = { ...args.flags };
   const id = getFlagString(flags, "id") || getFlagString(flags, "stop-id");
@@ -664,7 +664,12 @@ async function resolveStopFromArgs(args: Args): Promise<{ stopId: string; stopNa
   const si = getStopSelectionInput(flags);
   if (!si) throw new Error("Provide a stop value");
   const ds = await readDatasetState();
-  return resolveSelection(ds.dbPath, "StopsTable", si);
+  try {
+    return await resolveSelection(ds.dbPath, "StopsTable", si);
+  } catch {
+    // Fall back to StationsTable so station names (e.g. "Alewife") also resolve
+    return resolveSelection(ds.dbPath, "StationsTable", si);
+  }
 }
 
 const getServiceRouteSelectionInput = (flags: Record<string, string | boolean>) =>
@@ -2343,7 +2348,8 @@ const commandStationShortestRoute = async (args: Args) => {
   const st = await resolveStationFromArgs(args);
   const ds = await readDatasetState();
 
-  const rows = await queryRows(
+  // Prefer entrance-to-entrance; fall back to any route with a time
+  let rows = await queryRows(
     ds.dbPath,
     `
     SELECT *
@@ -2355,6 +2361,18 @@ const commandStationShortestRoute = async (args: Args) => {
     LIMIT 1`,
   );
 
+  if (rows.length === 0) {
+    rows = await queryRows(
+      ds.dbPath,
+      `
+      SELECT *
+      FROM get_station_routes(${sqlString(st.stopId)})
+      WHERE shortest_time IS NOT NULL
+      ORDER BY shortest_time, start_stop, end_stop
+      LIMIT 1`,
+    );
+  }
+
   if (wantsDataOutput(args.flags)) {
     printResult(
       {
@@ -2362,6 +2380,7 @@ const commandStationShortestRoute = async (args: Args) => {
         stationName: st.stopName,
         columns: rows.length > 0 ? Object.keys(rows[0]) : [],
         rows,
+        ...(rows.length === 0 ? { message: "No timed routes found for this station" } : {}),
       },
       args.flags,
     );
@@ -2394,10 +2413,17 @@ const commandStopInfo = async (args: Args) => {
   };
   if (wantsDataOutput(args.flags)) {
     const ds = await readDatasetState();
-    const rows = await queryRows(
+    let rows = await queryRows(
       ds.dbPath,
       `SELECT * FROM StopsTable WHERE stop_id = ${sqlString(st.stopId)}`,
     );
+    // If no stop row, try StationsTable (resolveStopFromArgs may have fallen back)
+    if (rows.length === 0) {
+      rows = await queryRows(
+        ds.dbPath,
+        `SELECT * FROM StationsTable WHERE stop_id = ${sqlString(st.stopId)}`,
+      );
+    }
     printResult(
       {
         stopId: st.stopId,
