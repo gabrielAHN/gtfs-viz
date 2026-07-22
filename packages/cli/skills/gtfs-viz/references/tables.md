@@ -239,6 +239,54 @@ Tracks pathway/connection edits. Status: `new`, `edit`, `new edit`, `deleted`.
 | reversed_signposted_as | TEXT    |
 | status                 | TEXT    |
 
+### EditStopTimesTable
+
+Tracks stop time edits for trips. Status: `new`, `edit`, `new edit`, `deleted`.
+
+| Column         | Type    |
+| -------------- | ------- |
+| trip_id        | TEXT    |
+| stop_sequence  | INTEGER |
+| stop_id        | TEXT    |
+| arrival_time   | TEXT    |
+| departure_time | TEXT    |
+| stop_headsign  | TEXT    |
+| pickup_type    | INTEGER |
+| drop_off_type  | INTEGER |
+| status         | TEXT    |
+
+### EditCalendarTable
+
+Tracks calendar/service edits. Status: `new`, `edit`, `new edit`, `deleted`.
+
+| Column     | Type    |
+| ---------- | ------- |
+| service_id | TEXT    |
+| monday     | INTEGER |
+| tuesday    | INTEGER |
+| wednesday  | INTEGER |
+| thursday   | INTEGER |
+| friday     | INTEGER |
+| saturday   | INTEGER |
+| sunday     | INTEGER |
+| start_date | TEXT    |
+| end_date   | TEXT    |
+| status     | TEXT    |
+
+### EditTripsTable
+
+Tracks trip edits. Status: `new`, `edit`, `new edit`, `deleted`.
+
+| Column       | Type    |
+| ------------ | ------- |
+| trip_id      | TEXT    |
+| route_id     | TEXT    |
+| service_id   | TEXT    |
+| trip_headsign| TEXT    |
+| direction_id | INTEGER |
+| shape_id     | TEXT    |
+| status       | TEXT    |
+
 ## Enum Values
 
 ### location_type_to_name(location_type, parent_station)

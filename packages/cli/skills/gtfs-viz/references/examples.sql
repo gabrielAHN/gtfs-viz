@@ -163,3 +163,79 @@ FROM targets t
 LEFT JOIN reachable_exits r USING (stop_id)
 WHERE r.stop_id IS NULL
 ORDER BY t.location_type_name, t.stop_name, t.stop_id;
+
+-- ============================================================================
+-- TRIPS & STOP TIMES
+-- ============================================================================
+
+-- List trips with stop counts for a route
+SELECT t.trip_id, t.service_id, t.trip_headsign, COUNT(st.stop_id) AS stop_count
+FROM trips t
+LEFT JOIN stop_times st ON st.trip_id = t.trip_id
+WHERE t.route_id = 'ROUTE_ID'
+GROUP BY t.trip_id, t.service_id, t.trip_headsign
+ORDER BY t.service_id, t.trip_id;
+
+-- Stop times for a trip with stop names
+SELECT st.stop_sequence, st.stop_id, s.stop_name, st.arrival_time, st.departure_time
+FROM stop_times st
+LEFT JOIN stops s ON s.stop_id = st.stop_id
+WHERE st.trip_id = 'TRIP_ID'
+ORDER BY st.stop_sequence;
+
+-- Convert GTFS time strings to seconds for comparison
+SELECT trip_id,
+       gtfs_time_to_seconds(arrival_time) AS arrival_sec,
+       gtfs_time_to_seconds(departure_time) AS departure_sec
+FROM stop_times
+WHERE trip_id = 'TRIP_ID';
+
+-- Find trips with most stops
+SELECT t.trip_id, t.route_id, COUNT(*) AS stops
+FROM stop_times st JOIN trips t ON t.trip_id = st.trip_id
+GROUP BY t.trip_id, t.route_id
+ORDER BY stops DESC LIMIT 10;
+
+-- ============================================================================
+-- CALENDAR & SERVICES
+-- ============================================================================
+
+-- List services with trip counts
+SELECT c.service_id, c.monday, c.tuesday, c.wednesday, c.thursday,
+       c.friday, c.saturday, c.sunday, c.start_date, c.end_date,
+       COUNT(DISTINCT t.trip_id) AS trip_count
+FROM calendar c
+LEFT JOIN trips t ON t.service_id = c.service_id
+GROUP BY c.service_id, c.monday, c.tuesday, c.wednesday, c.thursday,
+         c.friday, c.saturday, c.sunday, c.start_date, c.end_date
+ORDER BY trip_count DESC;
+
+-- Calendar exception dates for a service
+SELECT * FROM calendar_dates WHERE service_id = 'SERVICE_ID' ORDER BY date;
+
+-- ============================================================================
+-- SHAPES
+-- ============================================================================
+
+-- List shapes with point counts and bounding box
+SELECT shape_id, COUNT(*) AS points,
+       MIN(shape_pt_lat) AS min_lat, MAX(shape_pt_lat) AS max_lat,
+       MIN(shape_pt_lon) AS min_lon, MAX(shape_pt_lon) AS max_lon
+FROM shapes GROUP BY shape_id ORDER BY shape_id;
+
+-- Shape points for a specific shape
+SELECT shape_pt_sequence, shape_pt_lat, shape_pt_lon, shape_dist_traveled
+FROM shapes WHERE shape_id = 'SHAPE_ID' ORDER BY shape_pt_sequence;
+
+-- ============================================================================
+-- EDIT TRACKING
+-- ============================================================================
+
+-- Check pending stop time edits
+SELECT * FROM EditStopTimesTable WHERE status != '';
+
+-- Check pending calendar edits
+SELECT * FROM EditCalendarTable WHERE status != '';
+
+-- Check pending trip edits
+SELECT * FROM EditTripsTable WHERE status != '';

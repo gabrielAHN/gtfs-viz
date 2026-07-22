@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useRouterState } from "@tanstack/react-router";
 import { useDuckDB } from "@/context/duckdb.client";
@@ -143,12 +143,14 @@ const StopsTable = ({ FileTypes, setFileTypes }) => {
 
   const hasData = useMemo(() => tableData.length > 0, [tableData]);
 
+  const hasDataRef = useRef(hasData);
+  const setFileTypesRef = useRef(setFileTypes);
+  setFileTypesRef.current = setFileTypes;
   useEffect(() => {
-    setFileTypes((prev) => {
-      if (prev.stops === hasData) return prev;
-      return { ...prev, stops: hasData };
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (hasDataRef.current !== hasData) {
+      hasDataRef.current = hasData;
+      setFileTypesRef.current((prev: any) => ({ ...prev, stops: hasData }));
+    }
   }, [hasData]);
 
   const handleButtonClick = () => {

@@ -1,10 +1,16 @@
-import { useCallback } from "react";
+import { forwardRef, useCallback, useEffect, useRef } from "react";
 
 import DeckGL from "@deck.gl/react";
 import maplibregl from "maplibre-gl";
-
-import { Map } from "react-map-gl/maplibre";
 import { useThemeContext } from "@/context/theme.client";
+
+// Direct internal import avoids the barrel `export const Map` that shadows JS built-in Map.
+// The raw function expects (props, ref, defaultLib) and uses useImperativeHandle(ref),
+// so it must be wrapped in forwardRef for React to supply a proper ref.
+import _RawMapComponent from "react-map-gl/dist/esm/components/map";
+const MapGLComponent = forwardRef(function MapGLComponent(props: any, ref: any) {
+  return (_RawMapComponent as any)(props, ref, maplibregl);
+});
 
 const MAP_STYLES = {
   light:
@@ -24,7 +30,7 @@ export default function DeckglMap({
   maxPitch = 60,
   setClickInfo,
   setHoverInfo,
-}) {
+}: any) {
   const { theme } = useThemeContext();
 
   const onRestrictStateChange = useCallback(
@@ -101,7 +107,7 @@ export default function DeckglMap({
       getTooltip={getTooltip}
       pickingRadius={5}
     >
-      <Map
+      <MapGLComponent
         mapLib={maplibregl}
         mapStyle={MAP_STYLES[theme]}
         reuseMaps={true}

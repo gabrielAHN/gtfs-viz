@@ -49,6 +49,49 @@ const Datafiles = [
       merge_id: "route_id"
     },
   },
+  {
+    orgTable: {
+      name: "stop_times",
+      file: "stop_times.csv",
+      removeList: [
+        "row_id", "status"
+      ]
+    },
+    editTable: {
+      name: "EditStopTimesTable",
+      editQuery: EditMergeQuery,
+      merge_id: "row_id"
+    },
+  },
+  {
+    orgTable: {
+      name: "calendar",
+      file: "calendar.csv",
+      removeList: [
+        "row_id", "status"
+      ]
+    },
+    editTable: {
+      name: "EditCalendarTable",
+      editQuery: EditMergeQuery,
+      merge_id: "service_id"
+    },
+  },
+  {
+    orgTable: {
+      name: "trips",
+      file: "trips.csv",
+      removeList: [
+        "row_id", "route_name", "route_type_name",
+        "route_color_hex", "route_text_color_hex", "status"
+      ]
+    },
+    editTable: {
+      name: "EditTripsTable",
+      editQuery: EditMergeQuery,
+      merge_id: "trip_id"
+    },
+  },
 ];
 
 const isCliNativeConn = (conn: any): boolean =>

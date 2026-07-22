@@ -195,7 +195,47 @@ const commandHelp: Record<string, string> = {
     --stop-id <id>          Resolve a standalone stop
     --data                  Print stop data instead`,
 
-  edit_table: `gtfs-viz edit_table [pathways|routes|stops] [flags]
+  calendar: `gtfs-viz calendar [<service-id>] [flags]
+
+  List services or show calendar data for a service. Opens dashboard by default.
+
+  Filters:
+    --service-id <id>       Service ID
+    --service <id>          Alias for --service-id
+    --route-id <id>         Filter by route ID
+    --route <id>            Alias for --route-id
+
+  Output:
+    (default)               Open service view in dashboard
+    --data                  Print rows in terminal
+    --format json           JSON output
+
+  Examples:
+    gtfs-viz calendar --data                        List all services
+    gtfs-viz calendar --route R1 --data             Services for route R1
+    gtfs-viz calendar SAT-1 --data                  Calendar for service SAT-1`,
+
+  shapes: `gtfs-viz shapes [<shape-id>] [flags]
+
+  List shapes or show shape points. Opens route map by default.
+
+  Filters:
+    --shape-id <id>         Shape ID
+    --shape <id>            Alias for --shape-id
+    --route-id <id>         Filter by route ID
+    --route <id>            Alias for --route-id
+
+  Output:
+    (default)               Open route map in dashboard
+    --data                  Print rows in terminal
+    --format json           JSON output
+
+  Examples:
+    gtfs-viz shapes --data                          List all shapes
+    gtfs-viz shapes --route R1 --data               Shapes for route R1
+    gtfs-viz shapes shape-123 --data                Points for shape-123`,
+
+  edit_table: `gtfs-viz edit_table [table] [flags]
 
   Show edit tracking tables.
 
@@ -203,6 +243,9 @@ const commandHelp: Record<string, string> = {
     pathways              Show EditPathwayTable
     routes                Show EditRouteTable
     stops                 Show EditStopTable
+    stop_times            Show EditStopTimesTable
+    calendar              Show EditCalendarTable
+    trips                 Show EditTripsTable
     (none)                Show all
 
   Flags:
@@ -387,6 +430,69 @@ const commandHelp: Record<string, string> = {
     table                   Tabular view
     service                 Trip/service schedule`,
 
+  trips: `gtfs-viz trips [<trip-id>] [flags]
+
+  List trips or show a single trip's stop times. Opens dashboard by default.
+
+  Filters:
+    --route-id <id>         Filter by route ID
+    --route <id>            Alias for --route-id
+    --service-id <id>       Filter by service ID
+    --service <id>          Alias for --service-id
+    --trip-id <id>          Show stop times for a specific trip
+    --trip <id>             Alias for --trip-id
+
+  Compare:
+    --compare <t1,t2,...>   Compare trips side-by-side (max 5)
+
+  Views (dashboard mode):
+    --view timetable        Stop times table (default)
+    --view timeline         Time-based horizontal chart
+    --view map              Stops on a map
+
+  Output:
+    (default)               Open trips view in dashboard
+    --data                  Print rows in terminal
+    --format json           JSON output
+
+  Examples:
+    gtfs-viz trips --data                           List all trips
+    gtfs-viz trips --route R1 --data                Trips for route R1
+    gtfs-viz trips --route R1 --service SAT --data  Trips for route+service
+    gtfs-viz trips trip-123 --data                  Stop times for trip-123
+    gtfs-viz trips --compare t1,t2 --data           Compare stop times
+    gtfs-viz trips --compare t1,t2,t3               Compare trips in dashboard
+    gtfs-viz trips --compare t1,t2 --view map       Compare on map`,
+
+  trip: `gtfs-viz trip <trip-id> [flags]
+
+  Show trip stop times in the dashboard, or print trip data.
+
+  Arguments:
+    <trip-id>               Trip ID (positional, required)
+
+  Flags:
+    --data                  Print stop times in terminal
+    --format json           JSON output
+    --view <view>           Dashboard view or data mode
+    --compare <t1,t2,...>   Compare with other trips (comma-separated)
+
+  Views:
+    timetable               Stop times table (default)
+    timeline                Time-based horizontal chart
+    map                     Stops on a map
+    info                    Trip metadata (with --data)
+
+  Examples:
+    gtfs-viz trip trip-123                              Open in dashboard
+    gtfs-viz trip trip-123 --view timeline               Open timeline view
+    gtfs-viz trip trip-123 --view map                    Open map view
+    gtfs-viz trip trip-123 --compare trip-456            Compare two trips
+    gtfs-viz trip trip-123 --compare trip-456 --view map Compare on map
+    gtfs-viz trip trip-123 --data                        Print stop times
+    gtfs-viz trip trip-123 --data --view info            Print trip metadata
+    gtfs-viz trip trip-123 --compare trip-456 --data     Compare stop times`,
+
   query: `gtfs-viz query [flags]
 
   Run SQL or a named query against the local DuckDB database.
@@ -482,9 +588,13 @@ Data:
   stations [filters]                 Browse/lookup stations
   stops [filters]                    Browse/lookup stops
   routes [filters]                   Browse/lookup routes
+  trips [filters]                    Browse/lookup trips and stop times
+  trip <trip-id>                     View trip stop times
+  calendar [service-id]              Browse services/calendar
+  shapes [shape-id]                  Browse route shapes
 
 Edit:
-  edit_table [pathways|routes|stops] Show edit tracking tables
+  edit_table [table]                 Show edit tracking tables
   export [--output --no-stops --no-pathways --no-routes --force]
 
 Query:
@@ -511,6 +621,8 @@ export const printExamples = () => {
   gtfs-viz stops --name "Albany"
   gtfs-viz routes --type Bus
   gtfs-viz route "Red Line"
+  gtfs-viz trips --route R1 --data
+  gtfs-viz trip trip-123 --data
 
 Lookup & dashboard:
   gtfs-viz station "Park Street"

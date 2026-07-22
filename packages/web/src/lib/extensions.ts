@@ -13,6 +13,7 @@ import {
   recreatePathwaysView as _recreatePathwaysView,
 } from "@gtfs-viz/duckdb-extension";
 import type { SqlExecutor } from "@gtfs-viz/duckdb-extension";
+import { logger } from "@/lib/logger";
 
 function createExecutor(conn: any): SqlExecutor {
   return async (sql: string) => {
@@ -87,7 +88,7 @@ export const reloadQueryMacros = async (conn: any): Promise<void> => {
       await installInit(createExecutor(conn));
     }
   } catch (error) {
-    console.warn("Could not check for pathway_network view:", error);
+    logger.warn("Could not check for pathway_network view:", error);
   }
 };
 

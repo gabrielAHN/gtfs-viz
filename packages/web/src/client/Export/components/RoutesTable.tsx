@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import { PathLayer } from "@deck.gl/layers";
@@ -7,11 +7,12 @@ import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { BiInfoCircle, BiGitCompare } from "react-icons/bi";
+import { safeHexToRgb } from "@/components/colorUtil";
 
 import { fetchTableData } from "@/lib/duckdb/DataFetching/fetchGTFSData";
+import { fetchOriginalRows, fetchOriginalRouteShapes } from "@/lib/duckdb/DataFetching/fetchExportData";
 import { mutationExportFn } from "@/lib/duckdb/DataEditing/editingFn";
 import { refreshRoutesTables } from "@/lib/extensions";
-import { formatSqlValue } from "@/lib/duckdb/QueryHelper";
 import { parseRouteLineValue } from "@/components/forms/RouteLineInput/routeLine";
 import MapContainer from "@/components/maps/MapContainer";
 import DeckglMap from "@/components/maps/DeckglMap.lazy";
@@ -106,17 +107,6 @@ function ShapeMiniMap({
   );
 }
 
-const hexToRgb = (value: string | undefined): number[] => {
-  const normalized = (value || "#4f46e5").replace("#", "");
-  const full =
-    normalized.length === 3
-      ? normalized.split("").map((c) => c + c).join("")
-      : normalized.padEnd(6, "0").slice(0, 6);
-  const parsed = Number.parseInt(full, 16);
-  if (!Number.isFinite(parsed)) return [79, 70, 229, 255];
-  return [(parsed >> 16) & 255, (parsed >> 8) & 255, parsed & 255, 255];
-};
-
 const RoutesTable = ({ FileTypes, setFileTypes }: any) => {
   const duckDB = useDuckDB();
   const conn = duckDB?.conn;
@@ -153,64 +143,13 @@ const RoutesTable = ({ FileTypes, setFileTypes }: any) => {
       }
 
       try {
-        const routeIds = editedItems.map((item: any) => formatSqlValue(item.route_id)).join(", ");
-
-        const [routeResult, shapeResult] = await Promise.all([
-          conn.query(`SELECT * FROM routes WHERE route_id IN (${routeIds})`),
-          conn.query(`
-            WITH shape_ranked AS (
-              SELECT t.route_id, t.shape_id, COUNT(*) as pt_count,
-                ROW_NUMBER() OVER (PARTITION BY t.route_id ORDER BY COUNT(*) DESC) as rn
-              FROM (
-                SELECT DISTINCT route_id, shape_id
-                FROM trips
-                WHERE route_id IN (${routeIds}) AND shape_id IS NOT NULL AND shape_id != ''
-              ) t
-              JOIN shapes s ON s.shape_id = t.shape_id
-              GROUP BY t.route_id, t.shape_id
-            )
-            SELECT sr.route_id, s.shape_pt_lat, s.shape_pt_lon, s.shape_pt_sequence
-            FROM shapes s
-            JOIN shape_ranked sr ON s.shape_id = sr.shape_id
-            WHERE sr.rn = 1
-            ORDER BY sr.route_id, s.shape_pt_sequence
-          `).catch(() => null),
+        const ids = editedItems.map((item: any) => String(item.route_id));
+        const [dataMap, shapeMap] = await Promise.all([
+          fetchOriginalRows(conn, "routes", "route_id", ids),
+          fetchOriginalRouteShapes(conn, ids),
         ]);
-
-        const routeRows = routeResult.toArray().map((row: any) => row.toJSON());
-        const dataMap: Record<string, any> = {};
-        routeRows.forEach((row: any) => {
-          dataMap[row.route_id] = row;
-        });
-
-        setOriginalDataMap((prev) => {
-          const prevKeys = Object.keys(prev).sort().join(",");
-          const newKeys = Object.keys(dataMap).sort().join(",");
-          if (prevKeys === newKeys) {
-            const hasChanges = Object.keys(dataMap).some(
-              (key) => JSON.stringify(prev[key]) !== JSON.stringify(dataMap[key]),
-            );
-            if (!hasChanges) return prev;
-          }
-          return dataMap;
-        });
-
-        if (shapeResult) {
-          const shapeRows = shapeResult.toArray().map((row: any) => row.toJSON());
-          const shapeMap: Record<string, { lat: number; lon: number }[]> = {};
-          shapeRows.forEach((row: any) => {
-            const routeId = row.route_id;
-            if (!shapeMap[routeId]) shapeMap[routeId] = [];
-            const lat = Number(row.shape_pt_lat);
-            const lon = Number(row.shape_pt_lon);
-            if (Number.isFinite(lat) && Number.isFinite(lon)) {
-              shapeMap[routeId].push({ lat, lon });
-            }
-          });
-          setOriginalShapeMap(shapeMap);
-        } else {
-          setOriginalShapeMap({});
-        }
+        setOriginalDataMap(dataMap);
+        setOriginalShapeMap(shapeMap);
       } catch (err) {
         logger.error("Error fetching original route data for export table:", err);
         setOriginalDataMap((prev) => (Object.keys(prev).length > 0 ? {} : prev));
@@ -251,12 +190,14 @@ const RoutesTable = ({ FileTypes, setFileTypes }: any) => {
 
   const hasData = useMemo(() => tableData.length > 0, [tableData]);
 
+  const hasDataRef = useRef(hasData);
+  const setFileTypesRef = useRef(setFileTypes);
+  setFileTypesRef.current = setFileTypes;
   useEffect(() => {
-    setFileTypes((prev: any) => {
-      if (prev.routes === hasData) return prev;
-      return { ...prev, routes: hasData };
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (hasDataRef.current !== hasData) {
+      hasDataRef.current = hasData;
+      setFileTypesRef.current((prev: any) => ({ ...prev, routes: hasData }));
+    }
   }, [hasData]);
 
   const handleButtonClick = () => {
@@ -339,7 +280,7 @@ const RoutesTable = ({ FileTypes, setFileTypes }: any) => {
     const routeId = row.route_id;
     const editedPoints = parseRouteLineValue(row.shape_points_json);
     const originalPoints = originalShapeMap[routeId] || [];
-    const routeColor = hexToRgb(row.route_color);
+    const routeColor = [...safeHexToRgb(row.route_color), 255];
 
     return (
       <TableRow className="bg-muted/30 border-l-4 border-l-blue-500">

@@ -70,7 +70,7 @@ const ToggleTabs = [
 function RoutesMapPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { conn } = useDuckDB();
+  const { conn } = useDuckDB() ?? {};
   const queryClient = useQueryClient();
 
   const [ClickInfo, setClickInfo] = useState<any>();

@@ -55,7 +55,7 @@ const ToggleTabs = [
 function StationsTablePage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { conn } = useDuckDB();
+  const { conn } = useDuckDB() ?? {};
 
   const [Open, setOpen] = useState({ formType: null, state: false });
   const [ClickInfo, setClickInfo] = useState();

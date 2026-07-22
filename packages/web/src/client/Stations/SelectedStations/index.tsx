@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useDuckDB } from "@/context/duckdb.client";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BiInfoCircle, BiMapAlt, BiGridAlt } from "react-icons/bi";
+import { BiInfoCircle, BiMap, BiGridAlt } from "react-icons/bi";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fetchCheckStationInfo } from "@/lib/duckdb/DataFetching/fetchStationInfoData";
 import { EditIndicator } from "@/components/ui/EditIndicator";
@@ -53,7 +53,7 @@ function SelectedStations({ stationId }: SelectedStationsProps) {
   const ToggleTabs = [
     { value: "StationInfo", label: "Info", icon: <BiInfoCircle /> },
     { value: "StationParts", label: "Parts", icon: <BiGridAlt /> },
-    { value: "StationPathways", label: "Pathways", icon: <BiMapAlt /> },
+    { value: "StationPathways", label: "Pathways", icon: <BiMap /> },
   ];
 
   const TabChange = (e) => {

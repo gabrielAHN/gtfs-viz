@@ -28,7 +28,7 @@ function StationPartsLayout() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { conn } = useDuckDB();
+  const { conn } = useDuckDB() ?? {};
 
   const [Open, setOpen] = useState({ formType: null, state: false });
   const [ClickInfo, setClickInfo] = useState();

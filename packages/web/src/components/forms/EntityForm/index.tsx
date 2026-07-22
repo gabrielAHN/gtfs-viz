@@ -1,3 +1,4 @@
+import { useState } from "react";
 import FormComponent from "@/components/forms/FormComponent";
 import FormPopup from "@/components/ui/formpopup";
 import { useEntityForm } from "@/components/forms/hooks/useEntityForm";
@@ -34,6 +35,7 @@ function EntityForm({
   showLevelField = false,
 }: EntityFormProps) {
   const mode = OpenValue.formType as "add" | "edit";
+  const [isMutating, setIsMutating] = useState(false);
 
   const formProps = useEntityForm({
     type,
@@ -44,7 +46,10 @@ function EntityForm({
       setOpenValue({ formType: null, state: false });
       setClickInfo(undefined);
     },
-    onFormMutatingChange,
+    onFormMutatingChange: (v: boolean) => {
+      setIsMutating(v);
+      onFormMutatingChange?.(v);
+    },
     parentStation,
     onZoomToLocation,
     showConversionActions,
@@ -58,7 +63,7 @@ function EntityForm({
   }
 
   return (
-    <FormPopup setOpenValue={setOpenValue} OpenValue={OpenValue}>
+    <FormPopup setOpenValue={setOpenValue} OpenValue={OpenValue} isBusy={isMutating}>
       <FormComponent {...formProps} />
     </FormPopup>
   );

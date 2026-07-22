@@ -1,5 +1,34 @@
 # GTFS Extension — SQL Procedures Reference
 
+## Scalar Macros
+
+Utility macros for data conversion, available in any SQL query.
+
+### gtfs_time_to_seconds(time_str)
+
+Convert GTFS time string (HH:MM:SS, supports >24h for overnight trips) to total seconds.
+
+```sql
+SELECT gtfs_time_to_seconds('08:30:00');  -- Returns 30600
+SELECT gtfs_time_to_seconds('25:15:00');  -- Returns 90900 (next day)
+```
+
+### location_type_to_name(location_type, parent_station)
+
+Convert GTFS location_type integer to name: Stop, Station, Platform, Exit/Entrance, Pathway Node, Boarding Area.
+
+### pathway_mode_to_name(mode)
+
+Convert pathway_mode integer to name: Walkway(1), Stairs(2), Moving sidewalk(3), Escalator(4), Elevator(5), Fare gate(6), Exit gate(7).
+
+### wheelchair_to_emoji(wheelchair_boarding)
+
+Convert wheelchair_boarding integer to emoji: 🔵(0), 🟢(1), 🔴(2), 🟡(other).
+
+### bidirectional_to_direction(is_bidirectional)
+
+Convert is_bidirectional to text: directional(0), bidirectional(1).
+
 ## Query Macros
 
 These macros are available after the GTFS extension is installed. Call them with `SELECT * FROM macro_name(args)`.

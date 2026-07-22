@@ -10,7 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useDuckDB } from "@/context/duckdb.client";
 import { fetchCheckStationInfo } from "@/lib/duckdb/DataFetching/fetchStationInfoData";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BiInfoCircle, BiMapAlt, BiGridAlt } from "react-icons/bi";
+import { BiInfoCircle, BiMap, BiGridAlt } from "react-icons/bi";
 import PageFooter from "@/components/PageFooter";
 import { logger } from "@/lib/logger";
 import { EditIndicator } from "@/components/ui/EditIndicator";
@@ -96,7 +96,7 @@ function StationLayout() {
     ToggleTabs.push({
       value: "pathways",
       label: "Pathways",
-      icon: <BiMapAlt />,
+      icon: <BiMap />,
       path: `/stations/station/${stationId}/pathways`,
     });
   }

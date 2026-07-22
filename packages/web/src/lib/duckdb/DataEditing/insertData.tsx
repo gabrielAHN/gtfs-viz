@@ -102,3 +102,24 @@ export const truncateTable = async (props) => {
         throw error;
     }
 }
+
+/**
+ * Refresh a materialized table by re-running its source macro.
+ * Call after edits to keep materialized tables in sync with views.
+ */
+export const refreshMaterializedTable = async (conn, tableName) => {
+    const macroMap: Record<string, string> = {
+        TripsTable: 'get_trips_table_data',
+        CalendarTable: 'get_calendar_table_data',
+        StopsTable: 'get_stops_table_data',
+        StationsTable: 'get_stations_table_data',
+        RoutesTable: 'get_routes_table_data',
+    };
+    const macro = macroMap[tableName];
+    if (!macro) return;
+    try {
+        await executeQuery(conn, `CREATE OR REPLACE TABLE ${tableName} AS SELECT * FROM ${macro}()`);
+    } catch (error) {
+        logger.error(`Error refreshing ${tableName}:`, error);
+    }
+};

@@ -1,6 +1,6 @@
 import React from "react";
 
-import { BiUpload } from 'react-icons/bi';
+import { BiUpload } from "react-icons/bi";
 import { Button } from "@/components/ui/button";
 
 interface UploadFileProps {

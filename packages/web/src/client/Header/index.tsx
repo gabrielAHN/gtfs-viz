@@ -1,6 +1,7 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { useDuckDB } from "@/context/duckdb.client";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { logger } from "@/lib/logger";
 import { BiImport, BiMap, BiTable, BiMenu } from "react-icons/bi";
 import { Button } from "@/components/ui/button";
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
@@ -28,6 +29,7 @@ function Header() {
   const isCliLaunch = duckDB?.isCliLaunch ?? false;
 
   const isRoutesActive = currentPath.startsWith("/routes");
+  const isTripsActive = currentPath.startsWith("/trips");
   const isStationsActive = currentPath.startsWith("/stations");
   const isStopsActive = currentPath.startsWith("/stops");
   const isExportActive = currentPath.startsWith("/export");
@@ -43,7 +45,7 @@ function Header() {
       try {
         await duckDB.resetDb();
       } catch (error) {
-        console.error("Error resetting database:", error);
+        logger.error("Error resetting database:", error);
       }
     }
 
@@ -66,59 +68,69 @@ function Header() {
     setMobileMenuOpen(false);
   };
 
-  const stationsViews = [
-    { id: "map", label: "Map", icon: BiMap, path: "/stations/map" },
-    { id: "table", label: "Table", icon: BiTable, path: "/stations/table" },
-  ];
-
-  const stopsViews = [
-    { id: "map", label: "Map", icon: BiMap, path: "/stops/map" },
-    { id: "table", label: "Table", icon: BiTable, path: "/stops/table" },
-  ];
-
-  const routesViews = [
-    ...(hasShapes ? [{ id: "map", label: "Map", icon: BiMap, path: "/routes/map" }] : []),
-    { id: "table", label: "Table", icon: BiTable, path: "/routes/table" },
-  ];
-
-  const navigationGroups = [
-    {
-      id: "routes",
-      label: "Routes",
-      icon: "🚌",
-      enabled: hasRoutes,
-      active: isRoutesActive,
-      defaultPath: hasShapes ? "/routes/map" : "/routes/table",
-      disabledText: "No routes in the file",
-      views: routesViews,
-      search: { selectedRouteId: currentSearch?.selectedRouteId },
-    },
-    {
-      id: "stations",
-      label: "Stations",
-      icon: "🚉",
-      enabled: hasStations,
-      active: isStationsActive,
-      defaultPath: "/stations/map",
-      disabledText: "No stations in the file",
-      views: stationsViews,
-      search: { selectedStationId: currentSearch?.selectedStationId },
-    },
-    {
-      id: "stops",
-      label: "Stops",
-      icon: "🚏",
-      enabled: hasStops,
-      active: isStopsActive,
-      defaultPath: "/stops/map",
-      disabledText: "No stops in the file",
-      views: stopsViews,
-      search: { selectedStopId: currentSearch?.selectedStopId },
-    },
-  ];
-
-  void hasTrips;
-  void hasStopTimes;
+  const navigationGroups = useMemo(() => {
+    const stationsViews = [
+      { id: "map", label: "Map", icon: BiMap, path: "/stations/map" },
+      { id: "table", label: "Table", icon: BiTable, path: "/stations/table" },
+    ];
+    const stopsViews = [
+      { id: "map", label: "Map", icon: BiMap, path: "/stops/map" },
+      { id: "table", label: "Table", icon: BiTable, path: "/stops/table" },
+    ];
+    const routesViews = [
+      ...(hasShapes ? [{ id: "map", label: "Map", icon: BiMap, path: "/routes/map" }] : []),
+      { id: "table", label: "Table", icon: BiTable, path: "/routes/table" },
+    ];
+    return [
+      {
+        id: "routes",
+        label: "Routes",
+        icon: "🚌",
+        enabled: hasRoutes,
+        active: isRoutesActive,
+        defaultPath: hasShapes ? "/routes/map" : "/routes/table",
+        disabledText: "No routes in the file",
+        views: routesViews,
+        search: { selectedRouteId: currentSearch?.selectedRouteId },
+      },
+      {
+        id: "trips",
+        label: "Trips",
+        icon: "🚍",
+        enabled: hasTrips,
+        active: isTripsActive,
+        defaultPath: "/trips/table",
+        disabledText: "No trips in the file",
+        views: [],
+        search: { selectedTripId: currentSearch?.selectedTripId },
+      },
+      {
+        id: "stations",
+        label: "Stations",
+        icon: "🚉",
+        enabled: hasStations,
+        active: isStationsActive,
+        defaultPath: "/stations/map",
+        disabledText: "No stations in the file",
+        views: stationsViews,
+        search: { selectedStationId: currentSearch?.selectedStationId },
+      },
+      {
+        id: "stops",
+        label: "Stops",
+        icon: "🚏",
+        enabled: hasStops,
+        active: isStopsActive,
+        defaultPath: "/stops/map",
+        disabledText: "No stops in the file",
+        views: stopsViews,
+        search: { selectedStopId: currentSearch?.selectedStopId },
+      },
+    ];
+  }, [hasShapes, hasRoutes, hasTrips, hasStopTimes, hasStations, hasStops,
+      isRoutesActive, isTripsActive, isStationsActive, isStopsActive,
+      currentSearch?.selectedRouteId, currentSearch?.selectedTripId,
+      currentSearch?.selectedStationId, currentSearch?.selectedStopId]);
 
   return (
     <>
@@ -191,7 +203,7 @@ function Header() {
                       </Tooltip>
                     </TooltipProvider>
 
-                    {group.enabled && (
+                    {group.enabled && group.views.length > 0 && (
                       <div className="ml-6 mt-1 flex flex-col gap-1">
                         {group.views.map((view) => {
                           const ViewIcon = view.icon;
@@ -318,7 +330,7 @@ function Header() {
                       )}
                     </Tooltip>
 
-                    {group.enabled && (
+                    {group.enabled && group.views.length > 0 && (
                       <div className="invisible absolute left-0 top-full z-50 pt-2 opacity-0 transition-opacity group-hover:visible group-hover:opacity-100">
                         <ul className="grid w-[200px] gap-2 rounded-md border bg-popover p-2 text-popover-foreground shadow-lg">
                           {group.views.map((view) => {

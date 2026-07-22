@@ -14,7 +14,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 
-const FormPopup = ({ children, setOpenValue, OpenValue }) => {
+const FormPopup = ({ children, setOpenValue, OpenValue, isBusy = false }) => {
   const isDesktop = useMediaQuery("(min-width: 768px)")
   const openedAtRef = React.useRef(0)
   const isOpen = OpenValue?.state === true;
@@ -26,13 +26,13 @@ const FormPopup = ({ children, setOpenValue, OpenValue }) => {
   }, [isOpen])
 
   const handleOpenChange = (open: boolean) => {
-    if (!open) {
+    if (!open && !isBusy) {
       setOpenValue({ formType: null, state: false })
     }
   }
 
-  const preventImmediateOutsideClose = (event: Event) => {
-    if (Date.now() - openedAtRef.current < 150) {
+  const preventCloseWhileBusy = (event: Event) => {
+    if (isBusy || Date.now() - openedAtRef.current < 150) {
       event.preventDefault()
     }
   }
@@ -41,8 +41,9 @@ const FormPopup = ({ children, setOpenValue, OpenValue }) => {
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent
         className="max-w-2xl max-h-[85vh] flex flex-col overflow-visible p-0"
-        onPointerDownOutside={preventImmediateOutsideClose}
-        onInteractOutside={preventImmediateOutsideClose}
+        onPointerDownOutside={preventCloseWhileBusy}
+        onInteractOutside={preventCloseWhileBusy}
+        hideCloseButton={isBusy}
       >
         <DialogTitle className="hidden" />
         <DialogDescription className="hidden" />
@@ -55,7 +56,7 @@ const FormPopup = ({ children, setOpenValue, OpenValue }) => {
     <Drawer open={isOpen} onOpenChange={handleOpenChange}>
       <DrawerContent
         className="flex flex-col max-h-[90vh] overflow-visible"
-        onPointerDownOutside={preventImmediateOutsideClose}
+        onPointerDownOutside={preventCloseWhileBusy}
       >
         <DrawerHeader className="hidden">
           <DrawerTitle />

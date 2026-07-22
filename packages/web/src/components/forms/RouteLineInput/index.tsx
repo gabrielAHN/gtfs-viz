@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFormContext } from "react-hook-form";
-import { BiHide, BiMap, BiTrash, BiUndo } from "react-icons/bi";
+import { BiHide, BiMap, BiReset, BiTrash, BiUndo } from "react-icons/bi";
 import { PathLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
@@ -54,13 +54,22 @@ function RouteLineInput({
   const routeMapButtonLabel = isEditMode ? "Edit Route" : "Draw Route";
   const linePoints = useMemo(() => parseRouteLineValue(value), [value]);
   const linePointsRef = useRef(linePoints);
-  const lineColor = useMemo(() => hexToRgb(routeColor), [routeColor]);
+  const lineColor = useMemo(() => hexToRgb(routeColor) || [79, 70, 229], [routeColor]);
 
-  // Track original points for undo comparison in edit mode
+  // Track original points for reset in edit mode
   const originalPointsRef = useRef<string | null>(null);
   if (originalPointsRef.current === null && value) {
     originalPointsRef.current = typeof value === "string" ? value : JSON.stringify(value);
   }
+
+  // Undo stack (pushUndo defined here, handleUndoAction after updateLine)
+  const undoStackRef = useRef<Array<{ lat: number; lon: number }[]>>([]);
+  const [undoCount, setUndoCount] = useState(0);
+  const pushUndo = useCallback(() => {
+    undoStackRef.current = [...undoStackRef.current.slice(-19), linePointsRef.current.map((p) => ({ ...p }))];
+    setUndoCount(undoStackRef.current.length);
+  }, []);
+
   const hasChanges = useMemo(() => {
     if (!originalPointsRef.current) return linePoints.length > 0;
     const currentSerialized = serializeRouteLineValue(linePoints);
@@ -131,6 +140,15 @@ function RouteLineInput({
     [name, setValue, trigger],
   );
 
+  const handleUndoAction = useCallback(async () => {
+    if (undoStackRef.current.length === 0) return;
+    const last = undoStackRef.current[undoStackRef.current.length - 1];
+    undoStackRef.current = undoStackRef.current.slice(0, -1);
+    setUndoCount(undoStackRef.current.length);
+    setSelectedPointIndex(null);
+    await updateLine(last);
+  }, [updateLine]);
+
   const handleMapClick = useCallback(
     async (event: any) => {
       if (!event?.coordinate || isLoading || isDraggingRef.current) return;
@@ -145,6 +163,7 @@ function RouteLineInput({
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
 
       if (selectedPointIndex !== null && isEndpoint) {
+        pushUndo();
         const newPoints = [...linePoints];
         if (selectedPointIndex === 0) {
           newPoints.unshift({ lat, lon });
@@ -155,6 +174,7 @@ function RouteLineInput({
         }
         await updateLine(newPoints);
       } else if (selectedPointIndex !== null) {
+        pushUndo();
         const newPoints = [...linePoints];
         newPoints[selectedPointIndex] = { lat, lon };
         await updateLine(newPoints);
@@ -163,7 +183,7 @@ function RouteLineInput({
         setSelectedPointIndex(0);
       }
     },
-    [isLoading, linePoints, updateLine, selectedPointIndex, isEndpoint],
+    [isLoading, linePoints, updateLine, selectedPointIndex, isEndpoint, pushUndo],
   );
 
   const handleDragStart = useCallback(
@@ -173,6 +193,7 @@ function RouteLineInput({
         info.layer?.id === "route-line-drawn-points" &&
         typeof info.object.pointIndex === "number"
       ) {
+        pushUndo();
         const pointIndex = info.object.pointIndex;
         isDraggingRef.current = true;
         draggingPointIndexRef.current = pointIndex;
@@ -181,7 +202,7 @@ function RouteLineInput({
       }
       return false;
     },
-    [],
+    [pushUndo],
   );
 
   const handleDrag = useCallback(
@@ -215,16 +236,18 @@ function RouteLineInput({
 
   const handleDeletePoint = useCallback(async () => {
     if (selectedPointIndex === null || selectedPointIndex >= linePoints.length) return;
+    pushUndo();
     const newPoints = linePoints.filter((_, i) => i !== selectedPointIndex);
     setSelectedPointIndex(null);
     await updateLine(newPoints);
-  }, [selectedPointIndex, linePoints, updateLine]);
+  }, [selectedPointIndex, linePoints, updateLine, pushUndo]);
 
   const indexedLinePoints = useMemo(() => {
     return linePoints.map((point, index) => ({ ...point, pointIndex: index }));
   }, [linePoints]);
 
   const layers = useMemo(() => {
+    if (!isMapVisible) return [];
     const nextLayers: any[] = [];
 
     if (contextPoints.length > 0) {
@@ -247,12 +270,13 @@ function RouteLineInput({
     }
 
     if (linePoints.length > 1) {
-      nextLayers.push(
+      const pathCoords = linePoints.map((point) => [point.lon, point.lat]).filter(([lon, lat]) => Number.isFinite(lon) && Number.isFinite(lat));
+      if (pathCoords.length > 1) nextLayers.push(
         new PathLayer({
           id: "route-line-drawn-path",
-          data: [{ path: linePoints.map((point) => [point.lon, point.lat]) }],
+          data: [{ path: pathCoords }],
           getPath: (row: any) => row.path,
-          getColor: [...lineColor, 255],
+          getColor: [lineColor[0] || 79, lineColor[1] || 70, lineColor[2] || 229, 255] as [number, number, number, number],
           getWidth: 5,
           widthUnits: "pixels" as const,
           capRounded: true,
@@ -270,8 +294,8 @@ function RouteLineInput({
           getPosition: (point: any) => [point.lon, point.lat],
           getFillColor: (point: any) =>
             point.pointIndex === selectedPointIndex
-              ? [255, 80, 80, 255]
-              : [...lineColor, 255],
+              ? [255, 80, 80, 255] as [number, number, number, number]
+              : [...lineColor, 255] as [number, number, number, number],
           getLineColor: (point: any) =>
             point.pointIndex === selectedPointIndex
               ? [255, 255, 255, 255]
@@ -297,7 +321,7 @@ function RouteLineInput({
     }
 
     return nextLayers;
-  }, [contextPoints, handleDrag, handleDragEnd, handleDragStart, indexedLinePoints, lineColor, linePoints, selectedPointIndex, theme]);
+  }, [isMapVisible, contextPoints, handleDrag, handleDragEnd, handleDragStart, indexedLinePoints, lineColor, linePoints, selectedPointIndex, theme]);
 
   return (
     <FormField
@@ -350,21 +374,28 @@ function RouteLineInput({
                 <Button
                   type="button"
                   variant="secondary"
-                  onClick={() => {
-                    setSelectedPointIndex(null);
-                    if (isEditMode && originalPointsRef.current) {
-                      // Restore to original shape
-                      const original = parseRouteLineValue(originalPointsRef.current);
-                      updateLine(original);
-                    } else {
-                      updateLine(linePoints.slice(0, -1));
-                    }
-                  }}
-                  disabled={isLoading || !hasChanges}
+                  onClick={handleUndoAction}
+                  disabled={isLoading || undoCount === 0}
                 >
                   <BiUndo className="mr-2 h-4 w-4" />
-                  {isEditMode ? "Reset" : "Undo"}
+                  Undo
                 </Button>
+                {isEditMode && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={async () => {
+                      pushUndo();
+                      setSelectedPointIndex(null);
+                      const original = parseRouteLineValue(originalPointsRef.current || "");
+                      await updateLine(original);
+                    }}
+                    disabled={isLoading || !hasChanges}
+                  >
+                    <BiReset className="mr-2 h-4 w-4" />
+                    Reset
+                  </Button>
+                )}
                 {selectedPointIndex !== null && (
                   <Button
                     type="button"

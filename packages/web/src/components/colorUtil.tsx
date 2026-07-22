@@ -71,6 +71,9 @@ export const safeHexToRgb = (value: string | undefined, fallback = [79, 70, 229]
     return [(parsed >> 16) & 255, (parsed >> 8) & 255, parsed & 255];
 };
 
+/** Append alpha channel to an [R,G,B] array. */
+export const withAlpha = (color: number[], alpha: number): number[] => [color[0], color[1], color[2], alpha];
+
 export const ColorsRanges = [
     'rgb(252, 222, 156)',
     'rgb(250, 164, 118)',

@@ -106,7 +106,7 @@ export default function Combobox({
         </div>
       </div>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0">
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[200px] p-0">
         <Command shouldFilter={true}>
           <CommandInput placeholder={Message} />
           <CommandList className="max-h-[300px]">

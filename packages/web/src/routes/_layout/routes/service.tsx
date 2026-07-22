@@ -17,18 +17,15 @@ import {
 type RouteServiceSearchParams = {
   selectedRouteId?: string;
   selectedServiceId?: string;
-  selectedTripId?: string;
-  compareTripIds?: string;
 };
 
 export const Route = createFileRoute("/_layout/routes/service")({
   component: RouteServicePage,
   validateSearch: (search: Record<string, unknown>): RouteServiceSearchParams => {
+    const strip = (v: unknown) => v != null ? String(v).replace(/^"|"$/g, "") || undefined : undefined;
     return {
-      selectedRouteId: search.selectedRouteId as string | undefined,
-      selectedServiceId: search.selectedServiceId as string | undefined,
-      selectedTripId: search.selectedTripId as string | undefined,
-      compareTripIds: search.compareTripIds as string | undefined,
+      selectedRouteId: strip(search.selectedRouteId),
+      selectedServiceId: strip(search.selectedServiceId),
     };
   },
   beforeLoad: ({ search }) => {
@@ -130,14 +127,11 @@ function RouteServicePage() {
         routeId={routeId}
         services={services}
         selectedServiceId={search.selectedServiceId}
-        selectedTripId={hasStopTimes ? search.selectedTripId : undefined}
-        initialCompareTripIds={search.compareTripIds}
         routeTypeName={routeData.route_type_name}
         hasStopTimes={hasStopTimes}
-        onSelectionChange={(serviceId, tripId) =>
+        onSelectionChange={(serviceId) =>
           updateSearch({
             selectedServiceId: serviceId || undefined,
-            selectedTripId: hasStopTimes ? (tripId || undefined) : undefined,
           })
         }
       />

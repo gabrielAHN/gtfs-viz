@@ -1,4 +1,5 @@
-import { executeQuery } from "@/lib/duckdb/QueryHelper";
+import { executeQuery, escapeSql } from "@/lib/duckdb/QueryHelper";
+import { insertTableRow, deleteEditRow, refreshMaterializedTable } from "@/lib/duckdb/DataEditing/insertData";
 import { logger } from "@/lib/logger";
 import { getPathfindingFunctions } from "./pathways/hybridPathfinding";
 
@@ -30,7 +31,6 @@ export const fetchRouteData = async (props) => {
   }
 };
 
-const escapeSql = (value: string) => value.replace(/'/g, "''");
 
 const routeIdListSql = (routeIds: string[]) => {
   return `[${routeIds.map((id) => `'${escapeSql(id)}'`).join(", ")}]`;
@@ -75,7 +75,7 @@ const ensureServiceTables = async (conn: any) => {
 };
 
 export const fetchServiceRouteServicesData = async (conn: any, routeId: string) => {
-  await ensureServiceTables(conn);
+  try { await ensureServiceTables(conn); } catch { /* tables may already exist */ }
   return executeQuery(
     conn,
     `
@@ -88,6 +88,15 @@ export const fetchServiceRouteServicesData = async (conn: any, routeId: string) 
         WHERE route_id = '${escapeSql(routeId)}'
           AND service_id IS NOT NULL AND service_id != ''
         GROUP BY route_id, service_id
+      ),
+      all_services AS (
+        SELECT rs.route_id, rs.service_id, rs.trip_count, rs.shape_count, rs.block_count, rs.headsign_count
+        FROM route_services rs
+        UNION ALL
+        SELECT '${escapeSql(routeId)}' AS route_id, cv.service_id, 0 AS trip_count, 0 AS shape_count, 0 AS block_count, 0 AS headsign_count
+        FROM CalendarView cv
+        WHERE cv.status IN ('new', 'new edit')
+          AND NOT EXISTS (SELECT 1 FROM route_services rs WHERE rs.service_id = cv.service_id)
       ),
       date_summary AS (
         SELECT service_id,
@@ -116,8 +125,8 @@ export const fetchServiceRouteServicesData = async (conn: any, routeId: string) 
              ds.last_exception_date,
              ds.added_exception_dates,
              ds.removed_exception_dates
-      FROM route_services rs
-      LEFT JOIN calendar c ON c.service_id = rs.service_id
+      FROM all_services rs
+      LEFT JOIN CalendarView c ON c.service_id = rs.service_id
       LEFT JOIN date_summary ds ON ds.service_id = rs.service_id
       ORDER BY rs.service_id
     `,
@@ -136,18 +145,14 @@ export const fetchServiceRouteTripsForServiceData = async (
         SELECT trip_id,
                NULLIF(arrival_time, '') AS arrival_time,
                NULLIF(departure_time, '') AS departure_time,
-               CASE
-                 WHEN NULLIF(departure_time, '') IS NULL THEN NULL
-                 ELSE COALESCE(TRY_CAST(SPLIT_PART(departure_time, ':', 1) AS INTEGER), 0) * 3600
-                    + COALESCE(TRY_CAST(SPLIT_PART(departure_time, ':', 2) AS INTEGER), 0) * 60
-                    + COALESCE(TRY_CAST(SPLIT_PART(departure_time, ':', 3) AS INTEGER), 0)
-               END AS departure_seconds,
-               CASE
-                 WHEN NULLIF(arrival_time, '') IS NULL THEN NULL
-                 ELSE COALESCE(TRY_CAST(SPLIT_PART(arrival_time, ':', 1) AS INTEGER), 0) * 3600
-                    + COALESCE(TRY_CAST(SPLIT_PART(arrival_time, ':', 2) AS INTEGER), 0) * 60
-                    + COALESCE(TRY_CAST(SPLIT_PART(arrival_time, ':', 3) AS INTEGER), 0)
-               END AS arrival_seconds
+               CASE WHEN NULLIF(departure_time, '') IS NULL THEN NULL
+                    ELSE COALESCE(TRY_CAST(SPLIT_PART(departure_time, ':', 1) AS INTEGER), 0) * 3600
+                       + COALESCE(TRY_CAST(SPLIT_PART(departure_time, ':', 2) AS INTEGER), 0) * 60
+                       + COALESCE(TRY_CAST(SPLIT_PART(departure_time, ':', 3) AS INTEGER), 0) END AS departure_seconds,
+               CASE WHEN NULLIF(arrival_time, '') IS NULL THEN NULL
+                    ELSE COALESCE(TRY_CAST(SPLIT_PART(arrival_time, ':', 1) AS INTEGER), 0) * 3600
+                       + COALESCE(TRY_CAST(SPLIT_PART(arrival_time, ':', 2) AS INTEGER), 0) * 60
+                       + COALESCE(TRY_CAST(SPLIT_PART(arrival_time, ':', 3) AS INTEGER), 0) END AS arrival_seconds
         FROM stop_times
         WHERE trip_id IS NOT NULL AND trip_id != ''
       ),
@@ -182,7 +187,7 @@ export const fetchServiceTripStopTimesData = async (conn: any, tripId: string) =
              COALESCE(station.stop_name, sv.stop_name) AS station_name,
              st.stop_headsign, st.pickup_type, st.drop_off_type, st.shape_dist_traveled,
              sv.stop_lat, sv.stop_lon
-      FROM stop_times st
+      FROM StopTimesView st
       LEFT JOIN StopsView sv ON sv.stop_id = st.stop_id
       LEFT JOIN StopsView station
         ON station.stop_id = COALESCE(NULLIF(sv.parent_station, ''), sv.stop_id)
@@ -191,6 +196,173 @@ export const fetchServiceTripStopTimesData = async (conn: any, tripId: string) =
       ORDER BY st.stop_sequence, st.arrival_time, st.departure_time, st.stop_id
     `,
   );
+};
+
+export const fetchAllTripsData = async (conn: any) => {
+  return executeQuery(conn, "SELECT * FROM TripsTable");
+};
+
+export const saveCalendarEdit = async (conn: any, data: {
+  service_id: string; monday: number; tuesday: number; wednesday: number; thursday: number;
+  friday: number; saturday: number; sunday: number; start_date: string; end_date: string;
+}, isNew: boolean) => {
+  const id = data.service_id.replace(/'/g, "''");
+  let status = "new";
+  if (!isNew) {
+    // Check if this was a previously added new service
+    const existing = await executeQuery(conn, `SELECT status FROM EditCalendarTable WHERE service_id = '${id}'`);
+    const prevStatus = existing.length > 0 ? String(existing[0].status) : null;
+    status = prevStatus === "new" ? "new edit" : "edit";
+    await conn.query(`DELETE FROM EditCalendarTable WHERE service_id = '${id}'`);
+  }
+  const mon = Number(data.monday) || 0;
+  const tue = Number(data.tuesday) || 0;
+  const wed = Number(data.wednesday) || 0;
+  const thu = Number(data.thursday) || 0;
+  const fri = Number(data.friday) || 0;
+  const sat = Number(data.saturday) || 0;
+  const sun = Number(data.sunday) || 0;
+  await conn.query(`
+    INSERT INTO EditCalendarTable (row_id, service_id, monday, tuesday, wednesday, thursday, friday, saturday, sunday, start_date, end_date, status)
+    VALUES ('edit_${id}', '${id}', ${mon}, ${tue}, ${wed}, ${thu},
+            ${fri}, ${sat}, ${sun}, '${(data.start_date || '').replace(/'/g, "''")}', '${(data.end_date || '').replace(/'/g, "''")}', '${status}')
+  `);
+  await refreshMaterializedTable(conn, "CalendarTable");
+};
+
+export const deleteCalendar = async (conn: any, serviceId: string) => {
+  const id = serviceId.replace(/'/g, "''");
+  await conn.query(`DELETE FROM EditCalendarTable WHERE service_id = '${id}'`);
+  await conn.query(`INSERT INTO EditCalendarTable (row_id, service_id, monday, tuesday, wednesday, thursday, friday, saturday, sunday, start_date, end_date, status)
+    VALUES ('del_${id}', '${id}', 0, 0, 0, 0, 0, 0, 0, '', '', 'deleted')`);
+  await refreshMaterializedTable(conn, "CalendarTable");
+};
+
+export const saveTripEdit = async (conn: any, data: {
+  trip_id: string; route_id: string; service_id: string; trip_headsign?: string;
+  direction_id?: number; shape_id?: string;
+}, isNew: boolean) => {
+  const tid = data.trip_id.replace(/'/g, "''");
+  let status = "new";
+  if (!isNew) {
+    const existing = await executeQuery(conn, `SELECT status FROM EditTripsTable WHERE trip_id = '${tid}'`);
+    const prevStatus = existing.length > 0 ? String(existing[0].status) : null;
+    status = prevStatus === "new" ? "new edit" : "edit";
+    await conn.query(`DELETE FROM EditTripsTable WHERE trip_id = '${tid}'`);
+  }
+  await conn.query(`
+    INSERT INTO EditTripsTable (row_id, route_id, service_id, trip_id, trip_headsign, trip_short_name, direction_id, block_id, shape_id, wheelchair_accessible, bikes_allowed, status)
+    VALUES ('edit_${tid}', '${data.route_id.replace(/'/g, "''")}', '${data.service_id.replace(/'/g, "''")}', '${tid}',
+            ${data.trip_headsign ? `'${data.trip_headsign.replace(/'/g, "''")}'` : 'NULL'},
+            NULL, ${data.direction_id != null ? Number(data.direction_id) : 'NULL'}, NULL, ${data.shape_id ? `'${data.shape_id.replace(/'/g, "''")}'` : 'NULL'},
+            NULL, NULL, '${status}')
+  `);
+  await refreshMaterializedTable(conn, "TripsTable");
+};
+
+export const deleteTrip = async (conn: any, tripId: string) => {
+  const tid = tripId.replace(/'/g, "''");
+  await conn.query(`DELETE FROM EditTripsTable WHERE trip_id = '${tid}'`);
+  await conn.query(`INSERT INTO EditTripsTable (row_id, route_id, service_id, trip_id, status)
+    VALUES ('del_${tid}', '', '', '${tid}', 'deleted')`);
+  await refreshMaterializedTable(conn, "TripsTable");
+};
+
+export const fetchTripsTimeBounds = async (conn: any) => {
+  const rows = await executeQuery(conn, "SELECT * FROM get_trips_time_bounds()");
+  const row = rows[0];
+  if (!row || row.min_time == null || row.max_time == null) return null;
+  return { minTime: Number(row.min_time), maxTime: Number(row.max_time) };
+};
+
+export const saveStopTimesEdits = async (
+  conn: any,
+  tripId: string,
+  stops: Array<{ stop_sequence: number; stop_id?: string; arrival_time?: string; departure_time?: string; stop_headsign?: string; pickup_type?: number; drop_off_type?: number; shape_dist_traveled?: number }>,
+) => {
+  // Clear previous edits for this trip
+  await deleteEditRow({ conn, table: "EditStopTimesTable", column: "trip_id", formData: { trip_id: tripId } });
+
+  // Get original stop times to compare
+  const origRows = await executeQuery(conn, `SELECT row_id, stop_id, stop_sequence, arrival_time, departure_time FROM stop_times WHERE trip_id = '${escapeSql(tripId)}' ORDER BY stop_sequence`);
+
+  // Check if anything actually changed
+  let hasChanges = origRows.length !== stops.length;
+  if (!hasChanges) {
+    for (let i = 0; i < stops.length; i++) {
+      const orig = origRows[i];
+      const cur = stops[i];
+      if (String(orig.stop_id || "") !== (cur.stop_id || "") ||
+          String(orig.arrival_time || "") !== (cur.arrival_time || "") ||
+          String(orig.departure_time || "") !== (cur.departure_time || "")) {
+        hasChanges = true;
+        break;
+      }
+    }
+  }
+  if (!hasChanges) return;
+
+  // Determine per-stop status using multiset matching
+  const origIdCounts = new Map<string, number>();
+  for (const r of origRows) origIdCounts.set(String(r.stop_id || ""), (origIdCounts.get(String(r.stop_id || "")) || 0) + 1);
+  const usedCounts = new Map<string, number>();
+
+  for (const s of stops) {
+    const id = s.stop_id || "";
+    const used = usedCounts.get(id) || 0;
+    const isNew = used >= (origIdCounts.get(id) || 0);
+    usedCounts.set(id, used + 1);
+
+    await insertTableRow({
+      conn,
+      table: "EditStopTimesTable",
+      formData: {
+        row_id: `edit_${tripId}_${s.stop_sequence}`,
+        trip_id: tripId,
+        stop_sequence: s.stop_sequence,
+        stop_id: s.stop_id || "",
+        arrival_time: s.arrival_time || "",
+        departure_time: s.departure_time || "",
+        stop_headsign: s.stop_headsign || null,
+        pickup_type: s.pickup_type ?? null,
+        drop_off_type: s.drop_off_type ?? null,
+        shape_dist_traveled: s.shape_dist_traveled ?? null,
+        status: isNew ? "new" : "new edit",
+      },
+    });
+  }
+
+  // Insert 'deleted' rows for removed original stops
+  const newIdCounts = new Map<string, number>();
+  for (const s of stops) newIdCounts.set(s.stop_id || "", (newIdCounts.get(s.stop_id || "") || 0) + 1);
+  const toDelete = new Map<string, number>();
+  for (const [id, origCount] of origIdCounts) {
+    const diff = origCount - (newIdCounts.get(id) || 0);
+    if (diff > 0) toDelete.set(id, diff);
+  }
+  for (const r of origRows) {
+    const id = String(r.stop_id || "");
+    const left = toDelete.get(id) || 0;
+    if (left > 0) {
+      toDelete.set(id, left - 1);
+      await insertTableRow({
+        conn,
+        table: "EditStopTimesTable",
+        formData: {
+          row_id: String(r.row_id),
+          trip_id: tripId,
+          stop_sequence: Number(r.stop_sequence),
+          stop_id: id,
+          arrival_time: String(r.arrival_time || ""),
+          departure_time: String(r.departure_time || ""),
+          status: "deleted",
+        },
+      });
+    }
+  }
+
+  // Refresh materialized tables that depend on stop times
+  await refreshMaterializedTable(conn, "TripsTable");
 };
 
 export const fetchServiceRouteStationsData = async (conn: any, routeId: string) => {
@@ -209,6 +381,12 @@ export const fetchServiceRouteStopsData = async (conn: any, routeIds: string[]) 
     conn,
     `SELECT * FROM get_route_stops_for_routes(${routeIdListSql(routeIds)})`,
   );
+};
+
+export const fetchFitZoom = async (conn: any, minLon: number, maxLon: number, minLat: number, maxLat: number) => {
+  const result = await conn.query(`SELECT fit_zoom(${minLon}, ${maxLon}, ${minLat}, ${maxLat}) AS zoom`);
+  const row = result.toArray()[0];
+  return Number(row?.zoom ?? row?.toJSON?.()?.zoom ?? 10);
 };
 
 const boundsRowToFit = (rawRow: any) => {
@@ -337,4 +515,115 @@ export const fetchServiceRouteShapesData = async (
       ORDER BY route_id, shape_id, shape_pt_sequence
     `,
   );
+};
+
+// ─── Edit status queries ──────────────────────────────────────────
+
+export const fetchEditedTripStatuses = async (conn: any) => {
+  const stRows = await executeQuery(conn, "SELECT trip_id, status FROM EditStopTimesTable");
+  const tRows = await executeQuery(conn, "SELECT trip_id, status FROM EditTripsTable");
+  const m = new Map<string, string>();
+  const tripStatuses = new Map<string, Set<string>>();
+  for (const r of stRows) {
+    const id = String(r.trip_id);
+    if (!tripStatuses.has(id)) tripStatuses.set(id, new Set());
+    tripStatuses.get(id)!.add(String(r.status));
+  }
+  for (const [id, statuses] of tripStatuses) {
+    if (statuses.has("new") && !statuses.has("new edit") && !statuses.has("edit")) m.set(id, "new");
+    else m.set(id, "edit");
+  }
+  for (const r of tRows) m.set(String(r.trip_id), String(r.status));
+  return m;
+};
+
+export const fetchEditedCalendarStatuses = async (conn: any) => {
+  const rows = await executeQuery(conn, "SELECT service_id, status FROM EditCalendarTable");
+  const m = new Map<string, string>();
+  for (const r of rows) m.set(String(r.service_id), String(r.status));
+  return m;
+};
+
+export const fetchEditedTripStatusesForRoute = async (conn: any) => {
+  const rows = await executeQuery(conn, "SELECT trip_id, status FROM EditTripsTable");
+  const stRows = await executeQuery(conn, "SELECT DISTINCT trip_id FROM EditStopTimesTable");
+  const m = new Map<string, string>();
+  for (const r of rows) m.set(String(r.trip_id), String(r.status));
+  for (const r of stRows) { if (!m.has(String(r.trip_id))) m.set(String(r.trip_id), "edit"); }
+  return m;
+};
+
+export const fetchStopsWithRouteFlag = async (conn: any, routeId: string) => {
+  const escapedId = routeId.replace(/'/g, "''");
+  return executeQuery(conn, `
+    SELECT s.stop_id, s.stop_name, s.stop_lat, s.stop_lon, s.location_type_name, s.parent_station,
+           CASE WHEN rs.stop_id IS NOT NULL THEN true ELSE false END AS on_route
+    FROM StopsView s
+    LEFT JOIN RouteStopsTable rs ON rs.stop_id = s.stop_id AND rs.route_id = '${escapedId}'
+  `);
+};
+
+export const fetchRouteStopsForShape = async (conn: any, routeId: string) => {
+  const escapedId = routeId.replace(/'/g, "''");
+  return executeQuery(conn, `
+    SELECT DISTINCT s.stop_id, s.stop_name, CAST(s.stop_lat AS DOUBLE) AS stop_lat, CAST(s.stop_lon AS DOUBLE) AS stop_lon, s.location_type_name
+    FROM RouteStopsView rs
+    JOIN StopsView s ON s.stop_id = rs.stop_id
+    WHERE rs.route_id = '${escapedId}' AND s.stop_lat IS NOT NULL AND s.stop_lon IS NOT NULL
+  `);
+};
+
+export const fetchTripMapBounds = async (conn: any, tripId: string) => {
+  const rows = await executeQuery(conn, `SELECT * FROM get_trip_map_bounds('${tripId.replace(/'/g, "''")}')`);
+  return boundsRowToFit(rows[0]);
+};
+
+export const checkTripIdExists = async (conn: any, tripId: string) => {
+  if (!tripId.trim()) return false;
+  const rows = await executeQuery(conn, `SELECT 1 FROM TripsView WHERE trip_id = '${tripId.replace(/'/g, "''")}' LIMIT 1`);
+  return rows.length > 0;
+};
+
+export const fetchTripsForService = async (conn: any, serviceId: string) => {
+  const esc = serviceId.replace(/'/g, "''");
+  return executeQuery(conn, `SELECT trip_id, route_id, service_id FROM TripsView WHERE service_id = '${esc}'`);
+};
+
+export const deleteServiceCascade = async (conn: any, serviceId: string, routeId: string) => {
+  const esc = serviceId.replace(/'/g, "''");
+  const tripsForService = await executeQuery(conn, `SELECT trip_id, route_id, service_id FROM TripsView WHERE service_id = '${esc}'`);
+  for (const t of tripsForService) {
+    const tid = String(t.trip_id).replace(/'/g, "''");
+    const rid = String(t.route_id || routeId).replace(/'/g, "''");
+    const sid = String(t.service_id || serviceId).replace(/'/g, "''");
+    // Mark stop times as deleted
+    await conn.query(`DELETE FROM EditStopTimesTable WHERE trip_id = '${tid}'`);
+    try {
+      await conn.query(`
+        INSERT INTO EditStopTimesTable (row_id, trip_id, stop_sequence, stop_id, arrival_time, departure_time, status)
+        SELECT 'del_' || CAST(row_id AS VARCHAR), trip_id, stop_sequence, stop_id, arrival_time, departure_time, 'deleted'
+        FROM stop_times WHERE trip_id = '${tid}'
+      `);
+    } catch { /* stop_times may not exist */ }
+    // Mark trip as deleted
+    await conn.query(`DELETE FROM EditTripsTable WHERE trip_id = '${tid}'`);
+    await conn.query(`INSERT INTO EditTripsTable (row_id, route_id, service_id, trip_id, status) VALUES ('del_${tid}', '${rid}', '${sid}', '${tid}', 'deleted')`);
+  }
+  await deleteCalendar(conn, serviceId);
+  await refreshMaterializedTable(conn, "TripsTable");
+};
+
+export const deleteTripCascade = async (conn: any, tripId: string) => {
+  const tid = tripId.replace(/'/g, "''");
+  // Remove any existing edit rows for this trip's stop times
+  await conn.query(`DELETE FROM EditStopTimesTable WHERE trip_id = '${tid}'`);
+  // Insert "deleted" markers for all original stop times
+  try {
+    await conn.query(`
+      INSERT INTO EditStopTimesTable (row_id, trip_id, stop_sequence, stop_id, arrival_time, departure_time, status)
+      SELECT 'del_' || CAST(row_id AS VARCHAR), trip_id, stop_sequence, stop_id, arrival_time, departure_time, 'deleted'
+      FROM stop_times WHERE trip_id = '${tid}'
+    `);
+  } catch { /* stop_times table may not exist */ }
+  await deleteTrip(conn, tripId);
 };

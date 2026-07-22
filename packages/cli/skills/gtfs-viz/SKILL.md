@@ -1,16 +1,18 @@
 ---
 name: gtfs-viz
-description: Import GTFS transit feeds, query station/stop/pathway/route data, edit connections, nodes, and routes, compare trip service patterns, export changes to GTFS CSV, and open a local browser dashboard. Use when working with GTFS data, transit stations, pathways, routes, or accessibility audits.
+description: Import GTFS transit feeds, query station/stop/pathway/route/trip/calendar/shape data, edit connections, nodes, routes, trips, and stop times, compare trip service patterns and schedules, export changes to GTFS CSV, and open a local browser dashboard. Use when working with GTFS data, transit stations, pathways, routes, trips, schedules, or accessibility audits.
 license: MIT
 compatibility: Requires Node.js 18+ and DuckDB CLI on PATH or DUCKDB_BIN
+install: npx skills add gabrielAHN/gtfs-viz
 metadata:
   author: gabrielahn
-  version: "1.4.0"
+  version: "1.5.0"
+  repository: gabrielAHN/gtfs-viz
 ---
 
 # GTFS Viz CLI
 
-Import GTFS feeds, query transit data, browse routes and service patterns, edit stations/pathways/routes, export changes, or open the local dashboard.
+Import GTFS feeds, query transit data, browse routes/trips/calendars/shapes, compare trip schedules, edit stations/pathways/routes/trips/stop times, export changes, or open the local dashboard.
 
 ## Reference Files
 
@@ -24,12 +26,20 @@ Read these when you need exact column names, SQL syntax, or flag details:
 
 ## Install
 
+Install the skill via npx:
+
+```bash
+npx skills add gabrielAHN/gtfs-viz
+```
+
+Or install the CLI globally and register the skill:
+
 ```bash
 npm install -g @gabrielahn/gtfs-viz-cli
 gtfs-viz install-skill
 ```
 
-Or from the repo:
+From the repo:
 
 ```bash
 yarn build
@@ -72,6 +82,20 @@ gtfs-viz stops --location-type "Stop"             # By type
 gtfs-viz stops --wheelchair "unknown"             # By wheelchair status
 ```
 
+```bash
+gtfs-viz trips                                   # Open trips view
+gtfs-viz trips --route R1 --data                 # Trips for a route
+gtfs-viz trip trip-123 --data                    # Stop times for a trip
+gtfs-viz trip trip-123 --view timeline           # Open timeline view
+gtfs-viz trip trip-123 --compare trip-456        # Compare two trips
+
+gtfs-viz calendar --data                         # List all services
+gtfs-viz calendar SAT-1 --data                   # Calendar for a service
+
+gtfs-viz shapes --data                           # List all shapes
+gtfs-viz shapes shape-123 --data                 # Points for a shape
+```
+
 Add `--format json` for JSON output.
 
 ## Dashboard
@@ -111,17 +135,43 @@ gtfs-viz station_pathways place-pktrm --node-id node-pktrm-stair7-gl --data
 
 When checking for missing station pieces or broken internal connectivity, use station-part and network functions only. Start with `get_station_stops(station_id)`, then inspect `get_station_pathways(station_id)`, `get_station_routes(station_id)`, `find_shortest_path`, or `find_reachable_stops`. Do not audit station-internal connectivity from `StopsTable`, because that table is for standalone stops. See [references/gtfs-schedule-reference.md](references/gtfs-schedule-reference.md).
 
-## Service Routes
+## Routes & Service
 
 ```bash
 gtfs-viz routes                                   # List all routes
 gtfs-viz routes --type Bus                        # Filter by type
 gtfs-viz routes --route-name "Metro"              # Filter by name
 gtfs-viz routes --route-id ROUTE_ID               # Filter by ID
-gtfs-viz routes --dashboard --route map           # Open routes map
 gtfs-viz route "Line 1"                           # Open route info
 gtfs-viz route --route-id ROUTE_ID --data         # Print route data
-gtfs-viz route "Line 1" --route service           # Open service view
+gtfs-viz route "Line 1" --view service            # Open service view
+```
+
+## Trips & Stop Times
+
+```bash
+gtfs-viz trips --data                             # List all trips
+gtfs-viz trips --route R1 --data                  # Trips for a route
+gtfs-viz trip trip-123 --data                     # Stop times with stop names
+gtfs-viz trip trip-123 --data --view info          # Trip metadata
+gtfs-viz trip trip-123 --view timeline             # Open timeline view
+gtfs-viz trip trip-123 --view map                  # Open map view
+gtfs-viz trip trip-123 --compare trip-456 --data   # Compare stop times
+gtfs-viz trip trip-123 --compare trip-456,trip-789 --view map # Compare 3 trips on map
+gtfs-viz trips --compare trip-1,trip-2,trip-3      # Compare trips in dashboard
+```
+
+Views: `timetable` (default), `timeline` (time chart), `map` (location), `info` (metadata with --data).
+
+## Calendar & Shapes
+
+```bash
+gtfs-viz calendar --data                          # List services with trip counts
+gtfs-viz calendar --route R1 --data               # Services for a route
+gtfs-viz calendar SAT-1 --data                    # Calendar + dates for a service
+gtfs-viz shapes --data                            # List shapes with point counts
+gtfs-viz shapes --route R1 --data                 # Shapes for a route
+gtfs-viz shapes shape-123 --data                  # Points for a shape
 ```
 
 ## Station Routes & Pathfinding
@@ -174,7 +224,10 @@ gtfs-viz query --name station-stops --args-json '{"stationId":"place-pktrm"}' --
 Review pending edits:
 
 ```bash
-gtfs-viz edit_table
+gtfs-viz edit_table                               # Show all edit tables
+gtfs-viz edit_table stop_times                    # Show stop time edits
+gtfs-viz edit_table calendar                      # Show calendar edits
+gtfs-viz edit_table trips                         # Show trip edits
 ```
 
 ## Export

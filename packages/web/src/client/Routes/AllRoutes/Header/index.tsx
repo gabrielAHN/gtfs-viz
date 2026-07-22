@@ -10,7 +10,7 @@ interface HeaderProps {
   RouteIdData: Array<{ label: string; value: string; color?: string }>;
   RouteIdDropdown: string;
   setRouteIdDropdown: (value: string) => void;
-  RouteNameData: Array<{ label: string; value?: string }>;
+  RouteNameData: Array<{ label: string; value?: string; searchLabel?: string }>;
   RouteNameDropDown: string;
   setRouteNameDropDown: (value: string) => void;
   RouteTypeData: Array<{ label: string; value: string; color?: string }>;
@@ -81,7 +81,7 @@ const Header: React.FC<HeaderProps> = (props) => {
         <div className="col-span-1">
           {RouteNameData ? (
             <Combobox
-              Selections={RouteNameData.map((item) => item.label)}
+              options={RouteNameData.map((item) => ({ value: item.value || item.label, label: item.label, searchLabel: item.searchLabel }))}
               Message="Route Name"
               value={RouteNameDropDown}
               setValue={(val) => setRouteNameDropDown(val || "")}

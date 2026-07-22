@@ -131,6 +131,55 @@ export const generateDynamicSelectQuery = async (
   return filterList;
 };
 
+/** Escape a string for safe SQL interpolation */
+export const escapeSql = (value: string) => value.replace(/'/g, "''");
+
+/** Format a value for SQL: strings are quoted+escaped, null/undefined/empty → NULL */
+export const toSqlString = (value?: string | null) => {
+  if (value === null || value === undefined || value === "") return "NULL";
+  return `'${escapeSql(value)}'`;
+};
+
+/** Format a number for SQL: null/undefined → NULL */
+export const toSqlNumber = (value?: number | null) => {
+  if (value === null || value === undefined) return "NULL";
+  return String(value);
+};
+
+/** Format a string array for SQL list: ['a','b'] */
+export const toSqlStringList = (values?: string[] | null) => {
+  if (!values || values.length === 0) return "NULL";
+  return `[${values.map((v) => toSqlString(v)).join(", ")}]`;
+};
+
+/** Check if required tables exist in DuckDB */
+export const checkTablesExist = async (conn: any, tables: string[]): Promise<boolean> => {
+  try {
+    const placeholders = tables.map((t) => `'${escapeSql(t)}'`).join(", ");
+    const result = await conn.query(`
+      SELECT COUNT(*) AS cnt
+      FROM information_schema.tables
+      WHERE table_name IN (${placeholders})
+    `);
+    const count = Number(result.toArray()[0]?.cnt ?? 0);
+    return count >= tables.length;
+  } catch {
+    return false;
+  }
+};
+
+/** Fetch distinct values from a column with optional conditions */
+export const fetchDistinctColumnValues = async (
+  conn: any,
+  table: string,
+  column: string,
+  conditions: string[] = [],
+): Promise<{ label: string; value: string }[]> => {
+  const baseQuery = `SELECT DISTINCT ${column} FROM ${table}`;
+  const query = buildAndQuery(baseQuery, conditions);
+  return executeColumnQuery(conn, query, column);
+};
+
 export const EditMergeQuery = (
   columns: string[],
   mappedColumns: string[],

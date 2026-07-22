@@ -53,10 +53,12 @@ function StopsMap({
   const [BoundBox, setBoundBox] = useState<any>();
 
   useEffect(() => {
-    if (viewState || !sqlBounds) return;
-    setViewState(sqlBounds.viewState);
+    if (!sqlBounds) return;
     setBoundBox(sqlBounds.boundBox);
-  }, [sqlBounds, viewState]);
+    if (!viewState) {
+      setViewState(sqlBounds.viewState);
+    }
+  }, [sqlBounds]);
 
   const [initialApplied, setInitialApplied] = useState(false);
   useEffect(() => {
@@ -90,7 +92,11 @@ function StopsMap({
 
   useEffect(() => {
     if (externalViewState) {
-      setViewState(externalViewState);
+      setViewState((prev) => ({
+        ...(prev || {}),
+        ...externalViewState,
+        transitionDuration: 500,
+      }));
     }
   }, [externalViewState]);
 

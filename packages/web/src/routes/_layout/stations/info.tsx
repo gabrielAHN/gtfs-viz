@@ -5,7 +5,7 @@ import { fetchCheckStationInfo } from "@/lib/duckdb/DataFetching/fetchStationInf
 import { Skeleton } from "@/components/ui/skeleton";
 import { TabHeader } from "@/components/ui/tab-header";
 import PageFooter from "@/components/PageFooter";
-import { BiInfoCircle, BiMapAlt, BiGridAlt } from "react-icons/bi";
+import { BiInfoCircle, BiMap, BiGridAlt } from "react-icons/bi";
 import StationInfo from "@/client/Stations/SelectedStations/StationInfo";
 import { EditIndicator } from "@/components/ui/EditIndicator";
 
@@ -105,7 +105,7 @@ function StationInfoPage() {
     {
       value: "pathways",
       label: "Pathways",
-      icon: <BiMapAlt />,
+      icon: <BiMap />,
       path: pathwayTabPath,
     },
   ];

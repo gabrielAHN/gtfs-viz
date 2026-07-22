@@ -130,6 +130,50 @@ CREATE TABLE IF NOT EXISTS EditRouteTable (
 );
 ALTER TABLE EditRouteTable ADD COLUMN IF NOT EXISTS shape_points_json TEXT;
 
+CREATE TABLE IF NOT EXISTS EditStopTimesTable (
+    row_id TEXT NOT NULL,
+    trip_id TEXT NOT NULL,
+    stop_sequence INTEGER,
+    stop_id TEXT,
+    arrival_time TEXT,
+    departure_time TEXT,
+    stop_headsign TEXT,
+    pickup_type INTEGER,
+    drop_off_type INTEGER,
+    shape_dist_traveled DOUBLE,
+    status TEXT
+);
+
+CREATE TABLE IF NOT EXISTS EditCalendarTable (
+    row_id TEXT NOT NULL,
+    service_id TEXT NOT NULL,
+    monday INTEGER,
+    tuesday INTEGER,
+    wednesday INTEGER,
+    thursday INTEGER,
+    friday INTEGER,
+    saturday INTEGER,
+    sunday INTEGER,
+    start_date TEXT,
+    end_date TEXT,
+    status TEXT
+);
+
+CREATE TABLE IF NOT EXISTS EditTripsTable (
+    row_id TEXT NOT NULL,
+    route_id TEXT NOT NULL,
+    service_id TEXT NOT NULL,
+    trip_id TEXT NOT NULL,
+    trip_headsign TEXT,
+    trip_short_name TEXT,
+    direction_id INTEGER,
+    block_id TEXT,
+    shape_id TEXT,
+    wheelchair_accessible INTEGER,
+    bikes_allowed INTEGER,
+    status TEXT
+);
+
 )SQL";
 
 // SQL executed after GTFS data is loaded (stops + pathways tables must exist).
@@ -219,19 +263,61 @@ FROM (
   WHERE NOT EXISTS (SELECT 1 FROM EditRouteTable edt WHERE edt.route_id = r.route_id AND edt.status IN ('edit', 'deleted', 'new edit'))
 ) combined;
 
+CREATE OR REPLACE VIEW CalendarView AS
+SELECT row_id, service_id, monday, tuesday, wednesday, thursday, friday, saturday, sunday, start_date, end_date, status
+FROM (
+  SELECT edt.row_id, edt.service_id, edt.monday, edt.tuesday, edt.wednesday, edt.thursday,
+         edt.friday, edt.saturday, edt.sunday, edt.start_date, edt.end_date, edt.status
+  FROM EditCalendarTable edt WHERE edt.status IN ('new', 'edit', 'new edit')
+  UNION ALL
+  SELECT CAST(c.row_id AS TEXT) AS row_id, c.service_id, c.monday, c.tuesday, c.wednesday, c.thursday,
+         c.friday, c.saturday, c.sunday, c.start_date, c.end_date, '' AS status
+  FROM calendar c
+  WHERE NOT EXISTS (SELECT 1 FROM EditCalendarTable edt WHERE edt.service_id = c.service_id AND edt.status = 'deleted')
+    AND NOT EXISTS (SELECT 1 FROM EditCalendarTable edt WHERE edt.service_id = c.service_id AND edt.status IN ('edit', 'new edit'))
+) combined;
+
 CREATE OR REPLACE VIEW TripsView AS
-SELECT t.*
-FROM trips t
-WHERE NOT EXISTS (
-  SELECT 1 FROM EditRouteTable edt
-  WHERE edt.route_id = t.route_id AND edt.status = 'deleted'
-);
+SELECT row_id, route_id, service_id, trip_id, trip_headsign, trip_short_name,
+       direction_id, block_id, shape_id, wheelchair_accessible, bikes_allowed, status
+FROM (
+  SELECT edt.row_id, edt.route_id, edt.service_id, edt.trip_id, edt.trip_headsign,
+         edt.trip_short_name, edt.direction_id, edt.block_id, edt.shape_id,
+         edt.wheelchair_accessible, edt.bikes_allowed, edt.status
+  FROM EditTripsTable edt WHERE edt.status IN ('new', 'edit', 'new edit')
+  UNION ALL
+  SELECT CAST(t.row_id AS TEXT) AS row_id, t.route_id, t.service_id, t.trip_id, t.trip_headsign,
+         t.trip_short_name, t.direction_id, t.block_id, t.shape_id,
+         t.wheelchair_accessible, t.bikes_allowed, '' AS status
+  FROM trips t
+  WHERE NOT EXISTS (SELECT 1 FROM EditRouteTable edt WHERE edt.route_id = t.route_id AND edt.status = 'deleted')
+    AND NOT EXISTS (SELECT 1 FROM EditTripsTable edt WHERE edt.trip_id = t.trip_id AND edt.status = 'deleted')
+    AND NOT EXISTS (SELECT 1 FROM EditTripsTable edt WHERE edt.trip_id = t.trip_id AND edt.status IN ('edit', 'new edit'))
+) combined;
+
+CREATE OR REPLACE VIEW StopTimesView AS
+SELECT row_id, trip_id, stop_sequence, stop_id, arrival_time, departure_time,
+       stop_headsign, pickup_type, drop_off_type, shape_dist_traveled, status
+FROM (
+  SELECT edt.row_id, edt.trip_id, edt.stop_sequence, edt.stop_id,
+         edt.arrival_time, edt.departure_time, edt.stop_headsign,
+         edt.pickup_type, edt.drop_off_type, edt.shape_dist_traveled, edt.status
+  FROM EditStopTimesTable edt WHERE edt.status IN ('new', 'edit', 'new edit')
+  UNION ALL
+  SELECT CAST(st.row_id AS TEXT) AS row_id, st.trip_id, st.stop_sequence, st.stop_id,
+         st.arrival_time, st.departure_time, st.stop_headsign,
+         st.pickup_type, st.drop_off_type, st.shape_dist_traveled, '' AS status
+  FROM stop_times st
+  WHERE NOT EXISTS (SELECT 1 FROM EditStopTimesTable edt WHERE edt.row_id = CAST(st.row_id AS TEXT) AND edt.status = 'deleted')
+    AND NOT EXISTS (SELECT 1 FROM EditStopTimesTable edt WHERE edt.row_id = CAST(st.row_id AS TEXT) AND edt.status = 'edit')
+    AND NOT EXISTS (SELECT 1 FROM EditStopTimesTable edt WHERE edt.trip_id = st.trip_id AND edt.status = 'new edit')
+) combined;
 
 CREATE OR REPLACE VIEW RouteStopsView AS
 WITH route_stop_refs AS (
   SELECT t.route_id, st.stop_id, MIN(st.stop_sequence) AS stop_sequence
   FROM TripsView t
-  JOIN stop_times st ON st.trip_id = t.trip_id
+  JOIN StopTimesView st ON st.trip_id = t.trip_id
   WHERE t.route_id IS NOT NULL AND t.route_id != ''
     AND st.stop_id IS NOT NULL AND st.stop_id != ''
   GROUP BY t.route_id, st.stop_id
@@ -368,11 +454,81 @@ CREATE OR REPLACE MACRO get_routes_table_data() AS TABLE (
   ORDER BY COALESCE(r.route_sort_order, TRY_CAST(r.row_id AS INTEGER), 2147483647), r.route_name, r.route_id
 );
 
+CREATE OR REPLACE MACRO get_trips_table_data() AS TABLE (
+  WITH parsed_stop_times AS (
+    SELECT trip_id,
+           CASE WHEN NULLIF(departure_time, '') IS NULL THEN NULL
+             ELSE COALESCE(TRY_CAST(SPLIT_PART(departure_time, ':', 1) AS INTEGER), 0) * 3600
+                + COALESCE(TRY_CAST(SPLIT_PART(departure_time, ':', 2) AS INTEGER), 0) * 60
+                + COALESCE(TRY_CAST(SPLIT_PART(departure_time, ':', 3) AS INTEGER), 0)
+           END AS departure_seconds,
+           CASE WHEN NULLIF(arrival_time, '') IS NULL THEN NULL
+             ELSE COALESCE(TRY_CAST(SPLIT_PART(arrival_time, ':', 1) AS INTEGER), 0) * 3600
+                + COALESCE(TRY_CAST(SPLIT_PART(arrival_time, ':', 2) AS INTEGER), 0) * 60
+                + COALESCE(TRY_CAST(SPLIT_PART(arrival_time, ':', 3) AS INTEGER), 0)
+           END AS arrival_seconds
+    FROM StopTimesView
+    WHERE trip_id IS NOT NULL AND trip_id != ''
+  ),
+  trip_times AS (
+    SELECT trip_id,
+           MIN(departure_seconds) AS first_departure_seconds,
+           MAX(arrival_seconds) AS last_arrival_seconds
+    FROM parsed_stop_times
+    GROUP BY trip_id
+  )
+  SELECT t.trip_id, t.route_id, t.service_id, t.trip_headsign,
+         t.trip_short_name, t.direction_id, t.block_id, t.shape_id,
+         r.route_name, r.route_type_name, r.route_color_hex,
+         tt.first_departure_seconds, tt.last_arrival_seconds
+  FROM TripsView t
+  LEFT JOIN RoutesView r ON r.route_id = t.route_id
+  LEFT JOIN trip_times tt ON tt.trip_id = t.trip_id
+  ORDER BY COALESCE(tt.first_departure_seconds, 2147483647), t.trip_id
+);
+
+-- ── Calendar table data macro ────────────────────────────────────────────────
+CREATE OR REPLACE MACRO get_calendar_table_data() AS TABLE (
+  SELECT cv.service_id, cv.monday, cv.tuesday, cv.wednesday, cv.thursday,
+         cv.friday, cv.saturday, cv.sunday, cv.start_date, cv.end_date, cv.status
+  FROM CalendarView cv
+  ORDER BY cv.service_id
+);
+
 -- ── Materialized tables ─────────────────────────────────────────────────────
 
 CREATE OR REPLACE TABLE StopsTable AS SELECT * FROM get_stops_table_data();
 CREATE OR REPLACE TABLE StationsTable AS SELECT * FROM get_stations_table_data();
 CREATE OR REPLACE TABLE RoutesTable AS SELECT * FROM get_routes_table_data();
+CREATE OR REPLACE TABLE TripsTable AS SELECT * FROM get_trips_table_data();
+CREATE OR REPLACE TABLE CalendarTable AS SELECT * FROM get_calendar_table_data();
+
+CREATE OR REPLACE MACRO get_trips_time_bounds() AS TABLE (
+  SELECT
+    GREATEST(0, CAST(FLOOR(MIN(first_departure_seconds) / 300.0) * 300 AS INTEGER)) AS min_time,
+    CAST(CEIL(MAX(last_arrival_seconds) / 300.0) * 300 AS INTEGER) AS max_time
+  FROM TripsTable
+  WHERE first_departure_seconds IS NOT NULL OR last_arrival_seconds IS NOT NULL
+);
+
+CREATE OR REPLACE MACRO get_trip_map_bounds(p_trip_id) AS TABLE (
+  WITH trip_stops AS (
+    SELECT s.stop_lon, s.stop_lat
+    FROM StopTimesView st
+    JOIN StopsView s ON s.stop_id = st.stop_id
+    WHERE st.trip_id = p_trip_id AND s.stop_lon IS NOT NULL AND s.stop_lat IS NOT NULL
+  ),
+  b AS (
+    SELECT MIN(stop_lon) AS min_lon, MAX(stop_lon) AS max_lon,
+           MIN(stop_lat) AS min_lat, MAX(stop_lat) AS max_lat
+    FROM trip_stops
+  )
+  SELECT min_lon, max_lon, min_lat, max_lat,
+         (min_lon + max_lon) / 2.0 AS center_lon,
+         (min_lat + max_lat) / 2.0 AS center_lat,
+         fit_zoom(min_lon, max_lon, min_lat, max_lat) AS zoom
+  FROM b WHERE min_lon IS NOT NULL
+);
 
 CREATE OR REPLACE MACRO get_gtfs_data_availability() AS TABLE (
   WITH counts AS (
@@ -380,12 +536,14 @@ CREATE OR REPLACE MACRO get_gtfs_data_availability() AS TABLE (
       (SELECT COUNT(*) FROM StationsTable) AS stations,
       (SELECT COUNT(*) FROM StopsTable) AS stops,
       (SELECT COUNT(*) FROM PathwaysView) AS pathways,
-      (SELECT COUNT(*) FROM RoutesTable) AS routes
+      (SELECT COUNT(*) FROM RoutesTable) AS routes,
+      (SELECT COUNT(*) FROM TripsTable) AS trips
   )
-  SELECT stations, stops, pathways, routes,
+  SELECT stations, stops, pathways, routes, trips,
          stations > 0 AS has_stations,
          stops > 0 AS has_stops,
-         routes > 0 AS has_routes
+         routes > 0 AS has_routes,
+         trips > 0 AS has_trips
   FROM counts
 );
 
@@ -428,6 +586,11 @@ CREATE INDEX IF NOT EXISTS idx_trips_trip_id ON trips(trip_id);
 CREATE INDEX IF NOT EXISTS idx_trips_shape_id ON trips(shape_id);
 CREATE INDEX IF NOT EXISTS idx_stop_times_trip_id ON stop_times(trip_id);
 CREATE INDEX IF NOT EXISTS idx_stop_times_stop_id ON stop_times(stop_id);
+CREATE INDEX IF NOT EXISTS idx_edit_stop_times_trip_id ON EditStopTimesTable(trip_id);
+CREATE INDEX IF NOT EXISTS idx_edit_stop_times_row_id ON EditStopTimesTable(row_id);
+CREATE INDEX IF NOT EXISTS idx_edit_calendar_service_id ON EditCalendarTable(service_id);
+CREATE INDEX IF NOT EXISTS idx_edit_trips_trip_id ON EditTripsTable(trip_id);
+CREATE INDEX IF NOT EXISTS idx_edit_trips_route_id ON EditTripsTable(route_id);
 CREATE INDEX IF NOT EXISTS idx_shapes_shape_id ON shapes(shape_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_service_id ON calendar(service_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_dates_service_id ON calendar_dates(service_id);

@@ -46,4 +46,14 @@ CREATE OR REPLACE MACRO bidirectional_to_direction(is_bidirectional) AS (
     ELSE 'unknown'
   END
 );
+
+-- gtfs_time_to_seconds: Convert GTFS time string (HH:MM:SS, supports >24h) to seconds
+CREATE OR REPLACE MACRO gtfs_time_to_seconds(time_str) AS (
+  CASE
+    WHEN NULLIF(time_str, '') IS NULL THEN NULL
+    ELSE COALESCE(TRY_CAST(SPLIT_PART(time_str, ':', 1) AS INTEGER), 0) * 3600
+       + COALESCE(TRY_CAST(SPLIT_PART(time_str, ':', 2) AS INTEGER), 0) * 60
+       + COALESCE(TRY_CAST(SPLIT_PART(time_str, ':', 3) AS INTEGER), 0)
+  END
+);
 `;

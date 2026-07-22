@@ -935,10 +935,6 @@ export const PathwayFlowEditor: React.FC<PathwayFlowEditorProps> = ({
   const onInit = useCallback((instance: any) => {
     reactFlowInstanceRef.current = instance;
     setIsFlowReady(true);
-    console.log("React Flow initialized", {
-      nodes: instance.getNodes().length,
-      edges: instance.getEdges().length,
-    });
   }, []);
 
   const focusNodeById = useCallback(

@@ -310,6 +310,21 @@ export const createServer = (
         return;
       }
 
+      // Redirect any page without CLI params to include them so the app detects CLI mode
+      const isHtmlPage = !url.pathname.startsWith("/__gtfs_viz/") && !url.pathname.startsWith("/assets/") && !url.pathname.match(/\.\w{2,4}$/);
+      if (isHtmlPage && !url.searchParams.has("cliSession")) {
+        const targetPath = url.pathname === "/" ? "/routes/table" : url.pathname;
+        const redirectUrl = new URL(url.toString());
+        redirectUrl.pathname = targetPath;
+        redirectUrl.searchParams.set("gtfsSource", "/__gtfs_viz/feed.zip");
+        redirectUrl.searchParams.set("cliSession", sessionId);
+        redirectUrl.searchParams.set("cliApi", "/__gtfs_viz/api");
+        redirectUrl.searchParams.set("cliView", targetPath.slice(1));
+        res.writeHead(302, { Location: redirectUrl.pathname + redirectUrl.search });
+        res.end();
+        return;
+      }
+
       await serveStatic(res, url.pathname);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
