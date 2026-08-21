@@ -1,9 +1,5 @@
 #!/usr/bin/env node
-/**
- * Postinstall: prompts user to install GTFS Viz skills to ~/.claude or ~/.skills.
- * In non-interactive mode (piped stdin), prints a message to run install-skill manually.
- */
-import { cp, mkdir, readFile, rm, access } from "node:fs/promises";
+import { cp, mkdir, readFile, rm, access, writeFile } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import readline from "node:readline";
@@ -15,11 +11,9 @@ const packageRoot = path.resolve(
 );
 const sourceDir = path.join(packageRoot, "skills", "gtfs-viz");
 
-// Always wipe data and stop daemon on fresh install
 const dataRoot = path.join(os.homedir(), ".gtfs-viz-cli");
 const sessionRoot = path.join(os.tmpdir(), "gtfs-viz-cli");
 
-// Kill any running daemon
 const daemonFile = path.join(dataRoot, "daemon.json");
 try {
   const raw = await readFile(daemonFile, "utf8");
@@ -30,44 +24,66 @@ try {
   await rm(daemonFile, { force: true });
 } catch {}
 
-// Wipe all local data (DuckDB, feed zip, session state)
 await rm(dataRoot, { recursive: true, force: true }).catch(() => {});
 await rm(sessionRoot, { recursive: true, force: true }).catch(() => {});
 
-// Check if skills directory exists (won't during dev install)
 try {
   await access(sourceDir);
 } catch {
-  // No skills dir — dev mode, skip silently
   process.exit(0);
 }
 
 const targets = {
   1: {
-    label: "Claude Code (~/.claude/skills)",
+    provider: "anthropic",
+    label: "Anthropic / Claude Code (~/.claude/skills)",
     dir: path.join(
       process.env.CLAUDE_HOME || path.join(os.homedir(), ".claude"),
       "skills"
     ),
+    allowedTools: "Bash(gtfs-viz:*) Bash(duckdb:*) Read",
   },
   2: {
-    label: "Open source (~/.skills)",
-    dir: path.join(os.homedir(), ".skills"),
+    provider: "openai",
+    label: "OpenAI / Codex (~/.codex/skills)",
+    dir: path.join(
+      process.env.CODEX_HOME || path.join(os.homedir(), ".codex"),
+      "skills"
+    ),
+  },
+  3: {
+    provider: "google",
+    label: "Google / Gemini CLI (~/.gemini/skills)",
+    dir: path.join(
+      process.env.GEMINI_HOME || path.join(os.homedir(), ".gemini"),
+      "skills"
+    ),
+  },
+  4: {
+    provider: "generic",
+    label: "Generic Agent Skills (~/.agents/skills)",
+    dir: path.join(os.homedir(), ".agents", "skills"),
   },
 };
 
-async function installTo(skillsDir) {
-  const targetDir = path.join(skillsDir, "gtfs-viz");
+async function installTo(target) {
+  const targetDir = path.join(target.dir, "gtfs-viz");
   await rm(targetDir, { recursive: true, force: true }).catch(() => {});
-  await mkdir(skillsDir, { recursive: true });
+  await mkdir(target.dir, { recursive: true });
   await cp(sourceDir, targetDir, { recursive: true });
-  console.log(`Installed GTFS Viz skill to ${targetDir}`);
+  const skillMdPath = path.join(targetDir, "SKILL.md");
+  let skillMd = await readFile(skillMdPath, "utf8");
+  skillMd = skillMd.replace(/^(metadata:\s*\n)/m, `$1  provider: ${target.provider}\n`);
+  if (target.allowedTools) {
+    skillMd = skillMd.replace(/^(metadata:)/m, `allowed-tools: ${target.allowedTools}\n$1`);
+  }
+  await writeFile(skillMdPath, skillMd, "utf8");
+  console.log(`Installed GTFS Viz skill for ${target.provider} to ${targetDir}`);
 }
 
-// Non-interactive — skip with message
 if (!process.stdin.isTTY) {
   console.log(
-    "Run `gtfs-viz install-skill` to install agent skills interactively."
+    "Run `gtfs-viz install-skill <provider>` to install the agent skill."
   );
   process.exit(0);
 }
@@ -78,19 +94,20 @@ const rl = readline.createInterface({
 });
 
 console.log("\nInstall GTFS Viz skills:");
-console.log("  1. Claude Code (~/.claude/skills)");
-console.log("  2. Open source (~/.skills)");
-console.log("  3. Skip");
+Object.entries(targets).forEach(([number, target]) => {
+  console.log(`  ${number}. ${target.label}`);
+});
+console.log("  5. Skip");
 
 const answer = await new Promise((resolve) => {
-  rl.question("Choose 1, 2, or 3: ", resolve);
+  rl.question("Choose 1-5: ", resolve);
 });
 rl.close();
 
 const choice = answer.trim();
-if (choice === "1" || choice === "2") {
+if (targets[choice]) {
   try {
-    await installTo(targets[choice].dir);
+    await installTo(targets[choice]);
   } catch (error) {
     console.error("Skill installation failed:", error.message);
     console.log("Run `gtfs-viz install-skill` to retry.");
