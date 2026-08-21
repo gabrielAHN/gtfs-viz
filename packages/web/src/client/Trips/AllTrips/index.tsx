@@ -701,9 +701,8 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
               disabled={
                 stopTimesLoading ||
                 stopTimes.length < 2 ||
-                rerouteRoutesLoading ||
                 !!rerouteRoutesError ||
-                rerouteRoutes.length === 0
+                (!rerouteRoutesLoading && rerouteRoutes.length === 0)
               }
               title={
                 stopTimesLoading
