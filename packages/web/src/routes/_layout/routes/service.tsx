@@ -13,10 +13,15 @@ import {
   fetchServiceRouteInfoData,
   fetchServiceRouteServicesData,
 } from "@/lib/duckdb/DataFetching/fetchRouteData";
+import { tablePaginationSearch } from "@/lib/tablePagination";
 
 type RouteServiceSearchParams = {
   selectedRouteId?: string;
   selectedServiceId?: string;
+  servicesPage?: number;
+  servicesPageSize?: number;
+  serviceTripsPage?: number;
+  serviceTripsPageSize?: number;
 };
 
 export const Route = createFileRoute("/_layout/routes/service")({
@@ -26,6 +31,8 @@ export const Route = createFileRoute("/_layout/routes/service")({
     return {
       selectedRouteId: strip(search.selectedRouteId),
       selectedServiceId: strip(search.selectedServiceId),
+      ...tablePaginationSearch(search, "services"),
+      ...tablePaginationSearch(search, "serviceTrips"),
     };
   },
   beforeLoad: ({ search }) => {

@@ -8,6 +8,7 @@ import PartsTableView from "@/client/Stations/SelectedStations/StationParts/Tabl
 import EntityForm from "@/components/forms/EntityForm";
 import { WHEELCHAIR_STATUS } from "@/components/style";
 import { rgbToHex } from "@/components/colorUtil";
+import { tablePaginationSearch } from "@/lib/tablePagination";
 
 type PartsTableSearchParams = {
   selectedStationId?: string;
@@ -18,6 +19,8 @@ type PartsTableSearchParams = {
   selectedNodeId?: string;
   timeRangeMin?: number;
   timeRangeMax?: number;
+  page?: number;
+  pageSize?: number;
 };
 
 export const Route = createFileRoute("/_layout/stations/parts/table")({
@@ -44,6 +47,7 @@ export const Route = createFileRoute("/_layout/stations/parts/table")({
       selectedNodeId: search.selectedNodeId as string | undefined,
       timeRangeMin: search.timeRangeMin as number | undefined,
       timeRangeMax: search.timeRangeMax as number | undefined,
+      ...tablePaginationSearch(search),
     };
   },
 });

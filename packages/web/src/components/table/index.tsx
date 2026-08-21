@@ -19,6 +19,7 @@ import {
 import { BiChevronUp, BiChevronDown, BiChevronRight, BiChevronLeft, BiChevronsRight, BiChevronsLeft, BiRightArrow } from "react-icons/bi";
 import { Badge } from "@/components/ui/badge";
 import { EditIndicator } from "@/components/ui/EditIndicator";
+import { useUrlTablePagination } from "@/lib/tablePagination";
 
 function TableComponent({
   data,
@@ -31,10 +32,11 @@ function TableComponent({
   onSortingChange,
   clearSortingTrigger,
   selectionKey = "stop_id",
+  paginationKey = undefined,
 }) {
   const [sorting, setSorting] = useState([]);
-  const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const { pagination, onPaginationChange } = useUrlTablePagination(paginationKey);
+  const { pageIndex, pageSize } = pagination;
 
   useEffect(() => {
     if (onSortingChange) {
@@ -65,24 +67,10 @@ function TableComponent({
     columns,
     state: {
       sorting,
-      pagination: { pageIndex, pageSize },
+      pagination,
     },
     onSortingChange: setSorting,
-    onPaginationChange: (updater) => {
-      if (typeof updater === "function") {
-        setPageIndex((prevPage) => {
-          const nextPage = updater({ pageIndex: prevPage, pageSize }).pageIndex;
-          return typeof nextPage === "number" ? nextPage : prevPage;
-        });
-        setPageSize((prevSize) => {
-          const nextSize = updater({ pageIndex, pageSize: prevSize }).pageSize;
-          return typeof nextSize === "number" ? nextSize : prevSize;
-        });
-      } else {
-        setPageIndex(updater.pageIndex ?? 0);
-        setPageSize(updater.pageSize ?? 10);
-      }
-    },
+    onPaginationChange,
     enableMultiSort: true,
     enableSortingRemoval: true,
     maxMultiSortColCount: 5,
@@ -91,6 +79,13 @@ function TableComponent({
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
   });
+
+  const pageCount = table.getPageCount();
+  useEffect(() => {
+    if (pageCount > 0 && pageIndex >= pageCount) {
+      onPaginationChange({ pageIndex: pageCount - 1, pageSize });
+    }
+  }, [onPaginationChange, pageCount, pageIndex, pageSize]);
 
   const rows = table.getRowModel().rows;
 

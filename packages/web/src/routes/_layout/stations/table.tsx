@@ -12,6 +12,7 @@ import EntityForm from "@/components/forms/EntityForm";
 import PageFooter from "@/components/PageFooter";
 import { DATA_STATUS } from "@/components/style";
 import { rgbToHex } from "@/components/colorUtil";
+import { tablePaginationSearch } from "@/lib/tablePagination";
 
 type StationsTableSearchParams = {
   stopId?: string;
@@ -19,6 +20,8 @@ type StationsTableSearchParams = {
   pathwaysStatus?: string[];
   wheelchairStatus?: string[];
   selectedStationId?: string;
+  page?: number;
+  pageSize?: number;
 };
 
 export const Route = createFileRoute("/_layout/stations/table")({
@@ -38,6 +41,7 @@ export const Route = createFileRoute("/_layout/stations/table")({
           ? [search.wheelchairStatus as string]
           : undefined,
       selectedStationId: search.selectedStationId as string | undefined,
+      ...tablePaginationSearch(search),
     };
   },
 });

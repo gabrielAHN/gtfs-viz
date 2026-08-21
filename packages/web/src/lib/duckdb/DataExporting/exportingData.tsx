@@ -53,6 +53,7 @@ const Datafiles = [
     orgTable: {
       name: "stop_times",
       file: "stop_times.csv",
+      view: "StopTimesView",
       removeList: [
         "row_id", "status"
       ]
@@ -92,6 +93,21 @@ const Datafiles = [
       merge_id: "trip_id"
     },
   },
+  {
+    orgTable: {
+      name: "calendar_dates",
+      file: "calendar_dates.csv",
+      view: "CalendarDatesView",
+      removeList: [
+        "row_id", "status"
+      ]
+    },
+    editTable: {
+      name: "EditCalendarDatesTable",
+      editQuery: EditMergeQuery,
+      merge_id: "row_id"
+    },
+  },
 ];
 
 const isCliNativeConn = (conn: any): boolean =>
@@ -121,16 +137,21 @@ export const exportingData = async ({ conn, FileTypes }) => {
     );
 
     for (const fileInfo of filteredDatafiles) {
-      const query = await CreateExportQuery(conn, fileInfo);
+      // Entities whose merge needs a composite/whole-trip key (stop_times, calendar_dates)
+      // export directly from their pre-merged *View; the rest use the base+edit merge query.
+      const viewName = (fileInfo.orgTable as { view?: string }).view;
+      const columns = await generateDynamicSelectQuery(
+        conn,
+        viewName || fileInfo.orgTable.name,
+        fileInfo.orgTable.removeList,
+      );
+      const query = viewName
+        ? `SELECT ${columns.join(", ")} FROM ${viewName}`
+        : await CreateExportQuery(conn, fileInfo);
 
       let csvContent: string | Uint8Array;
 
       if (isCliNativeConn(conn)) {
-        const columns = await generateDynamicSelectQuery(
-          conn,
-          fileInfo.orgTable.name,
-          fileInfo.orgTable.removeList,
-        );
         const rows = await executeQuery(conn, query);
         csvContent = rowsToCsv(columns, rows);
       } else {
