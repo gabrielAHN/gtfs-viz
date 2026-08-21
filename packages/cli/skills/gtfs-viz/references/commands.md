@@ -19,6 +19,19 @@ Use `--target-dir <dir>` to override the provider default and `--force` to repla
 
 `gtfs-viz h` and `gtfs-viz help` show general help. Add a command, such as `gtfs-viz h reroute` or `gtfs-viz h edits`, for the same detailed output as `gtfs-viz reroute -h` or `gtfs-viz edits -h`.
 
+## Version and Updates
+
+```bash
+gtfs-viz version
+gtfs-viz --version
+gtfs-viz -v
+gtfs-viz update --check
+gtfs-viz update
+gtfs-viz update --provider openai
+```
+
+`update` installs the latest global npm release while preserving the imported GTFS dataset and session. `--check` only compares versions. Add `--provider` to refresh that provider skill after updating.
+
 ## Import & Status
 
 ```bash

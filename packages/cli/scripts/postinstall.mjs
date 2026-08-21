@@ -11,21 +11,21 @@ const packageRoot = path.resolve(
 );
 const sourceDir = path.join(packageRoot, "skills", "gtfs-viz");
 
-const dataRoot = path.join(os.homedir(), ".gtfs-viz-cli");
-const sessionRoot = path.join(os.tmpdir(), "gtfs-viz-cli");
-
-const daemonFile = path.join(dataRoot, "daemon.json");
-try {
-  const raw = await readFile(daemonFile, "utf8");
-  const meta = JSON.parse(raw);
-  if (meta.pid) {
-    try { process.kill(meta.pid, "SIGTERM"); } catch {}
-  }
-  await rm(daemonFile, { force: true });
-} catch {}
-
-await rm(dataRoot, { recursive: true, force: true }).catch(() => {});
-await rm(sessionRoot, { recursive: true, force: true }).catch(() => {});
+if (process.env.GTFS_VIZ_PRESERVE_DATA !== "1") {
+  const dataRoot = path.join(os.homedir(), ".gtfs-viz-cli");
+  const sessionRoot = path.join(os.tmpdir(), "gtfs-viz-cli");
+  const daemonFile = path.join(dataRoot, "daemon.json");
+  try {
+    const raw = await readFile(daemonFile, "utf8");
+    const meta = JSON.parse(raw);
+    if (meta.pid) {
+      try { process.kill(meta.pid, "SIGTERM"); } catch {}
+    }
+    await rm(daemonFile, { force: true });
+  } catch {}
+  await rm(dataRoot, { recursive: true, force: true }).catch(() => {});
+  await rm(sessionRoot, { recursive: true, force: true }).catch(() => {});
+}
 
 try {
   await access(sourceDir);

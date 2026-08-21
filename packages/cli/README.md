@@ -64,6 +64,8 @@ gtfs-viz examples                     # See all commands
 | `examples` | Show usage examples |
 | `clean` | Remove all local data |
 | `install-skill [provider]` | Install the bundled skill for an AI provider |
+| `version`, `-v`, `--version` | Show the installed CLI version |
+| `update [--check]` | Update the CLI to the latest npm release |
 
 Output modes: no flags opens the dashboard. `--data` for terminal table, `--format json` for JSON, `--url` to open dashboard and print URL, `--url-only` to print URL without opening, `--view <view>` to pick a specific page (e.g. `--view map`).
 
@@ -98,6 +100,17 @@ yarn cli stations
 ## DuckDB Extension
 
 The CLI uses the same GTFS DuckDB extension as the web app. See the [extension docs](../duckdb-extension#readme) for the full macro reference.
+
+## Version and Updates
+
+```bash
+gtfs-viz --version
+gtfs-viz update --check
+gtfs-viz update
+gtfs-viz update --provider openai
+```
+
+`update` checks npm and installs the latest global `@gabrielahn/gtfs-viz-cli` release. It preserves the imported GTFS dataset and session files. Add `--provider` to refresh that provider skill after updating.
 
 ## Agent Skills
 

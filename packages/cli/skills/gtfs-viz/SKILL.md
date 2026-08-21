@@ -42,6 +42,17 @@ Use `anthropic`, `openai`, `google`, or `generic` for the AI provider. Run `gtfs
 
 Use `gtfs-viz h` for general help or `gtfs-viz h <command>` for the same command-specific help as `gtfs-viz help <command>` and `gtfs-viz <command> -h`.
 
+Show or update the installed CLI:
+
+```bash
+gtfs-viz --version
+gtfs-viz update --check
+gtfs-viz update
+gtfs-viz update --provider openai
+```
+
+`update` preserves the imported dataset and session. Add `--provider` to refresh the installed skill for that provider after the CLI update.
+
 From the repo:
 
 ```bash

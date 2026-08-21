@@ -70,6 +70,75 @@ const resolvePackageRoot = () => {
   }
 };
 const packageRoot = resolvePackageRoot();
+const cliPackageName = "@gabrielahn/gtfs-viz-cli";
+
+const readCliVersion = async () => {
+  const packageJson = JSON.parse(
+    await readFile(path.join(packageRoot, "package.json"), "utf-8"),
+  ) as { version?: string };
+  if (!packageJson.version) throw new Error("CLI package version is missing");
+  return packageJson.version;
+};
+
+const compareVersions = (left: string, right: string) => {
+  const parse = (value: string) => {
+    const [main, prerelease] = value.replace(/^v/, "").split("-", 2);
+    return {
+      parts: main.split(".").map((part) => Number.parseInt(part, 10) || 0),
+      prerelease,
+    };
+  };
+  const a = parse(left);
+  const b = parse(right);
+  for (let index = 0; index < Math.max(a.parts.length, b.parts.length); index += 1) {
+    const difference = (a.parts[index] || 0) - (b.parts[index] || 0);
+    if (difference !== 0) return Math.sign(difference);
+  }
+  if (a.prerelease === b.prerelease) return 0;
+  if (!a.prerelease) return 1;
+  if (!b.prerelease) return -1;
+  return a.prerelease.localeCompare(b.prerelease);
+};
+
+const npmCommand = () =>
+  process.env.GTFS_VIZ_NPM_BIN || (process.platform === "win32" ? "npm.cmd" : "npm");
+
+const readLatestCliVersion = async () => {
+  const { stdout } = await runProcess(npmCommand(), [
+    "view",
+    `${cliPackageName}@latest`,
+    "version",
+    "--json",
+  ]);
+  const trimmed = stdout.trim();
+  if (!trimmed) throw new Error("npm returned no latest version");
+  let version: string;
+  try {
+    const value = JSON.parse(trimmed) as string | string[];
+    version = Array.isArray(value) ? value.at(-1) || "" : value;
+  } catch {
+    version = trimmed.replace(/^"|"$/g, "");
+  }
+  if (!/^\d+\.\d+\.\d+/.test(version)) throw new Error(`Invalid npm version: ${version}`);
+  return version;
+};
+
+const runUpdateInstall = (version: string) =>
+  new Promise<void>((resolve, reject) => {
+    const child = spawn(
+      npmCommand(),
+      ["install", "--global", `${cliPackageName}@${version}`, "--no-fund", "--no-audit"],
+      {
+        stdio: "inherit",
+        env: { ...process.env, GTFS_VIZ_PRESERVE_DATA: "1" },
+      },
+    );
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`npm install exited with ${code}`));
+    });
+  });
 
 const supportedViews = new Set([
   "auto",
@@ -3028,6 +3097,10 @@ const commandSkillPath = () => {
   console.log(path.join(packageRoot, "skills", "gtfs-viz", "SKILL.md"));
 };
 
+const commandVersion = async () => {
+  console.log(`gtfs-viz ${await readCliVersion()}`);
+};
+
 type SkillProvider = "anthropic" | "openai" | "google" | "generic";
 
 const skillProviderChoices: Array<{ provider: SkillProvider; label: string; aliases: string[] }> = [
@@ -3144,6 +3217,47 @@ const commandInstallSkill = async (args: Args) => {
   console.log(`Installed GTFS Viz skill for ${provider} to ${targetDir}`);
 };
 
+const commandUpdate = async (args: Args) => {
+  const currentVersion = await readCliVersion();
+  const latestVersion = await readLatestCliVersion();
+  const comparison = compareVersions(currentVersion, latestVersion);
+  const checkOnly = hasFlag(args.flags, "check") || hasFlag(args.flags, "dry-run");
+  const force = hasFlag(args.flags, "force");
+
+  console.log(`Current: ${currentVersion}`);
+  console.log(`Latest: ${latestVersion}`);
+
+  if (checkOnly) {
+    if (comparison === 0) console.log("Status: already up to date");
+    else if (comparison > 0)
+      console.log("Status: current version is newer than the latest published version");
+    else console.log("Status: update available");
+  } else if (comparison < 0 || force) {
+    console.log(`Updating ${cliPackageName} to ${latestVersion}...`);
+    await runUpdateInstall(latestVersion);
+    console.log(`Updated gtfs-viz to ${latestVersion}`);
+  } else if (comparison === 0) {
+    console.log("Status: already up to date");
+  } else {
+    console.log("Status: current version is newer than the latest published version");
+  }
+
+  const provider = getFlagString(args.flags, "provider") || getFlagString(args.flags, "agent");
+  if (provider && !checkOnly) {
+    await commandInstallSkill({
+      command: "install-skill",
+      positionals: [],
+      flags: {
+        provider,
+        force: true,
+        ...(getFlagString(args.flags, "target-dir")
+          ? { "target-dir": getFlagString(args.flags, "target-dir")! }
+          : {}),
+      },
+    });
+  }
+};
+
 const main = async () => {
   const args = parseArgs(process.argv.slice(2));
 
@@ -3168,6 +3282,10 @@ const main = async () => {
       return;
     }
     printHelp();
+    return;
+  }
+  if (hasFlag(args.flags, "version") || args.command === "version") {
+    await commandVersion();
     return;
   }
   if (args.command === "examples") {
@@ -3242,6 +3360,10 @@ const main = async () => {
   }
   if (args.command === "install-skill" || args.command === "skills:install") {
     await commandInstallSkill(args);
+    return;
+  }
+  if (args.command === "update" || args.command === "self-update") {
+    await commandUpdate(args);
     return;
   }
   if (args.command === "export") {

@@ -127,6 +127,28 @@ const commandHelp: Record<string, string> = {
 
   A provider is required in non-interactive shells, including with --target-dir.`,
 
+  version: `gtfs-viz version
+  gtfs-viz --version
+  gtfs-viz -v
+
+  Show the installed GTFS Viz CLI version.`,
+
+  update: `gtfs-viz update [flags]
+
+  Update the globally installed GTFS Viz CLI to the latest npm release.
+
+  Flags:
+    --check              Check the installed and latest versions without updating
+    --dry-run            Alias for --check
+    --force              Reinstall latest even when already current
+    --provider <name>    Refresh the skill for a provider after updating
+    --target-dir <dir>   Override the refreshed skill directory
+
+  Examples:
+    gtfs-viz update --check
+    gtfs-viz update
+    gtfs-viz update --provider openai`,
+
   station: `gtfs-viz station <name|id> [flags]
 
   Show station info in the dashboard, or print station data.
@@ -646,6 +668,7 @@ const commandAliases: Record<string, string> = {
   "route:map": "routes",
   "route:table": "routes",
   "route:info": "route",
+  "self-update": "update",
 };
 
 export const printCommandHelp = (command: string): boolean => {
@@ -695,11 +718,15 @@ Agent Skills:
   install-skill [provider]           Install the skill for an AI provider
   skill-path                         Print the packaged SKILL.md path
 
+Version & Updates:
+  version                            Show the installed CLI version
+  update [--check]                   Update the CLI to the latest npm release
+
 Help:
   h [command]                        Show general or command-specific help
   help [command]                     Same as h
 
-Global flags: --data, --format json, --url-only, --view <view>
+Global flags: -v, --version, --data, --format json, --url-only, --view <view>
 Run gtfs-viz h <command>, gtfs-viz help <command>, or gtfs-viz <command> -h for details.`);
 };
 
@@ -763,6 +790,9 @@ Cleanup:
   gtfs-viz clean
 
 Agent skills and help:
+  gtfs-viz --version
+  gtfs-viz update --check
+  gtfs-viz update
   gtfs-viz install-skill --list-providers
   gtfs-viz install-skill openai
   gtfs-viz h install-skill
