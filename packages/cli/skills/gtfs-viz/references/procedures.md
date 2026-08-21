@@ -171,6 +171,41 @@ SELECT fit_zoom(-74.0, -73.9, 40.7, 40.8);
 
 Returns: zoom level (INTEGER, 4-17)
 
+### get_trip_reroute_routes(trip_id)
+
+Routes with an alternate stop section between at least two ordered stations shared with the selected
+trip. Donor clock time and cross-route `direction_id` are not eligibility conditions.
+
+```sql
+SELECT * FROM get_trip_reroute_routes('AFFECTED_TRIP');
+```
+
+Returns: `route_id`, `route_name`, `route_short_name`, `route_type_name`, `route_color_hex`,
+`donor_trip_id`, `shared_station_count`
+
+### get_trip_reroute_boundary_pairs(trip_id, donor_trip_id)
+
+Ordered shared station pairs whose intermediate stop sequences differ.
+
+```sql
+SELECT * FROM get_trip_reroute_boundary_pairs('AFFECTED_TRIP', 'DONOR_TRIP');
+```
+
+Returns: `from_station`, `to_station`, `affected_from_sequence`, `affected_to_sequence`,
+`donor_from_sequence`, `donor_to_sequence`
+
+### get_reroute_stop_times(trip_id, donor_trip_id, from_station, to_station)
+
+The selected trip with its bounded section replaced by donor stops. Donor timing is scaled into the
+selected trip's boundary window.
+
+```sql
+SELECT *
+FROM get_reroute_stop_times('AFFECTED_TRIP', 'DONOR_TRIP', 'FROM STATION', 'TO STATION');
+```
+
+Returns: `stop_sequence`, `stop_id`, `arrival_time`, `departure_time`
+
 ## Pathfinding Macros
 
 ### find_shortest_path(p_station_id, start_stop, end_stop, max_hops)

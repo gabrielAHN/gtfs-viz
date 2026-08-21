@@ -342,6 +342,7 @@ const commandHelp: Record<string, string> = {
     --to <station>          Shared end boundary station
 
   Review:
+    gtfs-viz query --sql "SELECT * FROM get_trip_reroute_routes('trip-id')" --data
     gtfs-viz edits --trip <id>
     gtfs-viz edits --trip <id> --compare-view map --url-only
     gtfs-viz trip <id> --compare <donor-id> --view map --url-only`,

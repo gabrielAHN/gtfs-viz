@@ -28,7 +28,6 @@ import {
 type RerouteTripDialogProps = {
   open: boolean;
   tripId: string;
-  currentRouteId: string;
   onOpenChange: (open: boolean) => void;
 };
 
@@ -188,7 +187,6 @@ export function ReroutePreviewDetails({
 export function RerouteTripDialog({
   open,
   tripId,
-  currentRouteId,
   onOpenChange,
 }: RerouteTripDialogProps) {
   const { conn, initialized } = useDuckDB() ?? {};
@@ -198,8 +196,8 @@ export function RerouteTripDialog({
   const [toStation, setToStation] = useState<string>();
 
   const routesQuery = useQuery({
-    queryKey: ["tripRerouteRoutes", tripId, currentRouteId],
-    queryFn: () => fetchTripRerouteRoutes(conn, tripId, currentRouteId),
+    queryKey: ["tripRerouteRoutes", tripId],
+    queryFn: () => fetchTripRerouteRoutes(conn, tripId),
     enabled: open && !!conn && !!initialized,
     staleTime: 30_000,
   });

@@ -218,14 +218,17 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
     retry: false,
   });
 
-  const { data: rerouteRoutes = [], isLoading: rerouteRoutesLoading } = useQuery({
-    queryKey: ["tripRerouteRoutes", selectedTripId, selectedTrip?.route_id],
-    queryFn: () => fetchTripRerouteRoutes(conn, selectedTripId!, selectedTrip!.route_id!),
+  const {
+    data: rerouteRoutes = [],
+    isLoading: rerouteRoutesLoading,
+    error: rerouteRoutesError,
+  } = useQuery({
+    queryKey: ["tripRerouteRoutes", selectedTripId],
+    queryFn: () => fetchTripRerouteRoutes(conn, selectedTripId!),
     enabled:
       !!conn &&
       !!initialized &&
       !!selectedTripId &&
-      !!selectedTrip?.route_id &&
       hasStopTimes &&
       stopTimes.length > 1,
     staleTime: 30_000,
@@ -699,6 +702,7 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
                 stopTimesLoading ||
                 stopTimes.length < 2 ||
                 rerouteRoutesLoading ||
+                !!rerouteRoutesError ||
                 rerouteRoutes.length === 0
               }
               title={
@@ -708,6 +712,10 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
                     ? "At least two stations are required to reroute this trip"
                     : rerouteRoutesLoading
                       ? "Checking shared reroute stations"
+                      : rerouteRoutesError
+                        ? rerouteRoutesError instanceof Error
+                          ? rerouteRoutesError.message
+                          : "Unable to check shared reroute stations"
                       : rerouteRoutes.length === 0
                         ? "No other route has a different stop section between shared stations at any schedule time"
                         : undefined
@@ -723,12 +731,11 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
           )}
         </div>
       )}
-      {selectedTrip && selectedTripId && selectedTrip.route_id ? (
+      {selectedTrip && selectedTripId ? (
         <RerouteTripDialog
           key={selectedTripId}
           open={showReroute}
           tripId={selectedTripId}
-          currentRouteId={selectedTrip.route_id}
           onOpenChange={setShowReroute}
         />
       ) : null}
