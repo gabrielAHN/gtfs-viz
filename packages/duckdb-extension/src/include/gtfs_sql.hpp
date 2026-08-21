@@ -143,6 +143,10 @@ CREATE TABLE IF NOT EXISTS EditStopTimesTable (
     shape_dist_traveled DOUBLE,
     status TEXT
 );
+ALTER TABLE EditStopTimesTable ADD COLUMN IF NOT EXISTS edit_type TEXT;
+ALTER TABLE EditStopTimesTable ADD COLUMN IF NOT EXISTS edit_source_trip_id TEXT;
+ALTER TABLE EditStopTimesTable ADD COLUMN IF NOT EXISTS edit_from_stop_name TEXT;
+ALTER TABLE EditStopTimesTable ADD COLUMN IF NOT EXISTS edit_to_stop_name TEXT;
 
 CREATE TABLE IF NOT EXISTS EditCalendarTable (
     row_id TEXT NOT NULL,
@@ -171,6 +175,14 @@ CREATE TABLE IF NOT EXISTS EditTripsTable (
     shape_id TEXT,
     wheelchair_accessible INTEGER,
     bikes_allowed INTEGER,
+    status TEXT
+);
+
+CREATE TABLE IF NOT EXISTS EditCalendarDatesTable (
+    row_id TEXT NOT NULL,
+    service_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    exception_type INTEGER,
     status TEXT
 );
 
@@ -275,6 +287,18 @@ FROM (
   FROM calendar c
   WHERE NOT EXISTS (SELECT 1 FROM EditCalendarTable edt WHERE edt.service_id = c.service_id AND edt.status = 'deleted')
     AND NOT EXISTS (SELECT 1 FROM EditCalendarTable edt WHERE edt.service_id = c.service_id AND edt.status IN ('edit', 'new edit'))
+) combined;
+
+CREATE OR REPLACE VIEW CalendarDatesView AS
+SELECT row_id, service_id, date, exception_type, status
+FROM (
+  SELECT edt.row_id, edt.service_id, edt.date, edt.exception_type, edt.status
+  FROM EditCalendarDatesTable edt WHERE edt.status IN ('new', 'edit', 'new edit')
+  UNION ALL
+  SELECT CAST(cd.row_id AS TEXT) AS row_id, cd.service_id, cd.date, cd.exception_type, '' AS status
+  FROM calendar_dates cd
+  WHERE NOT EXISTS (SELECT 1 FROM EditCalendarDatesTable edt WHERE edt.service_id = cd.service_id AND edt.date = cd.date AND edt.status = 'deleted')
+    AND NOT EXISTS (SELECT 1 FROM EditCalendarDatesTable edt WHERE edt.service_id = cd.service_id AND edt.date = cd.date AND edt.status IN ('edit', 'new edit'))
 ) combined;
 
 CREATE OR REPLACE VIEW TripsView AS
@@ -589,6 +613,7 @@ CREATE INDEX IF NOT EXISTS idx_stop_times_stop_id ON stop_times(stop_id);
 CREATE INDEX IF NOT EXISTS idx_edit_stop_times_trip_id ON EditStopTimesTable(trip_id);
 CREATE INDEX IF NOT EXISTS idx_edit_stop_times_row_id ON EditStopTimesTable(row_id);
 CREATE INDEX IF NOT EXISTS idx_edit_calendar_service_id ON EditCalendarTable(service_id);
+CREATE INDEX IF NOT EXISTS idx_edit_calendar_dates_service_id ON EditCalendarDatesTable(service_id);
 CREATE INDEX IF NOT EXISTS idx_edit_trips_trip_id ON EditTripsTable(trip_id);
 CREATE INDEX IF NOT EXISTS idx_edit_trips_route_id ON EditTripsTable(route_id);
 CREATE INDEX IF NOT EXISTS idx_shapes_shape_id ON shapes(shape_id);
@@ -1178,6 +1203,113 @@ CREATE OR REPLACE MACRO get_station_routes(p_station_id) AS TABLE (
   LEFT JOIN stops s1 ON s1.stop_id = ar.start_stop
   LEFT JOIN stops s2 ON s2.stop_id = ar.end_stop
   ORDER BY ar.start_stop, ar.end_stop
+);
+
+)SQL";
+
+// Reroute helpers. Splices a donor route's stops into an affected trip between two shared
+// boundary stops, carrying the donor's real inter-stop timing scaled to fit the affected trip's
+// window. Depends only on stop_times + StopsView, so the CLI can re-apply it to existing datasets.
+static const char *GTFS_REROUTE_SQL = R"SQL(
+
+CREATE OR REPLACE MACRO gtfs_time_to_seconds(t) AS (
+  CASE WHEN NULLIF(CAST(t AS VARCHAR), '') IS NULL THEN NULL
+    ELSE COALESCE(TRY_CAST(SPLIT_PART(CAST(t AS VARCHAR), ':', 1) AS BIGINT), 0) * 3600
+       + COALESCE(TRY_CAST(SPLIT_PART(CAST(t AS VARCHAR), ':', 2) AS BIGINT), 0) * 60
+       + COALESCE(TRY_CAST(SPLIT_PART(CAST(t AS VARCHAR), ':', 3) AS BIGINT), 0)
+  END
+);
+
+CREATE OR REPLACE MACRO seconds_to_gtfs_time(s) AS (
+  CASE WHEN s IS NULL THEN NULL
+    ELSE lpad(CAST(CAST(s AS BIGINT) // 3600 AS VARCHAR), 2, '0') || ':' ||
+         lpad(CAST((CAST(s AS BIGINT) % 3600) // 60 AS VARCHAR), 2, '0') || ':' ||
+         lpad(CAST(CAST(s AS BIGINT) % 60 AS VARCHAR), 2, '0')
+  END
+);
+
+-- Reroute p_trip_id via p_donor_trip_id between the two shared boundary stops (by stop name).
+-- Pick a donor trip in the SAME direction as the affected trip. Returns the merged stop list:
+-- affected stops up to the first boundary + donor stops between (donor stop_ids, donor timing
+-- scaled into the affected trip's boundary window) + affected stops from the second boundary on.
+CREATE OR REPLACE MACRO get_reroute_stop_times(p_trip_id, p_donor_trip_id, p_from_name, p_to_name) AS TABLE (
+  WITH aff AS (
+    SELECT st.stop_sequence AS seq, st.stop_id, s.stop_name, st.arrival_time, st.departure_time,
+           gtfs_time_to_seconds(st.arrival_time) AS arr, gtfs_time_to_seconds(st.departure_time) AS dep
+    FROM StopTimesView st JOIN StopsView s ON s.stop_id = st.stop_id
+    WHERE st.trip_id = p_trip_id
+  ),
+  don AS (
+    SELECT st.stop_sequence AS seq, st.stop_id, s.stop_name,
+           gtfs_time_to_seconds(st.arrival_time) AS arr, gtfs_time_to_seconds(st.departure_time) AS dep
+    FROM StopTimesView st JOIN StopsView s ON s.stop_id = st.stop_id
+    WHERE st.trip_id = p_donor_trip_id
+  ),
+  b AS (
+    SELECT
+      (SELECT seq FROM aff WHERE stop_name = p_from_name ORDER BY seq LIMIT 1) AS a1,
+      (SELECT seq FROM aff WHERE stop_name = p_to_name   ORDER BY seq LIMIT 1) AS a2,
+      (SELECT seq FROM don WHERE stop_name = p_from_name ORDER BY seq LIMIT 1) AS d1,
+      (SELECT seq FROM don WHERE stop_name = p_to_name   ORDER BY seq LIMIT 1) AS d2
+  ),
+  -- Normalize boundary order so --from/--to work regardless of the trip's direction
+  -- (northbound trips have the "from" stop at a higher stop_sequence than the "to" stop).
+  bounds AS (
+    SELECT LEAST(a1, a2) AS a_lo, GREATEST(a1, a2) AS a_hi,
+           LEAST(d1, d2) AS d_lo, GREATEST(d1, d2) AS d_hi
+    FROM b
+  ),
+  anchors AS (
+    SELECT bd.a_lo, bd.a_hi, bd.d_lo, bd.d_hi,
+      (SELECT dep FROM aff WHERE seq = bd.a_lo) AS a_lo_dep,
+      (SELECT arr FROM aff WHERE seq = bd.a_hi) AS a_hi_arr,
+      (SELECT dep FROM don WHERE seq = bd.d_lo) AS d_lo_dep,
+      (SELECT arr FROM don WHERE seq = bd.d_hi) AS d_hi_arr
+    FROM bounds bd
+  ),
+  k AS (
+    SELECT *,
+      CASE WHEN (d_hi_arr - d_lo_dep) > 0
+           THEN (a_hi_arr - a_lo_dep)::DOUBLE / (d_hi_arr - d_lo_dep) ELSE 1 END AS scale
+    FROM anchors
+  ),
+  parts AS (
+    SELECT 0 AS part, aff.seq AS ord, aff.stop_id, aff.arrival_time, aff.departure_time
+    FROM aff, k WHERE aff.seq <= k.a_lo
+    UNION ALL
+    SELECT 1 AS part, don.seq AS ord, don.stop_id,
+      seconds_to_gtfs_time(CAST(round(k.a_lo_dep + (don.arr - k.d_lo_dep) * k.scale) AS BIGINT)),
+      seconds_to_gtfs_time(CAST(round(k.a_lo_dep + (don.dep - k.d_lo_dep) * k.scale) AS BIGINT))
+    FROM don, k WHERE don.seq > k.d_lo AND don.seq < k.d_hi
+    UNION ALL
+    SELECT 2 AS part, aff.seq AS ord, aff.stop_id, aff.arrival_time, aff.departure_time
+    FROM aff, k WHERE aff.seq >= k.a_hi
+  )
+  SELECT row_number() OVER (ORDER BY part, ord) AS stop_sequence, stop_id, arrival_time, departure_time
+  FROM parts
+);
+
+-- Unified stop selection for a trip: keep the stops in [p_first_name .. p_last_name] (inclusive;
+-- NULL/'' = open end) minus any whose name is in p_remove_names (pass [] to remove none). This is the
+-- single code path behind remove_stops (skip/express, bypass = full range, remove names),
+-- truncate_trip (short-turn = remove nothing, restrict range), and each half of split_trip.
+CREATE OR REPLACE MACRO get_trip_stops(p_trip_id, p_remove_names, p_first_name, p_last_name) AS TABLE (
+  WITH t AS (
+    SELECT st.stop_sequence AS seq, st.stop_id, s.stop_name, st.arrival_time, st.departure_time
+    FROM stop_times st JOIN StopsView s ON s.stop_id = st.stop_id
+    WHERE st.trip_id = p_trip_id
+  ),
+  bounds AS (
+    SELECT
+      COALESCE((SELECT MIN(seq) FROM t WHERE p_first_name IS NOT NULL AND p_first_name <> '' AND stop_name = p_first_name),
+               (SELECT MIN(seq) FROM t)) AS lo,
+      COALESCE((SELECT MIN(seq) FROM t WHERE p_last_name IS NOT NULL AND p_last_name <> '' AND stop_name = p_last_name),
+               (SELECT MAX(seq) FROM t)) AS hi
+  )
+  SELECT row_number() OVER (ORDER BY t.seq) AS stop_sequence, t.stop_id, t.arrival_time, t.departure_time
+  FROM t, bounds
+  WHERE t.seq >= bounds.lo AND t.seq <= bounds.hi
+    AND NOT list_contains(p_remove_names, t.stop_name)
 );
 
 )SQL";

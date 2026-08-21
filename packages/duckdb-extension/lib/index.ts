@@ -7,6 +7,7 @@ export {
   recreatePathwaysView,
   GTFS_LOAD_SQL,
   GTFS_INIT_SQL,
+  GTFS_REROUTE_SQL,
 } from "./installer.js";
 export type { SqlExecutor } from "./installer.js";
 
