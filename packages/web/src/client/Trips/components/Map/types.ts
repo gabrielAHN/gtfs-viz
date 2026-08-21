@@ -42,23 +42,37 @@ export type RouteStop = {
 
 export interface TripMapProps {
   trips: Array<{ trip: TripInfo; stopTimes: (TripStopTime | EditableStop)[] }>;
+  heightClassName?: string;
+  highlightedSegmentRange?: { fromStopIdx: number; toStopIdx: number };
   editable?: boolean;
   onDeleteStop?: (stopIdx: number) => void;
   onRestoreStop?: (stopIdx: number) => void;
   deletedStopIndices?: Set<number>;
   onDragStop?: (stopIdx: number, lat: number, lon: number) => void;
-  onUpdateStopTime?: (stopIdx: number, field: "arrival_time" | "departure_time", value: string) => void;
+  onUpdateStopTime?: (
+    stopIdx: number,
+    field: "arrival_time" | "departure_time",
+    value: string,
+  ) => void;
   onReplaceStop?: (stopIdx: number, newStop: RouteStop) => void;
   onAddStop?: (stop: RouteStop, arrival: string, departure: string) => void;
   routeStops?: RouteStop[];
   onCreateStop?: () => void;
   addStopPreview?: { lon: number; lat: number; name: string; stopSequence?: number } | null;
-  originalStops?: Array<{ stop_id?: string; arrival_time?: string; departure_time?: string }>;
+  originalStops?: TripStopTime[];
   selectedStopIdx?: number | null;
   onSelectStop?: (idx: number | null) => void;
   editPanel?: React.ReactNode;
   zoomToStopRef?: React.MutableRefObject<((stopIdx: number) => void) | null>;
-  onClickAnyStop?: (stop: { tripIdx: number; stopIdx: number; name: string; stopId: string; arrivalTime?: string; departureTime?: string; parentStation?: string }) => void;
+  onClickAnyStop?: (stop: {
+    tripIdx: number;
+    stopIdx: number;
+    name: string;
+    stopId: string;
+    arrivalTime?: string;
+    departureTime?: string;
+    parentStation?: string;
+  }) => void;
   hiddenTripIndices?: Set<number>;
   onToggleTripVisibility?: (idx: number) => void;
 }

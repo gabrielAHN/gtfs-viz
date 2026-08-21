@@ -3,6 +3,8 @@ import {
   type EditableStop,
   type TripInfo,
   type RouteStopOption,
+  type TripStopTime,
+  getEditableStopStatus,
   TRIP_LINE_COLORS,
   timeToSec,
   secToTime,
@@ -21,7 +23,7 @@ export function EditableTimeline({ trips, onUpdateStop, onUpdateStopBoth, routeS
   onAddArrivalChange?: (v: string) => void;
   onAddDepartureChange?: (v: string) => void;
   readOnly?: boolean;
-  originalStops?: Array<{ stop_id?: string; arrival_time?: string; departure_time?: string }>;
+  originalStops?: TripStopTime[];
   selectedStopIdx?: number | null;
   onSelectStop?: (idx: number | null) => void;
   onInsertAt?: (seq: number, arrival: string, departure: string) => void;
@@ -392,14 +394,17 @@ export function EditableTimeline({ trips, onUpdateStop, onUpdateStopBoth, routeS
               return sec != null ? [{ ...s, si, sec, arrSec, depSec }] : [];
             });
 
-            // Detect changed/new stops for green highlighting
-            const changedIndices = new Set<number>();
-            if (originalStops && ti === 0) {
-              const remaining = [...originalStops];
+            const stopStatus = new Map<number, TripStopTime["edit_status"]>();
+            if (ti === 0) {
               for (let i = 0; i < stops.length; i++) {
-                const idx = remaining.findIndex((o) => o.stop_id === (stops[i].stop_id || "") && o.arrival_time === stops[i].arrival_time && o.departure_time === stops[i].departure_time);
-                if (idx !== -1) remaining.splice(idx, 1);
-                else changedIndices.add(i);
+                const stop = stops[i];
+                const original = originalStops && stop._idx < originalStops.length
+                  ? originalStops[stop._idx]
+                  : undefined;
+                const status = originalStops
+                  ? getEditableStopStatus(stop, original)
+                  : stop.edit_status;
+                if (status) stopStatus.set(i, status);
               }
             }
 
@@ -498,10 +503,12 @@ export function EditableTimeline({ trips, onUpdateStop, onUpdateStopBoth, routeS
                   const laneY = baseLaneY - row * (barH + barGap);
                   const displaySeq = hasTimePreview && previewSeq && (p.si + 1) >= previewSeq ? p.si + 2 : p.si + 1;
                   const shortId = (p.stop_id || "").length > 10 ? (p.stop_id || "").slice(0, 8) + "..." : (p.stop_id || "");
-                  const isChanged = changedIndices.has(p.si);
+                  const editStatus = stopStatus.get(p.si);
+                  const isChanged = !!editStatus;
                   const isSelected = ti === 0 && selectedStopIdx === p.si;
-                  const barColor = isSelected ? "#f59e0b" : isChanged ? "#22c55e" : color;
-                  const labelColor = isSelected ? "#f59e0b" : isChanged ? "#22c55e" : "currentColor";
+                  const editColor = editStatus === "new" ? "#22c55e" : editStatus === "edit" ? "#f59e0b" : color;
+                  const barColor = isSelected ? "#f59e0b" : editColor;
+                  const labelColor = isSelected ? "#f59e0b" : isChanged ? editColor : "currentColor";
                   const idLabel = `#${displaySeq} ${shortId}`;
                   const stopLabel = (p.stop_name || p.stop_id || "");
                   const tipText = aSec !== dSec ? `${stopLabel}\narr ${fmtTime(aSec)}  dep ${fmtTime(dSec)}` : `${stopLabel}\n${fmtTime(p.sec)}`;

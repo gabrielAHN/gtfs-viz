@@ -1,6 +1,7 @@
 import { executeQuery, escapeSql } from "@/lib/duckdb/QueryHelper";
 import { insertTableRow, deleteEditRow, refreshMaterializedTable } from "@/lib/duckdb/DataEditing/insertData";
 import { logger } from "@/lib/logger";
+import { markPersistedStopTimeEdits } from "@/lib/tripUtils";
 import { getPathfindingFunctions } from "./pathways/hybridPathfinding";
 
 export const fetchRouteData = async (props) => {
@@ -179,23 +180,53 @@ export const fetchServiceRouteTripsForServiceData = async (
 };
 
 export const fetchServiceTripStopTimesData = async (conn: any, tripId: string) => {
-  return executeQuery(
+  const tid = escapeSql(tripId);
+  const currentStops = await executeQuery(
     conn,
     `
       SELECT st.trip_id, st.stop_sequence, st.arrival_time, st.departure_time,
              st.stop_id, sv.stop_name, sv.location_type_name, sv.parent_station,
              COALESCE(station.stop_name, sv.stop_name) AS station_name,
              st.stop_headsign, st.pickup_type, st.drop_off_type, st.shape_dist_traveled,
-             sv.stop_lat, sv.stop_lon
+             sv.stop_lat, sv.stop_lon, st.status
       FROM StopTimesView st
       LEFT JOIN StopsView sv ON sv.stop_id = st.stop_id
       LEFT JOIN StopsView station
         ON station.stop_id = COALESCE(NULLIF(sv.parent_station, ''), sv.stop_id)
        AND station.location_type_name = 'Station'
-      WHERE st.trip_id = '${escapeSql(tripId)}'
+      WHERE st.trip_id = '${tid}'
       ORDER BY st.stop_sequence, st.arrival_time, st.departure_time, st.stop_id
     `,
   );
+  if (!currentStops.some((stop) => stop.status === "new" || stop.status === "new edit" || stop.status === "edit")) {
+    return currentStops;
+  }
+  const originalStops = await executeQuery(
+    conn,
+    `
+      SELECT trip_id, stop_sequence, arrival_time, departure_time, stop_id,
+             stop_headsign, pickup_type, drop_off_type, shape_dist_traveled
+      FROM stop_times
+      WHERE trip_id = '${tid}'
+      ORDER BY stop_sequence, arrival_time, departure_time, stop_id
+    `,
+  );
+  let stopsWithMetadata = currentStops;
+  try {
+    const [rerouteMetadata] = await executeQuery(
+      conn,
+      `SELECT edit_type, edit_from_stop_name, edit_to_stop_name
+       FROM EditStopTimesTable
+       WHERE trip_id = '${tid}' AND edit_type = 'reroute'
+       LIMIT 1`,
+    );
+    if (rerouteMetadata) {
+      stopsWithMetadata = currentStops.map((stop) => ({ ...stop, ...rerouteMetadata }));
+    }
+  } catch {
+    stopsWithMetadata = currentStops;
+  }
+  return markPersistedStopTimeEdits(stopsWithMetadata, originalStops);
 };
 
 export const fetchAllTripsData = async (conn: any) => {
@@ -279,7 +310,37 @@ export const saveStopTimesEdits = async (
   conn: any,
   tripId: string,
   stops: Array<{ stop_sequence: number; stop_id?: string; arrival_time?: string; departure_time?: string; stop_headsign?: string; pickup_type?: number; drop_off_type?: number; shape_dist_traveled?: number }>,
+  rerouteMetadata?: {
+    edit_source_trip_id: string;
+    edit_from_stop_name: string;
+    edit_to_stop_name: string;
+  },
 ) => {
+  const tid = escapeSql(tripId);
+  let preservedRerouteMetadata: Record<string, any> | undefined;
+  let hasOtherPendingEdits = false;
+  if (rerouteMetadata) {
+    const rows = await executeQuery(
+      conn,
+      `SELECT COUNT(*) AS count
+       FROM EditStopTimesTable
+       WHERE trip_id = '${tid}' AND (edit_type IS NULL OR edit_type <> 'reroute')`,
+    );
+    hasOtherPendingEdits = Number(rows[0]?.count ?? 0) > 0;
+  } else {
+    try {
+      const rows = await executeQuery(
+        conn,
+        `SELECT edit_source_trip_id, edit_from_stop_name, edit_to_stop_name
+         FROM EditStopTimesTable
+         WHERE trip_id = '${tid}' AND edit_type = 'reroute'
+         LIMIT 1`,
+      );
+      preservedRerouteMetadata = rows[0];
+    } catch {
+      preservedRerouteMetadata = undefined;
+    }
+  }
   // Clear previous edits for this trip
   await deleteEditRow({ conn, table: "EditStopTimesTable", column: "trip_id", formData: { trip_id: tripId } });
 
@@ -359,6 +420,27 @@ export const saveStopTimesEdits = async (
         },
       });
     }
+  }
+
+  const appliedRerouteMetadata = rerouteMetadata ?? preservedRerouteMetadata;
+  if (appliedRerouteMetadata) {
+    const metadataTarget = rerouteMetadata && !hasOtherPendingEdits
+      ? `trip_id = '${tid}'`
+      : `row_id = (
+          SELECT row_id
+          FROM EditStopTimesTable
+          WHERE trip_id = '${tid}' AND status IN ('new', 'edit', 'new edit')
+          ORDER BY stop_sequence
+          LIMIT 1
+        )`;
+    await conn.query(`
+      UPDATE EditStopTimesTable
+      SET edit_type = 'reroute',
+          edit_source_trip_id = '${escapeSql(String(appliedRerouteMetadata.edit_source_trip_id || ""))}',
+          edit_from_stop_name = '${escapeSql(String(appliedRerouteMetadata.edit_from_stop_name || ""))}',
+          edit_to_stop_name = '${escapeSql(String(appliedRerouteMetadata.edit_to_stop_name || ""))}'
+      WHERE ${metadataTarget}
+    `);
   }
 
   // Refresh materialized tables that depend on stop times
@@ -541,6 +623,16 @@ export const fetchEditedCalendarStatuses = async (conn: any) => {
   const rows = await executeQuery(conn, "SELECT service_id, status FROM EditCalendarTable");
   const m = new Map<string, string>();
   for (const r of rows) m.set(String(r.service_id), String(r.status));
+  // A service with only exception-date (calendar_dates) edits still counts as edited.
+  let dateRows: any[] = [];
+  try {
+    dateRows = await executeQuery(conn, "SELECT DISTINCT service_id FROM EditCalendarDatesTable");
+  } catch {
+    /* table may not exist on older datasets */
+  }
+  for (const r of dateRows) {
+    if (!m.has(String(r.service_id))) m.set(String(r.service_id), "edit");
+  }
   return m;
 };
 

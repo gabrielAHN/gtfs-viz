@@ -1,7 +1,13 @@
 import { useRef, useState } from "react";
 import { BiGridVertical, BiX } from "react-icons/bi";
 import { EditIndicator } from "@/components/ui/EditIndicator";
-import { type EditableStop, type RouteStopOption, timeToSec } from "@/lib/tripUtils";
+import {
+  type EditableStop,
+  type RouteStopOption,
+  type TripStopTime,
+  getEditableStopStatus,
+  timeToSec,
+} from "@/lib/tripUtils";
 
 export function EditableTimetable({ stops, onUpdate, routeStops: _routeStops = [], onCreateStop: _onCreateStop, addStopPreview, onInsertAt, originalStops, selectedStopIdx, onSelectStop, showOnlyChanged }: {
   stops: EditableStop[];
@@ -10,7 +16,7 @@ export function EditableTimetable({ stops, onUpdate, routeStops: _routeStops = [
   onCreateStop?: () => void;
   addStopPreview?: { name: string; stopId?: string; arrival: string; departure: string; stopSequence?: number };
   onInsertAt?: (seq: number, arrival: string, departure: string) => void;
-  originalStops?: Array<{ stop_id?: string; arrival_time?: string; departure_time?: string }>;
+  originalStops?: TripStopTime[];
   selectedStopIdx?: number | null;
   onSelectStop?: (idx: number | null) => void;
   showOnlyChanged?: boolean;
@@ -80,16 +86,13 @@ export function EditableTimetable({ stops, onUpdate, routeStops: _routeStops = [
                   const st = stops[i];
                   const origIdx = st._idx;
                   const orig = origIdx != null && origIdx < originalStops.length ? originalStops[origIdx] : undefined;
-                  if (!orig) {
-                    stopStatus.set(i, "new");
-                  } else if (
-                    (st.stop_id || "") !== (orig.stop_id || "") ||
-                    st.arrival_time !== orig.arrival_time ||
-                    st.departure_time !== orig.departure_time
-                  ) {
-                    stopStatus.set(i, "edit");
-                  }
+                  const status = getEditableStopStatus(st, orig);
+                  if (status) stopStatus.set(i, status);
                 }
+              } else {
+                stops.forEach((stop, index) => {
+                  if (stop.edit_status) stopStatus.set(index, stop.edit_status);
+                });
               }
 
               const midTime = (before: number, after: number): string => {

@@ -5,12 +5,14 @@ import MapContainer from "@/components/maps/MapContainer";
 import { fitBoundsToPoints } from "@/functions/mapComponent/fitBounds";
 import { useDuckDB } from "@/context/duckdb.client";
 import { fetchTripMapBounds } from "@/lib/duckdb/DataFetching/fetchRouteData";
-import { TRIP_LINE_COLORS } from "@/lib/tripUtils";
+import { getEditableStopStatus, TRIP_LINE_COLORS } from "@/lib/tripUtils";
 import { MapSection } from "./Components/MapSection";
 import type { TripMapProps, StopPoint, Segment } from "./types";
 
 export function TripMap({
   trips,
+  heightClassName = "h-[50vh]",
+  highlightedSegmentRange,
   editable = false,
   onDeleteStop: _onDeleteStop,
   onRestoreStop: _onRestoreStop,
@@ -157,8 +159,11 @@ export function TripMap({
     }
   }, [selectedStopIdx, stopPoints, onClickAnyStop]);
 
-  // Track stop count to refit when stops are added/removed
-  const prevStopCountRef = useRef(stopPoints.length);
+  const stopGeometry = useMemo(
+    () => stopPoints.map((point) => `${point.tripIdx}:${point.stopIdx}:${point.lon}:${point.lat}`).join("|"),
+    [stopPoints],
+  );
+  const prevStopGeometryRef = useRef(stopGeometry);
   const prevPreviewRef = useRef(externalPreview);
 
   // Center on preview when no stops exist (no conn needed)
@@ -178,8 +183,8 @@ export function TripMap({
   useEffect(() => {
     if (!conn || stopPoints.length === 0) return;
 
-    const stopsChanged = prevStopCountRef.current !== stopPoints.length;
-    prevStopCountRef.current = stopPoints.length;
+    const stopsChanged = prevStopGeometryRef.current !== stopGeometry;
+    prevStopGeometryRef.current = stopGeometry;
     prevPreviewRef.current = externalPreview;
 
     const allPoints = [...stopPoints.map((p) => ({ lat: p.lat, lon: p.lon }))];
@@ -223,26 +228,28 @@ export function TripMap({
       });
       return () => { cancelled = true; };
     }
-  }, [conn, stopPoints, trips, externalPreview]);
+  }, [conn, stopPoints, stopGeometry, trips, externalPreview]);
 
   // Stop status detection for coloring — identity-based via _idx
   const stopStatusMap = useMemo(() => {
     const map = new Map<number, string>();
-    if (originalStops && editable) {
-      const primaryStops = trips[0]?.stopTimes || [];
+    const primaryStops = trips[0]?.stopTimes || [];
+    if (editable) {
       for (let i = 0; i < primaryStops.length; i++) {
         const st = primaryStops[i];
         const origIdx = (st as any)._idx;
-        const orig = origIdx != null && origIdx < originalStops.length ? originalStops[origIdx] : undefined;
-        if (!orig) {
-          map.set(i, "new");
-        } else if (
-          (st.stop_id || "") !== (orig.stop_id || "") ||
-          st.arrival_time !== orig.arrival_time ||
-          st.departure_time !== orig.departure_time
-        ) {
-          map.set(i, "edit");
-        }
+        const orig = originalStops && origIdx != null && origIdx < originalStops.length
+          ? originalStops[origIdx]
+          : undefined;
+        const status = originalStops
+          ? getEditableStopStatus(st, orig)
+          : st.edit_status;
+        if (status) map.set(i, status);
+      }
+    } else if (!editable) {
+      for (let i = 0; i < primaryStops.length; i++) {
+        const editStatus = primaryStops[i].edit_status;
+        if (editStatus) map.set(i, editStatus);
       }
     }
     return map;
@@ -266,7 +273,7 @@ export function TripMap({
       setBoundBox(fallbackBox);
       setFitZoom(12);
     }
-    return <div className="h-[50vh] rounded-md border animate-pulse bg-muted" />;
+    return <div className={`${heightClassName} rounded-md border animate-pulse bg-muted`} />;
   }
 
   // Popups — in edit mode, only show the editPanel (no StopPopup/SegmentPopup)
@@ -445,7 +452,7 @@ export function TripMap({
 
   return (
     <div className="rounded-md border shadow-sm">
-      <div className="h-[50vh] overflow-hidden">
+      <div className={`${heightClassName} overflow-hidden`}>
         <MapContainer
           instructionText={editable
             ? (clickedStop ? `Stop #${clickedStop.sequence} selected` : "Click a stop to select and edit")
@@ -481,6 +488,7 @@ export function TripMap({
             }}
             onClickSegment={setClickedSegment}
             hiddenTripIndices={hiddenTripIndices}
+            highlightedSegmentRange={highlightedSegmentRange}
           />
         </MapContainer>
       </div>

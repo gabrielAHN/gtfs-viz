@@ -92,6 +92,7 @@ interface MapSectionProps {
   onClickStop: (stop: StopPoint | null) => void;
   onClickSegment: (segment: Segment | null) => void;
   hiddenTripIndices?: Set<number>;
+  highlightedSegmentRange?: { fromStopIdx: number; toStopIdx: number };
 }
 
 export function MapSection({
@@ -102,6 +103,7 @@ export function MapSection({
   previewStop, externalPreview,
   onDragStop, onSelectStop, onClickStop, onClickSegment,
   hiddenTripIndices,
+  highlightedSegmentRange,
 }: MapSectionProps) {
   const { theme } = useThemeContext();
   const isDraggingRef = useRef(false);
@@ -506,12 +508,19 @@ export function MapSection({
           getColor: (d: Segment) => {
             if (isCompare) return [0, 0, 0, 0] as [number, number, number, number];
             if (d.disabled) return [150, 150, 150, 80] as [number, number, number, number];
+            if (
+              highlightedSegmentRange &&
+              d.fromIdx >= highlightedSegmentRange.fromStopIdx &&
+              d.toIdx <= highlightedSegmentRange.toStopIdx
+            ) {
+              return [249, 115, 22, 255] as [number, number, number, number];
+            }
             const isClicked = clickedSegment?.fromIdx === d.fromIdx && clickedSegment?.toIdx === d.toIdx;
             const rgb = safeHexToRgb(TRIP_LINE_COLORS[0]);
             return isClicked ? [...rgb, 255] as [number, number, number, number] : [...rgb, 200] as [number, number, number, number];
           },
           getWidth: isCompare ? 12 : 10, widthUnits: "pixels", pickable: true,
-          updateTriggers: { getColor: [deletedStopIndices.size, clickedSegment?.fromIdx, clickedSegment?.toIdx, isCompare] },
+          updateTriggers: { getColor: [deletedStopIndices.size, clickedSegment?.fromIdx, clickedSegment?.toIdx, isCompare, highlightedSegmentRange?.fromStopIdx, highlightedSegmentRange?.toStopIdx] },
         }));
       }
     }
@@ -630,6 +639,14 @@ export function MapSection({
         if (isClicked) return [255, 80, 80, 255] as [number, number, number, number];
         if (status === "new") return [34, 197, 94, 230] as [number, number, number, number];
         if (status === "edit") return [245, 158, 11, 200] as [number, number, number, number];
+        if (
+          highlightedSegmentRange &&
+          d.tripIdx === 0 &&
+          d.stopIdx >= highlightedSegmentRange.fromStopIdx &&
+          d.stopIdx <= highlightedSegmentRange.toStopIdx
+        ) {
+          return [249, 115, 22, 255] as [number, number, number, number];
+        }
         const rgb = safeHexToRgb(TRIP_LINE_COLORS[d.tripIdx % TRIP_LINE_COLORS.length]);
         return [...rgb, 240] as [number, number, number, number];
       },
@@ -664,7 +681,7 @@ export function MapSection({
         return false;
       } : undefined,
       updateTriggers: {
-        getFillColor: [clickedStop?.stopIdx, clickedStop?.tripIdx, deletedStopIndices.size, selectedStopIdx, clickedLocKey],
+        getFillColor: [clickedStop?.stopIdx, clickedStop?.tripIdx, deletedStopIndices.size, selectedStopIdx, clickedLocKey, highlightedSegmentRange?.fromStopIdx, highlightedSegmentRange?.toStopIdx],
         getRadius: [clickedStop?.stopIdx, clickedStop?.tripIdx, deletedStopIndices.size, selectedStopIdx, clickedLocKey],
       },
     }));
@@ -751,7 +768,7 @@ export function MapSection({
     }
 
     return layerList;
-  }, [stopPoints, segments, paths, clickedStop, clickedSegment, theme, editable, deletedStopIndices, previewStop, externalPreview, stopStatusMap, selectedStopIdx, hiddenTripIndices, zoomBucket]);
+  }, [stopPoints, segments, paths, clickedStop, clickedSegment, theme, editable, deletedStopIndices, previewStop, externalPreview, stopStatusMap, selectedStopIdx, hiddenTripIndices, highlightedSegmentRange, zoomBucket]);
 
   return (
     <div className="h-full w-full">

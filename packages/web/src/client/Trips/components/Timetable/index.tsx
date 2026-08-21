@@ -17,7 +17,7 @@ type EditProps = {
   onCreateStop?: () => void;
   addStopPreview?: { name: string; stopId?: string; arrival: string; departure: string; stopSequence?: number };
   onInsertAt?: (seq: number, arrival: string, departure: string) => void;
-  originalStops?: Array<{ stop_id?: string; arrival_time?: string; departure_time?: string }>;
+  originalStops?: TripStopTime[];
   selectedStopIdx?: number | null;
   onSelectStop?: (idx: number | null) => void;
   showOnlyChanged?: boolean;
