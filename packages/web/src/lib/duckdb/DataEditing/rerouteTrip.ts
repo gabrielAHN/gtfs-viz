@@ -110,13 +110,7 @@ export const fetchTripRerouteRoutes = async (
   const rows = await executeQuery(
     conn,
     `
-      WITH affected_trip AS (
-        SELECT direction_id
-        FROM trips
-        WHERE trip_id = '${tid}'
-        LIMIT 1
-      ),
-      affected_stations AS (
+      WITH affected_stations AS (
         SELECT sv.stop_name AS station_name, MIN(st.stop_sequence) AS affected_sequence
         FROM StopTimesView st
         JOIN StopsView sv ON sv.stop_id = st.stop_id
@@ -126,22 +120,14 @@ export const fetchTripRerouteRoutes = async (
       ),
       shared_stations AS (
         SELECT t.route_id, t.trip_id AS donor_trip_id, shared.station_name,
-               shared.affected_sequence, MIN(st.stop_sequence) AS donor_sequence,
-               CASE WHEN t.direction_id = affected_trip.direction_id THEN 1 ELSE 0 END AS direction_match
+               shared.affected_sequence, MIN(st.stop_sequence) AS donor_sequence
         FROM trips t
         JOIN StopTimesView st ON st.trip_id = t.trip_id
         JOIN StopsView sv ON sv.stop_id = st.stop_id
         JOIN affected_stations shared ON shared.station_name = sv.stop_name
-        CROSS JOIN affected_trip
         WHERE t.trip_id != '${tid}'
           AND t.route_id != '${rid}'
-          AND (
-            affected_trip.direction_id IS NULL
-            OR t.direction_id IS NULL
-            OR t.direction_id = affected_trip.direction_id
-          )
-        GROUP BY t.route_id, t.trip_id, shared.station_name, shared.affected_sequence,
-                 t.direction_id, affected_trip.direction_id
+        GROUP BY t.route_id, t.trip_id, shared.station_name, shared.affected_sequence
       ),
       ordered_candidates AS (
         SELECT DISTINCT start_station.route_id, start_station.donor_trip_id
@@ -154,8 +140,7 @@ export const fetchTripRerouteRoutes = async (
       ),
       candidate_trips AS (
         SELECT shared.route_id, shared.donor_trip_id,
-               COUNT(DISTINCT shared.station_name) AS shared_station_count,
-               MAX(shared.direction_match) AS direction_match
+               COUNT(DISTINCT shared.station_name) AS shared_station_count
         FROM shared_stations shared
         JOIN ordered_candidates ordered
           ON ordered.route_id = shared.route_id
@@ -168,7 +153,7 @@ export const fetchTripRerouteRoutes = async (
         FROM candidate_trips
         JOIN StopTimesView st ON st.trip_id = candidate_trips.donor_trip_id
         GROUP BY candidate_trips.route_id, candidate_trips.donor_trip_id,
-                 candidate_trips.shared_station_count, candidate_trips.direction_match
+                 candidate_trips.shared_station_count
       ),
       pattern_candidates AS (
         SELECT *,
@@ -186,8 +171,7 @@ export const fetchTripRerouteRoutes = async (
       ),
       pattern_pairs AS (
         SELECT patterns.route_id, patterns.donor_trip_id,
-               patterns.shared_station_count, patterns.direction_match,
-               patterns.pattern_trip_count,
+               patterns.shared_station_count, patterns.pattern_trip_count,
                start_station.affected_sequence AS affected_from_sequence,
                end_station.affected_sequence AS affected_to_sequence,
                start_station.donor_sequence AS donor_from_sequence,
@@ -204,8 +188,7 @@ export const fetchTripRerouteRoutes = async (
       ),
       changed_patterns AS (
         SELECT DISTINCT pairs.route_id, pairs.donor_trip_id,
-               pairs.shared_station_count, pairs.direction_match,
-               pairs.pattern_trip_count
+               pairs.shared_station_count, pairs.pattern_trip_count
         FROM pattern_pairs pairs
         WHERE COALESCE((
           SELECT STRING_AGG(st.stop_id, '>' ORDER BY st.stop_sequence)
@@ -224,8 +207,7 @@ export const fetchTripRerouteRoutes = async (
       ranked AS (
         SELECT *, ROW_NUMBER() OVER (
           PARTITION BY route_id
-          ORDER BY direction_match DESC, pattern_trip_count DESC,
-                   shared_station_count DESC, donor_trip_id
+          ORDER BY pattern_trip_count DESC, shared_station_count DESC, donor_trip_id
         ) AS route_rank
         FROM changed_patterns
       )
@@ -371,12 +353,7 @@ export const fetchTripReroutePreview = async (
     originalStops.length !== mergedStops.length ||
     originalStops.some((stop, index) => {
       const replacement = mergedStops[index];
-      return (
-        !replacement ||
-        stop.stop_id !== replacement.stop_id ||
-        stop.arrival_time !== replacement.arrival_time ||
-        stop.departure_time !== replacement.departure_time
-      );
+      return !replacement || stop.stop_id !== replacement.stop_id;
     });
   return {
     tripId,

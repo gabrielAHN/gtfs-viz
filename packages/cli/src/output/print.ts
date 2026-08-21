@@ -331,6 +331,9 @@ const commandHelp: Record<string, string> = {
   reroute: `gtfs-viz reroute [flags]
 
   Replace a section of one trip with the stops from a donor trip.
+  Donor schedule time does not need to overlap the affected trip. The shared
+  boundaries must occur in the same order, and replacement times are fitted
+  to the affected trip's boundary window.
 
   Flags:
     --trip <id>             Affected trip ID

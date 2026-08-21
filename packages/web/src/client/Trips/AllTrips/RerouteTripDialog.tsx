@@ -305,7 +305,7 @@ export function RerouteTripDialog({
           </DialogTitle>
           <DialogDescription>
             Use another trip as a read-only stop pattern to reroute {tripId}. Only the selected trip
-            will be edited.
+            will be edited, and its boundary times will set the replacement stop times.
           </DialogDescription>
         </DialogHeader>
 
@@ -378,7 +378,7 @@ export function RerouteTripDialog({
           ) : null}
           {activePreview && !activePreview.hasChanges ? (
             <p className="text-sm text-muted-foreground">
-              This route follows the same stops and times between the selected stations.
+              This route follows the same stops between the selected stations.
             </p>
           ) : null}
           {error ? (

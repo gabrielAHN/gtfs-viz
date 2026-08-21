@@ -137,16 +137,17 @@ gtfs-viz reroute --trip <affected_trip> --via <donor_trip> --from "<boundary sto
 
 - `--from` / `--to` are the two stops (by **name**) the affected route shares with the donor, where it
   leaves its normal path and where it rejoins. (A/F share **W 4 St-Wash Sq** and **Jay St-MetroTech**.)
-- Pick a `--via` donor trip in the **same direction** as the affected trip. The `--from`/`--to`
-  order does **not** matter — the command normalizes the boundaries, so it works for both
-  north/east-bound and south/west-bound trips.
+- Pick a `--via` donor trip where both boundaries occur in the same travel order as the affected
+  trip. `direction_id` does not need to match across routes because its meaning is route-specific.
+  The donor's schedule time does not need to overlap the affected trip. The `--from`/`--to` order
+  does **not** matter — the command normalizes the boundaries in the output.
 - It replaces the affected trip's stops between the boundaries with the donor's stops (the donor's
   `stop_id`s), carrying the donor's **real inter-stop timing scaled** to fit the affected trip's window
   (not evenly spread). Backed by the `get_reroute_stop_times()` DuckDB macro.
 
 Example — A/C run via the F on a weekend:
 ```bash
-gtfs-viz route F --service <service_id> --data       # find a donor F trip in the same service/direction
+gtfs-viz route F --data                              # find a donor F trip with the shared boundaries in travel order
 gtfs-viz reroute --trip <A_trip> --via <F_trip> --from "W 4 St-Wash Sq" --to "Jay St-MetroTech"
 gtfs-viz reroute --trip <C_trip> --via <F_trip> --from "W 4 St-Wash Sq" --to "Jay St-MetroTech"
 ```

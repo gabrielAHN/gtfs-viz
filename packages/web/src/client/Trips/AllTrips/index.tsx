@@ -709,7 +709,7 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
                     : rerouteRoutesLoading
                       ? "Checking shared reroute stations"
                       : rerouteRoutes.length === 0
-                        ? "No other route has a different stop section between shared stations"
+                        ? "No other route has a different stop section between shared stations at any schedule time"
                         : undefined
               }
             >
