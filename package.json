@@ -1,6 +1,6 @@
 {
   "name": "gtfs-viz",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "private": true,
   "description": "Lightweight GTFS data visualizer and editor",
   "keywords": [
