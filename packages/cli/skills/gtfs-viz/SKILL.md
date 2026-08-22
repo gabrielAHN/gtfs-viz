@@ -337,6 +337,11 @@ See [references/procedures.md](references/procedures.md) for all available macro
 
 The CLI uses the GTFS DuckDB extension (embedded SQL) for all station analysis, pathway queries, and pathfinding. The extension is bundled — no separate install needed.
 
+Every CLI DuckDB session reduces its worker count, uses a host-aware memory limit capped at 4 GB,
+disables insertion-order preservation, and can spill beside the persistent database. Override these
+defaults with `GTFS_VIZ_DUCKDB_THREADS`, `GTFS_VIZ_DUCKDB_MEMORY_LIMIT`, or
+`GTFS_VIZ_DUCKDB_TEMP_DIRECTORY` when a workload needs a different limit.
+
 ## Agent Rules
 
 - Use absolute paths for files outside the repo. Quote paths with spaces.

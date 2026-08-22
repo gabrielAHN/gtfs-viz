@@ -38,6 +38,9 @@ async function DuckDB() {
 
   const conn = await db.connect();
 
+  await conn.query(`SET threads = 1;`);
+  await conn.query(`SET memory_limit = '2GB';`);
+  await conn.query(`SET preserve_insertion_order = false;`);
   await conn.query(`SET autoinstall_known_extensions = false;`);
   await conn.query(`SET autoload_known_extensions = false;`);
 

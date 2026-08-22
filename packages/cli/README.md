@@ -25,6 +25,11 @@ npm install -g @gabrielahn/gtfs-viz-cli
 
 Requires [DuckDB CLI](https://duckdb.org/docs/installation) (`duckdb` on PATH or `DUCKDB_BIN`).
 
+DuckDB sessions use a reduced worker count, a host-aware memory limit capped at 4 GB, disabled
+insertion-order preservation, and a persistent spill directory beside the imported database. The
+defaults can be overridden with `GTFS_VIZ_DUCKDB_THREADS`, `GTFS_VIZ_DUCKDB_MEMORY_LIMIT`, and
+`GTFS_VIZ_DUCKDB_TEMP_DIRECTORY`.
+
 ## Quick Start
 
 ```bash

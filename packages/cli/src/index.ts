@@ -511,6 +511,7 @@ const importDataset = async (feedArg: string) => {
     await extractZipEntry(feedPath, calendarDatesEntry, calendarDatesPath);
 
   const importSqlContent = await buildImportSql({
+    databasePath: currentDbPath,
     stopsPath,
     pathwaysPath,
     routesPath,

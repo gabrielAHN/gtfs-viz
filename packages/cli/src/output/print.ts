@@ -726,6 +726,11 @@ Version & Updates:
   version                            Show the installed CLI version
   update [--check]                   Update the CLI to the latest npm release
 
+DuckDB memory:
+  GTFS_VIZ_DUCKDB_THREADS            Override the reduced worker count
+  GTFS_VIZ_DUCKDB_MEMORY_LIMIT       Override the host-aware memory cap
+  GTFS_VIZ_DUCKDB_TEMP_DIRECTORY     Override the persistent spill directory
+
 Help:
   h [command]                        Show general or command-specific help
   help [command]                     Same as h

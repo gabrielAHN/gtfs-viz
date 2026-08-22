@@ -12,8 +12,10 @@ import {
   buildImportSql as buildIngestionSql,
   addGeomColumnsSql,
 } from "@gtfs-viz/duckdb-extension";
+import { buildDuckDbSessionSql } from "./config.js";
 
 export async function buildImportSql(opts: {
+  databasePath: string;
   stopsPath: string;
   pathwaysPath?: string;
   routesPath?: string;
@@ -24,5 +26,14 @@ export async function buildImportSql(opts: {
   calendarDatesPath?: string;
 }): Promise<string> {
   const spatial = "INSTALL spatial; LOAD spatial;\n";
-  return [spatial, GTFS_LOAD_SQL, dropExistingSql(), buildIngestionSql(opts), GTFS_INIT_SQL, GTFS_REROUTE_SQL, addGeomColumnsSql()].join("\n");
+  return [
+    buildDuckDbSessionSql(opts.databasePath),
+    spatial,
+    GTFS_LOAD_SQL,
+    dropExistingSql(),
+    buildIngestionSql(opts),
+    GTFS_INIT_SQL,
+    GTFS_REROUTE_SQL,
+    addGeomColumnsSql(),
+  ].join("\n");
 }
