@@ -30,6 +30,7 @@ interface ComboboxProps {
   setValue: (value: string | undefined) => void;
   value: string | undefined;
   wrapLabel?: boolean;
+  disabled?: boolean;
 }
 
 export default function Combobox({
@@ -39,6 +40,7 @@ export default function Combobox({
   setValue,
   value,
   wrapLabel = false,
+  disabled = false,
 }: ComboboxProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -75,8 +77,9 @@ export default function Combobox({
 
   return (
     <Popover
-      open={open}
+      open={disabled ? false : open}
       onOpenChange={(nextOpen) => {
+        if (disabled) return;
         setOpen(nextOpen);
         if (!nextOpen) setSearch("");
       }}
@@ -84,12 +87,16 @@ export default function Combobox({
       <PopoverTrigger asChild>
       <div
         role="combobox"
-        aria-expanded={open}
-        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={disabled ? false : open}
+        aria-disabled={disabled}
+        onClick={() => {
+          if (!disabled) setOpen((prev) => !prev);
+        }}
         className={cn(
           "flex w-full p-2 text-sm rounded-md border min-h-10 cursor-pointer items-center justify-between",
           "bg-background hover:bg-accent/10 transition-colors",
-          selectedOption ? "text-foreground" : "text-muted-foreground"
+          selectedOption ? "text-foreground" : "text-muted-foreground",
+          disabled && "cursor-not-allowed opacity-50 hover:bg-background",
         )}
       >
         <span className="flex min-w-0 flex-1 items-center gap-2 ml-2">
@@ -108,9 +115,9 @@ export default function Combobox({
             <div
               onClick={(e) => {
                 e.stopPropagation();
-                setValue(undefined); 
+                if (!disabled) setValue(undefined);
               }}
-              className="cursor-pointer"
+              className={disabled ? "cursor-not-allowed" : "cursor-pointer"}
             >
               <BiX className="h-4 w-4 text-current opacity-50" />
             </div>

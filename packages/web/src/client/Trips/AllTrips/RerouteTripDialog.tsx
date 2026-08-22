@@ -2,18 +2,17 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BiGitCompare, BiTransferAlt } from "react-icons/bi";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import Combobox from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FormActions } from "@/components/forms/shared/FormActions";
 import { useDuckDB } from "@/context/duckdb.client";
 import { TripMap } from "@/client/Trips/components/Map";
 import {
@@ -113,9 +112,11 @@ function RerouteStopChanges({
 export function ReroutePreviewDetails({
   preview,
   routeLabel,
+  disabled = false,
 }: {
   preview: TripReroutePreview;
   routeLabel: string;
+  disabled?: boolean;
 }) {
   const mapTrips = useMemo(
     () => [
@@ -146,10 +147,10 @@ export function ReroutePreviewDetails({
   return (
     <Tabs defaultValue="timetable" className="space-y-3">
       <TabsList className="h-9">
-        <TabsTrigger value="timetable" className="h-7 text-xs">
+        <TabsTrigger value="timetable" className="h-7 text-xs" disabled={disabled}>
           Timetable
         </TabsTrigger>
-        <TabsTrigger value="map" className="h-7 text-xs">
+        <TabsTrigger value="map" className="h-7 text-xs" disabled={disabled}>
           Map
         </TabsTrigger>
       </TabsList>
@@ -284,6 +285,11 @@ export function RerouteTripDialog({
   const activePreview = previewQuery.data;
   const error =
     routesQuery.error || boundaryPairsQuery.error || previewQuery.error || saveMutation.error;
+  const errorMessage = error
+    ? error instanceof Error
+      ? error.message
+      : "Unable to prepare this reroute."
+    : null;
 
   return (
     <Dialog
@@ -313,7 +319,19 @@ export function RerouteTripDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <FormActions
+          isBusy={saveMutation.isPending}
+          isValid={Boolean(previewQuery.data?.hasChanges)}
+          hasChanges={Boolean(previewQuery.data?.hasChanges)}
+          onSave={() => {
+            if (previewQuery.data) saveMutation.mutate(previewQuery.data);
+          }}
+          onCancel={close}
+          saveLabel="Reroute"
+          busyLabel="Applying reroute..."
+          error={errorMessage}
+        >
+          <fieldset className="min-w-0 space-y-4" disabled={saveMutation.isPending}>
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Source route (read-only)</label>
             {routesQuery.isLoading ? (
@@ -323,6 +341,7 @@ export function RerouteTripDialog({
                 options={routeOptions}
                 Message="Choose a route with a different stop section"
                 value={routeId}
+                disabled={saveMutation.isPending}
                 setValue={(value) => {
                   setRouteId(value);
                   setFromStation(undefined);
@@ -353,6 +372,7 @@ export function RerouteTripDialog({
                   options={fromOptions}
                   Message={routeId ? "Choose the start boundary" : "Choose a route first"}
                   value={fromStation}
+                  disabled={saveMutation.isPending}
                   setValue={(value) => {
                     setFromStation(value);
                     setToStation(undefined);
@@ -366,6 +386,7 @@ export function RerouteTripDialog({
                 options={toOptions}
                 Message={fromStation ? "Choose the end boundary" : "Choose a start station first"}
                 value={toStation}
+                disabled={saveMutation.isPending}
                 setValue={setToStation}
               />
             </div>
@@ -378,34 +399,19 @@ export function RerouteTripDialog({
 
           {previewQuery.isLoading ? <Skeleton className="h-44 w-full" /> : null}
           {activePreview ? (
-            <ReroutePreviewDetails preview={activePreview} routeLabel={routeLabel} />
+            <ReroutePreviewDetails
+              preview={activePreview}
+              routeLabel={routeLabel}
+              disabled={saveMutation.isPending}
+            />
           ) : null}
           {activePreview && !activePreview.hasChanges ? (
             <p className="text-sm text-muted-foreground">
               This route follows the same stops between the selected stations.
             </p>
           ) : null}
-          {error ? (
-            <p role="alert" className="text-sm text-destructive">
-              {error instanceof Error ? error.message : "Unable to prepare this reroute."}
-            </p>
-          ) : null}
-
-          <DialogFooter className="gap-2 sm:space-x-0">
-            <Button variant="outline" onClick={close} disabled={saveMutation.isPending}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                if (previewQuery.data) saveMutation.mutate(previewQuery.data);
-              }}
-              disabled={!previewQuery.data?.hasChanges || saveMutation.isPending}
-            >
-              <BiTransferAlt className="mr-1.5 h-4 w-4" />
-              {saveMutation.isPending ? "Rerouting…" : "Reroute"}
-            </Button>
-          </DialogFooter>
-        </div>
+          </fieldset>
+        </FormActions>
       </DialogContent>
     </Dialog>
   );
