@@ -20,6 +20,7 @@ import {
   fetchTripRerouteBoundaryPairs,
   fetchTripReroutePreview,
   fetchTripRerouteRoutes,
+  REROUTE_QUERY_STALE_TIME,
   saveTripReroute,
   type RerouteStop,
   type TripReroutePreview,
@@ -199,7 +200,7 @@ export function RerouteTripDialog({
     queryKey: ["tripRerouteRoutes", tripId],
     queryFn: () => fetchTripRerouteRoutes(conn, tripId),
     enabled: open && !!conn && !!initialized,
-    staleTime: 30_000,
+    staleTime: REROUTE_QUERY_STALE_TIME,
   });
 
   const selectedRoute = routesQuery.data?.find((route) => route.route_id === routeId);
@@ -207,6 +208,7 @@ export function RerouteTripDialog({
     queryKey: ["tripRerouteBoundaryPairs", tripId, selectedRoute?.donor_trip_id],
     queryFn: () => fetchTripRerouteBoundaryPairs(conn, tripId, selectedRoute!.donor_trip_id),
     enabled: open && !!conn && !!selectedRoute,
+    staleTime: REROUTE_QUERY_STALE_TIME,
   });
 
   const fromOptions = useMemo(() => {
@@ -232,6 +234,7 @@ export function RerouteTripDialog({
       fetchTripReroutePreview(conn, tripId, selectedRoute!.donor_trip_id, fromStation!, toStation!),
     enabled: open && !!conn && !!selectedRoute && !!fromStation && !!toStation,
     retry: false,
+    staleTime: REROUTE_QUERY_STALE_TIME,
   });
 
   const saveMutation = useMutation({
@@ -247,6 +250,9 @@ export function RerouteTripDialog({
       await queryClient.invalidateQueries({ queryKey: ["fetchCompareStopTimes"] });
       await queryClient.invalidateQueries({ queryKey: ["EditStopTimesTable"] });
       await queryClient.invalidateQueries({ queryKey: ["editsOverview"] });
+      await queryClient.invalidateQueries({ queryKey: ["tripRerouteRoutes", tripId] });
+      await queryClient.invalidateQueries({ queryKey: ["tripRerouteBoundaryPairs", tripId] });
+      await queryClient.invalidateQueries({ queryKey: ["tripReroutePreview", tripId] });
       setRouteId(undefined);
       setFromStation(undefined);
       setToStation(undefined);

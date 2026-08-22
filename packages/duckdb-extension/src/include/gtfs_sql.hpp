@@ -1207,9 +1207,6 @@ CREATE OR REPLACE MACRO get_station_routes(p_station_id) AS TABLE (
 
 )SQL";
 
-// Reroute helpers. Splices a donor route's stops into an affected trip between two shared
-// boundary stops, carrying the donor's real inter-stop timing scaled to fit the affected trip's
-// window. Depends only on stop_times + StopsView, so the CLI can re-apply it to existing datasets.
 static const char *GTFS_REROUTE_SQL = R"SQL(
 
 CREATE OR REPLACE MACRO gtfs_time_to_seconds(t) AS (
@@ -1229,114 +1226,125 @@ CREATE OR REPLACE MACRO seconds_to_gtfs_time(s) AS (
 );
 
 CREATE OR REPLACE MACRO get_trip_reroute_routes(p_trip_id) AS TABLE (
-  WITH affected_trip AS (
+  WITH affected_trip AS MATERIALIZED (
     SELECT route_id
     FROM TripsView
     WHERE trip_id = p_trip_id
     LIMIT 1
   ),
-  affected_stations AS (
-    SELECT sv.stop_name AS station_name, MIN(st.stop_sequence) AS affected_sequence
+  affected_stops AS MATERIALIZED (
+    SELECT ROW_NUMBER() OVER (ORDER BY st.stop_sequence) AS affected_position,
+           st.stop_id, sv.stop_name AS station_name
     FROM StopTimesView st
     JOIN StopsView sv ON sv.stop_id = st.stop_id
     WHERE st.trip_id = p_trip_id
       AND sv.stop_name IS NOT NULL
-    GROUP BY sv.stop_name
   ),
-  shared_stations AS (
-    SELECT t.route_id, t.trip_id AS donor_trip_id, shared.station_name,
-           shared.affected_sequence, MIN(st.stop_sequence) AS donor_sequence
+  affected_pattern AS MATERIALIZED (
+    SELECT LIST(stop_id ORDER BY affected_position) AS stop_ids
+    FROM affected_stops
+  ),
+  donor_representatives AS MATERIALIZED (
+    SELECT t.route_id, t.direction_id,
+           COALESCE(NULLIF(t.shape_id, ''), 'headsign:' || COALESCE(t.trip_headsign, '')) AS pattern_id,
+           MIN(t.trip_id) AS donor_trip_id
     FROM TripsView t
-    JOIN StopTimesView st ON st.trip_id = t.trip_id
-    JOIN StopsView sv ON sv.stop_id = st.stop_id
-    JOIN affected_stations shared ON shared.station_name = sv.stop_name
     CROSS JOIN affected_trip
     WHERE t.trip_id != p_trip_id
       AND t.route_id != affected_trip.route_id
-    GROUP BY t.route_id, t.trip_id, shared.station_name, shared.affected_sequence
+    GROUP BY t.route_id, t.direction_id,
+             COALESCE(NULLIF(t.shape_id, ''), 'headsign:' || COALESCE(t.trip_headsign, ''))
   ),
-  ordered_candidates AS (
-    SELECT DISTINCT start_station.route_id, start_station.donor_trip_id
-    FROM shared_stations start_station
-    JOIN shared_stations end_station
-      ON end_station.route_id = start_station.route_id
-     AND end_station.donor_trip_id = start_station.donor_trip_id
-     AND end_station.affected_sequence > start_station.affected_sequence
-     AND end_station.donor_sequence > start_station.donor_sequence
+  donor_stop_rows AS MATERIALIZED (
+    SELECT edits.trip_id, edits.stop_sequence, edits.stop_id
+    FROM donor_representatives representatives
+    JOIN EditStopTimesTable edits ON edits.trip_id = representatives.donor_trip_id
+    WHERE edits.status IN ('new', 'edit', 'new edit')
+    UNION ALL
+    SELECT st.trip_id, st.stop_sequence, st.stop_id
+    FROM donor_representatives representatives
+    JOIN stop_times st ON st.trip_id = representatives.donor_trip_id
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM EditStopTimesTable edits
+      WHERE edits.row_id = CAST(st.row_id AS TEXT)
+        AND edits.status IN ('deleted', 'edit')
+    )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM EditStopTimesTable edits
+        WHERE edits.trip_id = st.trip_id
+          AND edits.status = 'new edit'
+      )
   ),
-  candidate_trips AS (
-    SELECT shared.route_id, shared.donor_trip_id,
-           COUNT(DISTINCT shared.station_name) AS shared_station_count
-    FROM shared_stations shared
-    JOIN ordered_candidates ordered
-      ON ordered.route_id = shared.route_id
-     AND ordered.donor_trip_id = shared.donor_trip_id
-    GROUP BY shared.route_id, shared.donor_trip_id
-    HAVING COUNT(DISTINCT shared.station_name) >= 2
-  ),
-  trip_patterns AS (
-    SELECT candidate_trips.*,
-           STRING_AGG(st.stop_id, '>' ORDER BY st.stop_sequence) AS stop_pattern
-    FROM candidate_trips
-    JOIN StopTimesView st ON st.trip_id = candidate_trips.donor_trip_id
-    GROUP BY candidate_trips.route_id, candidate_trips.donor_trip_id,
-             candidate_trips.shared_station_count
-  ),
-  pattern_candidates AS (
-    SELECT *,
-           COUNT(*) OVER (PARTITION BY route_id, stop_pattern) AS pattern_trip_count,
+  donor_stops AS MATERIALIZED (
+    SELECT representatives.route_id, representatives.donor_trip_id,
            ROW_NUMBER() OVER (
-             PARTITION BY route_id, stop_pattern
-             ORDER BY donor_trip_id
-           ) AS pattern_trip_rank
-    FROM trip_patterns
+             PARTITION BY representatives.donor_trip_id
+             ORDER BY st.stop_sequence
+           ) AS donor_position,
+           st.stop_id, sv.stop_name AS station_name
+    FROM donor_representatives representatives
+    JOIN donor_stop_rows st ON st.trip_id = representatives.donor_trip_id
+    JOIN StopsView sv ON sv.stop_id = st.stop_id
+    WHERE sv.stop_name IS NOT NULL
   ),
-  pattern_representatives AS (
-    SELECT *
-    FROM pattern_candidates
-    WHERE pattern_trip_rank = 1
+  donor_patterns AS MATERIALIZED (
+    SELECT route_id, donor_trip_id,
+           LIST(stop_id ORDER BY donor_position) AS stop_ids
+    FROM donor_stops
+    GROUP BY route_id, donor_trip_id
   ),
-  pattern_pairs AS (
-    SELECT patterns.route_id, patterns.donor_trip_id,
-           patterns.shared_station_count, patterns.pattern_trip_count,
-           start_station.affected_sequence AS affected_from_sequence,
-           end_station.affected_sequence AS affected_to_sequence,
-           start_station.donor_sequence AS donor_from_sequence,
-           end_station.donor_sequence AS donor_to_sequence
-    FROM pattern_representatives patterns
-    JOIN shared_stations start_station
-      ON start_station.route_id = patterns.route_id
-     AND start_station.donor_trip_id = patterns.donor_trip_id
-    JOIN shared_stations end_station
-      ON end_station.route_id = patterns.route_id
-     AND end_station.donor_trip_id = patterns.donor_trip_id
-     AND end_station.affected_sequence > start_station.affected_sequence
-     AND end_station.donor_sequence > start_station.donor_sequence
+  shared_stations AS MATERIALIZED (
+    SELECT donors.route_id, donors.donor_trip_id,
+           affected.station_name,
+           affected.affected_position,
+           donors.donor_position
+    FROM donor_stops donors
+    JOIN affected_stops affected ON affected.station_name = donors.station_name
   ),
-  changed_patterns AS (
+  candidate_stats AS MATERIALIZED (
+    SELECT route_id, donor_trip_id,
+           COUNT(DISTINCT station_name) AS shared_station_count
+    FROM shared_stations
+    GROUP BY route_id, donor_trip_id
+    HAVING COUNT(DISTINCT station_name) >= 2
+  ),
+  pattern_pairs AS MATERIALIZED (
+    SELECT candidates.route_id, candidates.donor_trip_id,
+           candidates.shared_station_count,
+           starts.affected_position AS affected_from_position,
+           ends.affected_position AS affected_to_position,
+           starts.donor_position AS donor_from_position,
+           ends.donor_position AS donor_to_position
+    FROM candidate_stats candidates
+    JOIN shared_stations starts USING (route_id, donor_trip_id)
+    JOIN shared_stations ends USING (route_id, donor_trip_id)
+    WHERE ends.affected_position > starts.affected_position
+      AND ends.donor_position > starts.donor_position
+  ),
+  changed_candidates AS MATERIALIZED (
     SELECT DISTINCT pairs.route_id, pairs.donor_trip_id,
-           pairs.shared_station_count, pairs.pattern_trip_count
+           pairs.shared_station_count
     FROM pattern_pairs pairs
-    WHERE COALESCE((
-      SELECT STRING_AGG(st.stop_id, '>' ORDER BY st.stop_sequence)
-      FROM StopTimesView st
-      WHERE st.trip_id = p_trip_id
-        AND st.stop_sequence > pairs.affected_from_sequence
-        AND st.stop_sequence < pairs.affected_to_sequence
-    ), '') <> COALESCE((
-      SELECT STRING_AGG(st.stop_id, '>' ORDER BY st.stop_sequence)
-      FROM StopTimesView st
-      WHERE st.trip_id = pairs.donor_trip_id
-        AND st.stop_sequence > pairs.donor_from_sequence
-        AND st.stop_sequence < pairs.donor_to_sequence
-    ), '')
+    JOIN donor_patterns donor USING (route_id, donor_trip_id)
+    CROSS JOIN affected_pattern affected
+    WHERE LIST_SLICE(
+            affected.stop_ids,
+            pairs.affected_from_position + 1,
+            pairs.affected_to_position - 1
+          ) <> LIST_SLICE(
+            donor.stop_ids,
+            pairs.donor_from_position + 1,
+            pairs.donor_to_position - 1
+          )
   ),
   ranked AS (
     SELECT *, ROW_NUMBER() OVER (
       PARTITION BY route_id
-      ORDER BY pattern_trip_count DESC, shared_station_count DESC, donor_trip_id
+      ORDER BY shared_station_count DESC, donor_trip_id
     ) AS route_rank
-    FROM changed_patterns
+    FROM changed_candidates
   )
   SELECT r.route_id, r.route_name, r.route_short_name, r.route_type_name,
          r.route_color_hex, ranked.donor_trip_id, ranked.shared_station_count
@@ -1347,24 +1355,47 @@ CREATE OR REPLACE MACRO get_trip_reroute_routes(p_trip_id) AS TABLE (
 );
 
 CREATE OR REPLACE MACRO get_trip_reroute_boundary_pairs(p_trip_id, p_donor_trip_id) AS TABLE (
-  WITH affected AS (
-    SELECT sv.stop_name AS station_name, MIN(st.stop_sequence) AS affected_sequence
+  WITH affected_stops AS MATERIALIZED (
+    SELECT st.stop_sequence AS affected_sequence,
+           ROW_NUMBER() OVER (ORDER BY st.stop_sequence) AS affected_position,
+           st.stop_id, sv.stop_name AS station_name
     FROM StopTimesView st
     JOIN StopsView sv ON sv.stop_id = st.stop_id
     WHERE st.trip_id = p_trip_id
       AND sv.stop_name IS NOT NULL
-    GROUP BY sv.stop_name
   ),
-  donor AS (
-    SELECT sv.stop_name AS station_name, MIN(st.stop_sequence) AS donor_sequence
+  donor_stops AS MATERIALIZED (
+    SELECT st.stop_sequence AS donor_sequence,
+           ROW_NUMBER() OVER (ORDER BY st.stop_sequence) AS donor_position,
+           st.stop_id, sv.stop_name AS station_name
     FROM StopTimesView st
     JOIN StopsView sv ON sv.stop_id = st.stop_id
     WHERE st.trip_id = p_donor_trip_id
       AND sv.stop_name IS NOT NULL
-    GROUP BY sv.stop_name
   ),
-  shared AS (
-    SELECT affected.station_name, affected.affected_sequence, donor.donor_sequence
+  affected AS MATERIALIZED (
+    SELECT station_name, MIN(affected_sequence) AS affected_sequence,
+           MIN(affected_position) AS affected_position
+    FROM affected_stops
+    GROUP BY station_name
+  ),
+  donor AS MATERIALIZED (
+    SELECT station_name, MIN(donor_sequence) AS donor_sequence,
+           MIN(donor_position) AS donor_position
+    FROM donor_stops
+    GROUP BY station_name
+  ),
+  affected_pattern AS MATERIALIZED (
+    SELECT LIST(stop_id ORDER BY affected_position) AS stop_ids
+    FROM affected_stops
+  ),
+  donor_pattern AS MATERIALIZED (
+    SELECT LIST(stop_id ORDER BY donor_position) AS stop_ids
+    FROM donor_stops
+  ),
+  shared AS MATERIALIZED (
+    SELECT affected.station_name, affected.affected_sequence, affected.affected_position,
+           donor.donor_sequence, donor.donor_position
     FROM affected
     JOIN donor USING (station_name)
   ),
@@ -1374,27 +1405,31 @@ CREATE OR REPLACE MACRO get_trip_reroute_boundary_pairs(p_trip_id, p_donor_trip_
            start_station.affected_sequence AS affected_from_sequence,
            end_station.affected_sequence AS affected_to_sequence,
            start_station.donor_sequence AS donor_from_sequence,
-           end_station.donor_sequence AS donor_to_sequence
+           end_station.donor_sequence AS donor_to_sequence,
+           start_station.affected_position AS affected_from_position,
+           end_station.affected_position AS affected_to_position,
+           start_station.donor_position AS donor_from_position,
+           end_station.donor_position AS donor_to_position
     FROM shared start_station
     JOIN shared end_station
-      ON end_station.affected_sequence > start_station.affected_sequence
-     AND end_station.donor_sequence > start_station.donor_sequence
+      ON end_station.affected_position > start_station.affected_position
+     AND end_station.donor_position > start_station.donor_position
   )
-  SELECT *
+  SELECT from_station, to_station,
+         affected_from_sequence, affected_to_sequence,
+         donor_from_sequence, donor_to_sequence
   FROM pairs
-  WHERE COALESCE((
-    SELECT STRING_AGG(st.stop_id, '>' ORDER BY st.stop_sequence)
-    FROM StopTimesView st
-    WHERE st.trip_id = p_trip_id
-      AND st.stop_sequence > pairs.affected_from_sequence
-      AND st.stop_sequence < pairs.affected_to_sequence
-  ), '') <> COALESCE((
-    SELECT STRING_AGG(st.stop_id, '>' ORDER BY st.stop_sequence)
-    FROM StopTimesView st
-    WHERE st.trip_id = p_donor_trip_id
-      AND st.stop_sequence > pairs.donor_from_sequence
-      AND st.stop_sequence < pairs.donor_to_sequence
-  ), '')
+  CROSS JOIN affected_pattern
+  CROSS JOIN donor_pattern
+  WHERE LIST_SLICE(
+          affected_pattern.stop_ids,
+          pairs.affected_from_position + 1,
+          pairs.affected_to_position - 1
+        ) <> LIST_SLICE(
+          donor_pattern.stop_ids,
+          pairs.donor_from_position + 1,
+          pairs.donor_to_position - 1
+        )
   ORDER BY affected_from_sequence, affected_to_sequence
 );
 

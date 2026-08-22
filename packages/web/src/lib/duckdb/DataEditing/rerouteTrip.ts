@@ -49,6 +49,8 @@ export type TripReroutePreview = {
   hasChanges: boolean;
 };
 
+export const REROUTE_QUERY_STALE_TIME = 5 * 60_000;
+
 const escapeSql = (value: string) => value.replace(/'/g, "''");
 
 let installedConnection: any;

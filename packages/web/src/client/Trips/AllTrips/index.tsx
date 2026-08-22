@@ -26,7 +26,10 @@ import {
 import { Timetable, TripStopPanel } from "@/client/Trips/components/Timetable";
 import { Timeline } from "@/client/Trips/components/Timeline";
 import { TripMap } from "@/client/Trips/components/Map";
-import { fetchTripRerouteRoutes } from "@/lib/duckdb/DataEditing/rerouteTrip";
+import {
+  fetchTripRerouteRoutes,
+  REROUTE_QUERY_STALE_TIME,
+} from "@/lib/duckdb/DataEditing/rerouteTrip";
 import type { TripRow, AllTripsProps } from "./types";
 import { TripsHeader } from "./Header";
 import { useTripColumns } from "./TripColumns";
@@ -231,7 +234,7 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
       !!selectedTripId &&
       hasStopTimes &&
       stopTimes.length > 1,
-    staleTime: 30_000,
+    staleTime: REROUTE_QUERY_STALE_TIME,
   });
 
   const compareTrips = useMemo(
