@@ -31,6 +31,8 @@ type RerouteTripDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
+type ReroutePreviewView = "timetable" | "map";
+
 const stopTime = (stop: RerouteStop) => {
   if (!stop.arrival_time && !stop.departure_time) return "";
   if (!stop.departure_time || stop.arrival_time === stop.departure_time) {
@@ -112,10 +114,14 @@ function RerouteStopChanges({
 export function ReroutePreviewDetails({
   preview,
   routeLabel,
+  view,
+  onViewChange,
   disabled = false,
 }: {
   preview: TripReroutePreview;
   routeLabel: string;
+  view: ReroutePreviewView;
+  onViewChange: (view: ReroutePreviewView) => void;
   disabled?: boolean;
 }) {
   const mapTrips = useMemo(
@@ -145,7 +151,11 @@ export function ReroutePreviewDetails({
     return fromStopIdx >= 0 && toStopIdx > fromStopIdx ? { fromStopIdx, toStopIdx } : undefined;
   }, [preview]);
   return (
-    <Tabs defaultValue="timetable" className="space-y-3">
+    <Tabs
+      value={view}
+      onValueChange={(value) => onViewChange(value as ReroutePreviewView)}
+      className="space-y-3"
+    >
       <TabsList className="h-9">
         <TabsTrigger value="timetable" className="h-7 text-xs" disabled={disabled}>
           Timetable
@@ -196,6 +206,7 @@ export function RerouteTripDialog({
   const [routeId, setRouteId] = useState<string>();
   const [fromStation, setFromStation] = useState<string>();
   const [toStation, setToStation] = useState<string>();
+  const [previewView, setPreviewView] = useState<ReroutePreviewView>("timetable");
 
   const routesQuery = useQuery({
     queryKey: ["tripRerouteRoutes", tripId],
@@ -257,6 +268,7 @@ export function RerouteTripDialog({
       setRouteId(undefined);
       setFromStation(undefined);
       setToStation(undefined);
+      setPreviewView("timetable");
       onOpenChange(false);
     },
   });
@@ -265,6 +277,7 @@ export function RerouteTripDialog({
     setRouteId(undefined);
     setFromStation(undefined);
     setToStation(undefined);
+    setPreviewView("timetable");
     saveMutation.reset();
   };
 
@@ -402,6 +415,8 @@ export function RerouteTripDialog({
             <ReroutePreviewDetails
               preview={activePreview}
               routeLabel={routeLabel}
+              view={previewView}
+              onViewChange={setPreviewView}
               disabled={saveMutation.isPending}
             />
           ) : null}
