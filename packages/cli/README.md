@@ -63,7 +63,7 @@ gtfs-viz examples                     # See all commands
 | `query --sql <sql>` | Run SQL |
 | `edit_table [pathways\|stops\|routes]` | View pending edits |
 | `edits [--trip --view --url-only]` | Review categories or open Edits & Export |
-| `reroute --trip --via --from --to` | Replace a trip section using donor stops |
+| `reroute --trip [--via --from --to]` | Open the reroute form or replace a trip section using donor stops |
 | `stop` | Stop dashboard session and clear session state |
 | `restart` | Stop session and remove local DuckDB/feed import |
 | `examples` | Show usage examples |
@@ -80,7 +80,12 @@ Direct review links:
 gtfs-viz edits --url-only
 gtfs-viz edits --trip TRIP_ID --compare-view map --url-only
 gtfs-viz edits --view table --trips-page 3 --trips-page-size 20 --url-only
+gtfs-viz reroute --trip TRIP_ID --url-only
 ```
+
+`reroute --trip TRIP_ID` opens the selected trip's reroute form. Providing `--via`, `--from`, and
+`--to` applies the splice and opens the edited trip. Add `--url-only` for the deep link without
+browser navigation or `--data` for terminal-only operation.
 
 ## Local Development
 

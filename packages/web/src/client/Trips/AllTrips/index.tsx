@@ -61,7 +61,6 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
   }, [updateSearch]);
   const [isPicking, setIsPicking] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [showReroute, setShowReroute] = useState(false);
   const [hiddenTripIndices, setHiddenTripIndices] = useState<Set<number>>(new Set());
   const toggleTripVisibility = useCallback((idx: number) => {
     setHiddenTripIndices((prev) => { const next = new Set(prev); if (next.has(idx)) next.delete(idx); else next.add(idx); return next; });
@@ -84,6 +83,7 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
   const routeId = search.routeId;
   const routeType = search.routeType;
   const selectedTripId = search.selectedTripId;
+  const showReroute = search.reroute === true;
 
   // Ref for TripMap zoom-to-stop function
   const zoomToStopRef = useRef<((stopIdx: number) => void) | null>(null);
@@ -290,12 +290,11 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
   };
 
   const handleTripSelect = (trip?: TripRow) => {
-    updateSearch({ selectedTripId: trip?.trip_id || undefined });
+    updateSearch({ selectedTripId: trip?.trip_id || undefined, reroute: undefined });
     if (trip) setTripView("timetable");
     setCompareTripIds([]);
     setIsPicking(false);
     setIsEditing(false);
-    setShowReroute(false);
     setViewSelectedIdx(null);
   };
 
@@ -698,7 +697,7 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
           {hasStopTimes && compareTrips.length === 0 && (
             <Button
               variant="outline"
-              onClick={() => setShowReroute(true)}
+              onClick={() => updateSearch({ reroute: true })}
               size="sm"
               className="flex items-center"
               disabled={
@@ -738,7 +737,7 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
           key={selectedTripId}
           open={showReroute}
           tripId={selectedTripId}
-          onOpenChange={setShowReroute}
+          onOpenChange={(open) => updateSearch({ reroute: open ? true : undefined })}
         />
       ) : null}
       {/* Compare trips chips */}

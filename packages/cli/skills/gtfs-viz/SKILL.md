@@ -252,6 +252,7 @@ gtfs-viz update_trip --trip-id T2 --headsign "Express"        # only given field
 gtfs-viz delete_trip --trip-id T2                             # cascades to stop_times
 
 gtfs-viz set_stop_times --trip-id T2 --stops-json '[{"stop_sequence":1,"stop_id":"S1","arrival_time":"09:00:00","departure_time":"09:00:00"}]'
+gtfs-viz reroute --trip A_TRIP   # open the affected trip directly in the reroute form
 gtfs-viz reroute --trip A_TRIP --via F_TRIP --from "W 4 St-Wash Sq" --to "Jay St-MetroTech"   # run A via the F between those stops
 gtfs-viz remove_stops --trip T2 --stops "Spring St,Canal St"                # skip/express, station bypass
 gtfs-viz truncate_trip --trip T2 --to "14 St"                                # short-turn / ends early
@@ -353,3 +354,7 @@ defaults with `GTFS_VIZ_DUCKDB_THREADS`, `GTFS_VIZ_DUCKDB_MEMORY_LIMIT`, or
 - Use `gtfs-viz edits --trip <id> --compare-view map --url-only` for a direct reroute verification
   link in Edits & Export; use `gtfs-viz trip <id> --compare <donor> --view map --url-only` to compare
   affected and donor trips.
+- Use `gtfs-viz reroute --trip <id>` to open the selected trip's reroute form. A complete
+  `gtfs-viz reroute --trip <id> --via <donor> --from <station> --to <station>` opens the edited trip
+  after applying the splice; add `--url-only` for a link without browser navigation or `--data` for
+  terminal-only operation.

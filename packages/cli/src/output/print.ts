@@ -335,11 +335,22 @@ const commandHelp: Record<string, string> = {
   boundaries must occur in the same order, and replacement times are fitted
   to the affected trip's boundary window.
 
+  With only --trip, open that trip's reroute form. After a complete reroute,
+  open the edited trip so the replaced stops are immediately visible.
+
   Flags:
     --trip <id>             Affected trip ID
     --via <id>              Donor trip ID
     --from <station>        Shared start boundary station
     --to <station>          Shared end boundary station
+    --data                  Apply without opening the dashboard
+    --url-only              Apply and print the edited trip URL without opening it
+
+  Open form:
+    gtfs-viz reroute --trip <id>
+
+  Apply:
+    gtfs-viz reroute --trip <id> --via <donor-id> --from "W 4 St-Wash Sq" --to "Jay St-MetroTech"
 
   Review:
     gtfs-viz query --sql "SELECT * FROM get_trip_reroute_routes('trip-id')" --data

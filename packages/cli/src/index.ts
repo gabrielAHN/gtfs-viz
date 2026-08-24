@@ -1492,6 +1492,41 @@ const commandTrips = async (args: Args) => {
   await openDashboardView("trips/table", params);
 };
 
+const openTripDashboard = async (
+  args: Args,
+  tripId: string,
+  extraParams: Record<string, string> = {},
+): Promise<boolean> => {
+  const ds = await readDatasetState();
+  const tripRows = await queryRows(
+    ds.dbPath,
+    `SELECT route_id, service_id FROM TripsView WHERE trip_id = ${sqlString(tripId)} LIMIT 1`,
+  );
+  if (tripRows.length === 0) {
+    console.log(`No trip found with ID "${tripId}".`);
+    return false;
+  }
+  const params = dashboardParamsFromFlags(args);
+  const routeId = String(tripRows[0].route_id);
+  params.selectedRouteId = routeId;
+  params.cliSelectedRoute = routeId;
+  params.routeId = routeId;
+  if (tripRows[0].service_id) params.selectedServiceId = String(tripRows[0].service_id);
+  const view = getViewFlag(args);
+  if (view === "timeline" || view === "map") params.view = view;
+  const compareRaw = getFlagString(args.flags, "compare");
+  if (compareRaw) {
+    const allIds = compareRaw.split(",").map((value) => value.trim()).filter(Boolean);
+    if (!allIds.includes(tripId)) allIds.unshift(tripId);
+    params.compareTripIds = allIds.join(",");
+  } else {
+    params.selectedTripId = tripId;
+  }
+  Object.assign(params, extraParams);
+  await openDashboardView("trips/table", params);
+  return true;
+};
+
 const commandTrip = async (args: Args) => {
   ensureOutputMode(args);
   const tripId = getFlagString(args.flags, "trip-id") || getFlagString(args.flags, "id") || getPositionalId(args);
@@ -1540,27 +1575,7 @@ const commandTrip = async (args: Args) => {
     return;
   }
 
-  // Dashboard mode
-  const ds = await readDatasetState();
-  // Resolve via TripsView so newly-added (edit-only) trips also open in the dashboard.
-  const tripRows = await queryRows(ds.dbPath, `SELECT route_id, service_id FROM TripsView WHERE trip_id = ${sqlString(tripId)} LIMIT 1`);
-  if (tripRows.length === 0) { console.log(`No trip found with ID "${tripId}".`); return; }
-  const params = dashboardParamsFromFlags(args);
-  const resolvedRoute = String(tripRows[0].route_id);
-  params.selectedRouteId = resolvedRoute;
-  params.cliSelectedRoute = resolvedRoute;
-  params.routeId = resolvedRoute;
-  if (tripRows[0].service_id) params.selectedServiceId = String(tripRows[0].service_id);
-  const view = getViewFlag(args);
-  if (view === "timeline" || view === "map") params.view = view;
-  if (compareRaw) {
-    const allIds = compareRaw.split(",").map((s) => s.trim()).filter(Boolean);
-    if (!allIds.includes(tripId)) allIds.unshift(tripId);
-    params.compareTripIds = allIds.join(",");
-  } else {
-    params.selectedTripId = tripId;
-  }
-  await openDashboardView("trips/table", params);
+  await openTripDashboard(args, tripId);
 };
 
 const commandCalendar = async (args: Args) => {
@@ -2716,6 +2731,7 @@ const commandSetStopTimes = async (args: Args) => {
 };
 
 const commandReroute = async (args: Args) => {
+  ensureOutputMode(args);
   const ds = await readDatasetState();
   const tripId =
     getFlagString(args.flags, "trip-id") || getFlagString(args.flags, "trip") || getFlagString(args.flags, "id");
@@ -2723,17 +2739,34 @@ const commandReroute = async (args: Args) => {
     getFlagString(args.flags, "via") || getFlagString(args.flags, "donor-trip") || getFlagString(args.flags, "donor");
   const from = getFlagString(args.flags, "from");
   const to = getFlagString(args.flags, "to");
-  if (!tripId || !donor || !from || !to)
+  if (!tripId)
     throw new Error(
-      'Usage: gtfs-viz reroute --trip <trip_id> --via <donor_trip_id> --from "<boundary stop>" --to "<boundary stop>"',
+      'Usage: gtfs-viz reroute --trip <trip_id> [--via <donor_trip_id> --from "<boundary stop>" --to "<boundary stop>"]',
     );
+  if (!donor && !from && !to) {
+    if (wantsDataOutput(args.flags)) {
+      throw new Error("Remove --data to open the reroute form for the selected trip");
+    }
+    await openTripDashboard(args, tripId, { reroute: "true" });
+    return;
+  }
+  if (!donor || !from || !to) {
+    throw new Error(
+      'Provide --via <donor_trip_id>, --from "<boundary stop>", and --to "<boundary stop>" together',
+    );
+  }
   const changed = await rerouteViaDonor(ds.dbPath, tripId, donor, from, to);
   await refreshTrips(ds.dbPath);
-  console.log(
-    changed
-      ? `Rerouted ${tripId} via ${donor} between "${from}" and "${to}"`
-      : `No change for ${tripId} (already follows that path)`,
-  );
+  if (!wantsUrlOnly(args)) {
+    console.log(
+      changed
+        ? `Rerouted ${tripId} via ${donor} between "${from}" and "${to}"`
+        : `No change for ${tripId} (already follows that path)`,
+    );
+  }
+  if (!wantsDataOutput(args.flags)) {
+    await openTripDashboard(args, tripId);
+  }
 };
 
 // Skip/express or station bypass — drop named stops from a trip.

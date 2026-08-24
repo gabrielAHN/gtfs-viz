@@ -132,8 +132,14 @@ A **reroute** (e.g. "A/C run via the F line") carries the **donor** route's stop
 section — it is **not** a plain skip (which just leaves a gap). Use the built-in command:
 
 ```bash
+gtfs-viz reroute --trip <affected_trip>
 gtfs-viz reroute --trip <affected_trip> --via <donor_trip> --from "<boundary stop>" --to "<boundary stop>"
 ```
+
+The trip-only command opens the selected trip directly in the dashboard reroute form. A complete
+command applies the splice and opens the affected trip with its edited stops visible. Use
+`--url-only` to return the affected-trip link without navigating the browser, or `--data` to apply
+without opening the dashboard.
 
 - `--from` / `--to` are the two stops (by **name**) the affected route shares with the donor, where it
   leaves its normal path and where it rejoins. (A/F share **W 4 St-Wash Sq** and **Jay St-MetroTech**.)
@@ -153,7 +159,7 @@ gtfs-viz reroute --trip <C_trip> --via <F_trip> --from "W 4 St-Wash Sq" --to "Ja
 ```
 
 The spliced-in stops become `new`, the removed originals `deleted` — `gtfs-viz edits --trip <id>` shows
-the swap. **View the reroute** by comparing against the donor (a single-trip view can't reveal it):
+the swap. Compare against the donor when you also need to inspect the physical alignment:
 ```bash
 gtfs-viz trip <affected_trip> --compare <donor_trip> --view map    # physical reroute on the map
 gtfs-viz trip <affected_trip> --compare <donor_trip>               # stop-by-stop timetable
