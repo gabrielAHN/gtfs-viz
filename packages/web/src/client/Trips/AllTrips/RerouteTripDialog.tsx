@@ -1,5 +1,10 @@
 import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { BiGitCompare, BiTransferAlt } from "react-icons/bi";
 import { Badge } from "@/components/ui/badge";
 import Combobox from "@/components/ui/combobox";
@@ -240,13 +245,41 @@ export function RerouteTripDialog({
     });
   }, [boundaryPairsQuery.data, fromStation]);
 
+  const selectedBoundaryPair = useMemo(
+    () =>
+      (boundaryPairsQuery.data ?? []).find(
+        (pair) => pair.fromStation === fromStation && pair.toStation === toStation,
+      ),
+    [boundaryPairsQuery.data, fromStation, toStation],
+  );
+  const possibleBoundaryPair = useMemo(
+    () =>
+      selectedBoundaryPair ||
+      (boundaryPairsQuery.data ?? []).find((pair) => pair.fromStation === fromStation) ||
+      boundaryPairsQuery.data?.[0],
+    [boundaryPairsQuery.data, fromStation, selectedBoundaryPair],
+  );
+
   const previewQuery = useQuery({
-    queryKey: ["tripReroutePreview", tripId, selectedRoute?.donor_trip_id, fromStation, toStation],
+    queryKey: [
+      "tripReroutePreview",
+      tripId,
+      selectedRoute?.donor_trip_id,
+      possibleBoundaryPair?.fromStation,
+      possibleBoundaryPair?.toStation,
+    ],
     queryFn: () =>
-      fetchTripReroutePreview(conn, tripId, selectedRoute!.donor_trip_id, fromStation!, toStation!),
-    enabled: open && !!conn && !!selectedRoute && !!fromStation && !!toStation,
+      fetchTripReroutePreview(
+        conn,
+        tripId,
+        selectedRoute!.donor_trip_id,
+        possibleBoundaryPair!.fromStation,
+        possibleBoundaryPair!.toStation,
+      ),
+    enabled: open && !!conn && !!selectedRoute && !!possibleBoundaryPair,
     retry: false,
     staleTime: REROUTE_QUERY_STALE_TIME,
+    placeholderData: keepPreviousData,
   });
 
   const saveMutation = useMutation({
@@ -296,6 +329,21 @@ export function RerouteTripDialog({
   const routeLabel =
     selectedRoute?.route_short_name || selectedRoute?.route_name || routeId || "route";
   const activePreview = previewQuery.data;
+  const previewRoute = routesQuery.data?.find(
+    (route) => route.donor_trip_id === activePreview?.donorTripId,
+  );
+  const activeRouteLabel =
+    previewRoute?.route_short_name || previewRoute?.route_name || routeLabel;
+  const previewMatchesSelection = Boolean(
+    activePreview &&
+      selectedBoundaryPair &&
+      activePreview.donorTripId === selectedRoute?.donor_trip_id &&
+      activePreview.fromStation === fromStation &&
+      activePreview.toStation === toStation,
+  );
+  const canApplyPreview = Boolean(
+    previewMatchesSelection && activePreview?.hasChanges && !previewQuery.isFetching,
+  );
   const error =
     routesQuery.error || boundaryPairsQuery.error || previewQuery.error || saveMutation.error;
   const errorMessage = error
@@ -334,10 +382,10 @@ export function RerouteTripDialog({
 
         <FormActions
           isBusy={saveMutation.isPending}
-          isValid={Boolean(previewQuery.data?.hasChanges)}
-          hasChanges={Boolean(previewQuery.data?.hasChanges)}
+          isValid={canApplyPreview}
+          hasChanges={canApplyPreview}
           onSave={() => {
-            if (previewQuery.data) saveMutation.mutate(previewQuery.data);
+            if (canApplyPreview && activePreview) saveMutation.mutate(activePreview);
           }}
           onCancel={close}
           saveLabel="Reroute"
@@ -410,15 +458,29 @@ export function RerouteTripDialog({
             </p>
           ) : null}
 
-          {previewQuery.isLoading ? <Skeleton className="h-44 w-full" /> : null}
+          {previewQuery.isLoading && !activePreview ? <Skeleton className="h-44 w-full" /> : null}
           {activePreview ? (
-            <ReroutePreviewDetails
-              preview={activePreview}
-              routeLabel={routeLabel}
-              view={previewView}
-              onViewChange={setPreviewView}
-              disabled={saveMutation.isPending}
-            />
+            <div className="relative space-y-2">
+              {!selectedBoundaryPair ? (
+                <p className="text-xs text-muted-foreground">
+                  Possible reroute shown from {activePreview.fromStation} to{" "}
+                  {activePreview.toStation}. Select both boundary stations to apply it.
+                </p>
+              ) : null}
+              {previewQuery.isFetching ? (
+                <div className="absolute right-2 top-7 z-10 flex items-center gap-2 rounded-md border bg-background/90 px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur-sm">
+                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  Updating preview...
+                </div>
+              ) : null}
+              <ReroutePreviewDetails
+                preview={activePreview}
+                routeLabel={activeRouteLabel}
+                view={previewView}
+                onViewChange={setPreviewView}
+                disabled={saveMutation.isPending}
+              />
+            </div>
           ) : null}
           {activePreview && !activePreview.hasChanges ? (
             <p className="text-sm text-muted-foreground">
