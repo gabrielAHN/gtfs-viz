@@ -46,6 +46,10 @@ module.exports = {
     				DEFAULT: 'hsl(var(--accent))',
     				foreground: 'hsl(var(--accent-foreground))'
     			},
+			reroute: {
+				DEFAULT: 'hsl(var(--reroute))',
+				foreground: 'hsl(var(--reroute-foreground))'
+			},
     			destructive: {
     				DEFAULT: 'hsl(var(--destructive))',
     				foreground: 'hsl(var(--destructive-foreground))'

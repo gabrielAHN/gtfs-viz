@@ -2,10 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import DeckglMap from "@/components/maps/DeckglMap.lazy";
 import { PathLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { createPointOutline } from "@/components/maps/MapOutlineHelpers";
-import { getHighlightColor } from "@/components/style";
 import { useThemeContext } from "@/context/theme.client";
 import { getRouteTypeColor } from "@/client/Routes/routeTypeColors";
-import { useDuckDB } from "@/context/duckdb.client";
 import { safeHexToRgb, withAlpha } from "@/components/colorUtil";
 
 const DEFAULT_VIEW_STATE = {
@@ -21,6 +19,11 @@ const DEFAULT_BOUND_BOX = [
   [180, 85],
 ];
 
+const SELECTED_ROUTE_GLOW = [250, 204, 21];
+const selectionSeparatorColor = (theme: string) =>
+  theme === "dark" ? [255, 255, 255] : [15, 23, 42];
+const routeTypeLineColor = (route: any) => safeHexToRgb(getRouteTypeColor(route.route_type_name));
+
 function MapSection({
   routes,
   shapeRows,
@@ -33,7 +36,6 @@ function MapSection({
   setClickInfo,
 }: any) {
   const { theme } = useThemeContext();
-  const { conn } = useDuckDB();
   const [HoverInfo, setHoverInfo] = useState<any>();
 
   const routeLookup = useMemo(() => {
@@ -145,7 +147,6 @@ function MapSection({
     const activeRouteId = selectedRouteId || hoverRouteId;
 
     if (linePaths.length > 0) {
-      const highlightColor = getHighlightColor(theme);
       const selectedPaths = selectedRouteId
         ? linePaths.filter((row: any) => String(row.route_id) === selectedRouteId)
         : [];
@@ -154,38 +155,6 @@ function MapSection({
           ? linePaths.filter((row: any) => String(row.route_id) === hoverRouteId)
           : [];
 
-      if (hoverPaths.length > 0) {
-        layers.push(
-          new PathLayer({
-            id: "routes-hover-outline",
-            data: hoverPaths,
-            getPath: (row: any) => row.path,
-            getColor: withAlpha(highlightColor, 190),
-            getWidth: 9,
-            widthUnits: "pixels",
-            pickable: false,
-            capRounded: true,
-            jointRounded: true,
-          }),
-        );
-      }
-
-      if (selectedPaths.length > 0) {
-        layers.push(
-          new PathLayer({
-            id: "routes-selected-outline",
-            data: selectedPaths,
-            getPath: (row: any) => row.path,
-            getColor: withAlpha(highlightColor, 240),
-            getWidth: 11,
-            widthUnits: "pixels",
-            pickable: false,
-            capRounded: true,
-            jointRounded: true,
-          }),
-        );
-      }
-
       layers.push(
         new PathLayer({
           id: paths.length > 0 ? "routes-shape-view" : "routes-stop-path-view",
@@ -193,9 +162,9 @@ function MapSection({
           getPath: (row: any) => row.path,
           getColor: (row: any) => {
             const routeId = String(row.route_id);
-            const color = safeHexToRgb(getRouteTypeColor(row.route_type_name));
+            const color = routeTypeLineColor(row);
             if (!activeRouteId || activeRouteId === routeId) return withAlpha(color, 255);
-            return withAlpha(color, 110);
+            return withAlpha(color, selectedRouteId ? 65 : 105);
           },
           getWidth: (row: any) => {
             const routeId = String(row.route_id);
@@ -209,12 +178,77 @@ function MapSection({
           jointRounded: true,
         }),
       );
+
+      if (hoverPaths.length > 0) {
+        layers.push(
+          new PathLayer({
+            id: "routes-hover-outline",
+            data: hoverPaths,
+            getPath: (row: any) => row.path,
+            getColor: withAlpha(SELECTED_ROUTE_GLOW, 115),
+            getWidth: 11,
+            widthUnits: "pixels",
+            pickable: false,
+            capRounded: true,
+            jointRounded: true,
+          }),
+          new PathLayer({
+            id: "routes-hover-line",
+            data: hoverPaths,
+            getPath: (row: any) => row.path,
+            getColor: (row: any) => withAlpha(routeTypeLineColor(row), 255),
+            getWidth: 6,
+            widthUnits: "pixels",
+            pickable: false,
+            capRounded: true,
+            jointRounded: true,
+          }),
+        );
+      }
+
+      if (selectedPaths.length > 0) {
+        layers.push(
+          new PathLayer({
+            id: "routes-selected-glow",
+            data: selectedPaths,
+            getPath: (row: any) => row.path,
+            getColor: withAlpha(SELECTED_ROUTE_GLOW, 90),
+            getWidth: 24,
+            widthUnits: "pixels",
+            pickable: false,
+            capRounded: true,
+            jointRounded: true,
+          }),
+          new PathLayer({
+            id: "routes-selected-separator",
+            data: selectedPaths,
+            getPath: (row: any) => row.path,
+            getColor: withAlpha(selectionSeparatorColor(theme), 230),
+            getWidth: 13,
+            widthUnits: "pixels",
+            pickable: false,
+            capRounded: true,
+            jointRounded: true,
+          }),
+          new PathLayer({
+            id: "routes-selected-line",
+            data: selectedPaths,
+            getPath: (row: any) => row.path,
+            getColor: (row: any) => withAlpha(routeTypeLineColor(row), 255),
+            getWidth: 7,
+            widthUnits: "pixels",
+            pickable: false,
+            capRounded: true,
+            jointRounded: true,
+          }),
+        );
+      }
     } else if (fallbackStops.length > 0) {
       layers.push(
         new ScatterplotLayer({
           id: "routes-stop-view",
           data: fallbackStops,
-          getFillColor: (row: any) => safeHexToRgb(getRouteTypeColor(row.route_type_name)),
+          getFillColor: (row: any) => routeTypeLineColor(row),
           getPosition: (row: any) => [Number(row.stop_lon), Number(row.stop_lat)],
           pickable: true,
           getLineWidth: 0.025,

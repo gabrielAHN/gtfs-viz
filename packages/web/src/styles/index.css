@@ -81,6 +81,8 @@
     --muted-foreground: 152.1 28.1% 30%;
     --accent: 46 74.1% 50%;
     --accent-foreground: 46.2 72.2% 7.1%;
+    --reroute: 263 70% 48%;
+    --reroute-foreground: 0 0% 100%;
     --destructive: 12 88% 55%;
     --destructive-foreground: 0 0% 98%;
     --border: 152.1 27.5% 80%;
@@ -116,6 +118,8 @@
     --muted-foreground: 152 29.4% 65%;
     --accent: 176.2 31.4% 45%;
     --accent-foreground: 0 0% 98%;
+    --reroute: 263 70% 48%;
+    --reroute-foreground: 0 0% 100%;
     --destructive: 350 70% 55%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 40%;

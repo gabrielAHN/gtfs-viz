@@ -110,9 +110,7 @@ function ScheduleBadges({ change }: { change: ScheduleChange }) {
   }
   if (isReroute(change)) {
     return (
-      <Badge variant="default" className="bg-violet-600 hover:bg-violet-600">
-        Reroute
-      </Badge>
+      <Badge variant="reroute">Reroute</Badge>
     );
   }
   const added = numberValue(change.added);
