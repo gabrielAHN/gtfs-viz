@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-query";
 import { BiGitCompare, BiTransferAlt } from "react-icons/bi";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import Combobox from "@/components/ui/combobox";
 import {
   Dialog,
@@ -17,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FormActions } from "@/components/forms/shared/FormActions";
+import FormShell from "@/components/forms/shared/FormShell";
 import { useDuckDB } from "@/context/duckdb.client";
 import { TripMap } from "@/client/Trips/components/Map";
 import {
@@ -451,6 +452,19 @@ export function RerouteTripDialog({
   const canApplyPreview = Boolean(
     previewMatchesSelection && activePreview?.hasChanges && !previewQuery.isFetching,
   );
+  const routeInputDisabled =
+    saveMutation.isPending || routesQuery.isFetching || routeOptions.length === 0;
+  const fromInputDisabled =
+    saveMutation.isPending ||
+    !selectedRoute ||
+    boundaryPairsQuery.isFetching ||
+    fromOptions.length === 0;
+  const toInputDisabled =
+    saveMutation.isPending ||
+    !selectedRoute ||
+    !fromStation ||
+    boundaryPairsQuery.isFetching ||
+    toOptions.length === 0;
   const error =
     routesQuery.error || boundaryPairsQuery.error || previewQuery.error || saveMutation.error;
   const errorMessage = error
@@ -487,17 +501,27 @@ export function RerouteTripDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <FormActions
-          isBusy={saveMutation.isPending}
-          isValid={canApplyPreview}
-          hasChanges={canApplyPreview}
-          onSave={() => {
+        <FormShell
+          onSubmit={(event) => {
+            event.preventDefault();
             if (canApplyPreview && activePreview) saveMutation.mutate(activePreview);
           }}
-          onCancel={close}
-          saveLabel="Reroute"
+          isBusy={saveMutation.isPending}
+          isSubmitDisabled={!canApplyPreview}
+          submitLabel="Reroute"
           busyLabel="Applying reroute..."
           error={errorMessage}
+          hideHeader
+          customActions={
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={close}
+              disabled={saveMutation.isPending}
+            >
+              Cancel
+            </Button>
+          }
         >
           <fieldset className="min-w-0 space-y-4" disabled={saveMutation.isPending}>
           <div className="space-y-1.5">
@@ -509,7 +533,7 @@ export function RerouteTripDialog({
                 options={routeOptions}
                 Message="Choose a route with a different stop section"
                 value={routeId}
-                disabled={saveMutation.isPending}
+                disabled={routeInputDisabled}
                 setValue={(value) => {
                   setRouteId(value);
                   setFromStation(undefined);
@@ -540,7 +564,7 @@ export function RerouteTripDialog({
                   options={fromOptions}
                   Message={routeId ? "Choose the start boundary" : "Choose a route first"}
                   value={fromStation}
-                  disabled={saveMutation.isPending}
+                  disabled={fromInputDisabled}
                   setValue={(value) => {
                     setFromStation(value);
                     setToStation(undefined);
@@ -554,7 +578,7 @@ export function RerouteTripDialog({
                 options={toOptions}
                 Message={fromStation ? "Choose the end boundary" : "Choose a start station first"}
                 value={toStation}
-                disabled={saveMutation.isPending}
+                disabled={toInputDisabled}
                 setValue={setToStation}
               />
             </div>
@@ -610,7 +634,7 @@ export function RerouteTripDialog({
             </p>
           ) : null}
           </fieldset>
-        </FormActions>
+        </FormShell>
       </DialogContent>
     </Dialog>
   );
