@@ -2,11 +2,9 @@
 name: gtfs-viz
 description: Import GTFS transit feeds, query station/stop/pathway/route/trip/calendar/shape data, edit connections, nodes, routes, trips, and stop times, compare trip service patterns and schedules, export changes to GTFS CSV, and open a local browser dashboard. Use when working with GTFS data, transit stations, pathways, routes, trips, schedules, or accessibility audits.
 license: MIT
-compatibility: Requires Node.js 18+ and DuckDB CLI on PATH or DUCKDB_BIN
-install: npx skills add gabrielAHN/gtfs-viz
 metadata:
   author: gabrielahn
-  version: "1.5.0"
+  version: "1.5.1"
   repository: gabrielAHN/gtfs-viz
 ---
 
@@ -19,6 +17,7 @@ Import GTFS feeds, query transit data, browse routes/trips/calendars/shapes, com
 Read these when you need exact column names, SQL syntax, or flag details:
 
 - [references/commands.md](references/commands.md) — All CLI commands with flags and examples
+- [references/edits.md](references/edits.md) — Apply trip / schedule / service edits and the changeset format for feeding service changes to the CLI
 - [references/tables.md](references/tables.md) — Table and view schemas with column types
 - [references/procedures.md](references/procedures.md) — SQL macros, named queries, and pathfinding functions
 - [references/gtfs-schedule-reference.md](references/gtfs-schedule-reference.md) — GTFS Schedule field reference focused on station parts, pathways, and missing-connection audits
@@ -36,8 +35,23 @@ Or install the CLI globally and register the skill:
 
 ```bash
 npm install -g @gabrielahn/gtfs-viz-cli
-gtfs-viz install-skill
+gtfs-viz install-skill openai
 ```
+
+Use `anthropic`, `openai`, `google`, or `generic` for the AI provider. Run `gtfs-viz install-skill --list-providers` to see resolved installation paths. `--provider <name>` is equivalent to the positional provider name, and `--target-dir <dir>` overrides the default. Non-interactive use still requires a provider when `--target-dir` is set.
+
+Use `gtfs-viz h` for general help or `gtfs-viz h <command>` for the same command-specific help as `gtfs-viz help <command>` and `gtfs-viz <command> -h`.
+
+Show or update the installed CLI:
+
+```bash
+gtfs-viz --version
+gtfs-viz update --check
+gtfs-viz update
+gtfs-viz update --provider openai
+```
+
+`update` preserves the imported dataset and session. Add `--provider` to refresh the installed skill for that provider after the CLI update.
 
 From the repo:
 
@@ -109,6 +123,7 @@ gtfs-viz stop-info "Trade Center"                 # Opens stop map with popup + 
 gtfs-viz station_connections "Park Street"         # Opens flow graph
 gtfs-viz station_pathways place-pktrm --node-id node-pktrm-stair7-gl
 gtfs-viz view --view stations/map --map-focus 42.355,-71.06,12
+gtfs-viz view --view export --url-only
 ```
 
 Return the printed dashboard URL to the user.
@@ -221,25 +236,79 @@ Find stop IDs first:
 gtfs-viz query --name station-stops --args-json '{"stationId":"place-pktrm"}' --data
 ```
 
+## Editing Trips, Schedules & Service
+
+Apply service changes (e.g. from an alerts page) to the imported feed. The CLI does not read alerts
+— you translate the change into edits. See [references/edits.md](references/edits.md) for the full
+changeset format, the read → check → confirm → implement → review workflow, and the **alert-validation
+report format** (in-data status + alert description + source link + a clickable, CLI-validated
+dashboard link). It also covers **rerouting a trip onto another line** (e.g. "A/C run via the F") with
+`gtfs-viz reroute` — which splices the donor route's stops in with scaled timing rather than just
+skipping stops — and viewing it with `gtfs-viz trip <id> --compare <donor_trip> --view map`.
+
+```bash
+gtfs-viz add_trip --trip-id T2 --route-id R1 --service-id WKD --headsign "Uptown Express" --direction-id 0
+gtfs-viz update_trip --trip-id T2 --headsign "Express"        # only given fields change
+gtfs-viz delete_trip --trip-id T2                             # cascades to stop_times
+
+gtfs-viz set_stop_times --trip-id T2 --stops-json '[{"stop_sequence":1,"stop_id":"S1","arrival_time":"09:00:00","departure_time":"09:00:00"}]'
+gtfs-viz reroute --trip A_TRIP --via F_TRIP --from "W 4 St-Wash Sq" --to "Jay St-MetroTech"   # run A via the F between those stops
+gtfs-viz remove_stops --trip T2 --stops "Spring St,Canal St"                # skip/express, station bypass
+gtfs-viz truncate_trip --trip T2 --to "14 St"                                # short-turn / ends early
+gtfs-viz split_trip --trip T2 --gap-from "Crescent St" --gap-to "Broadway Junction" --new-trip-id T2_SEC2  # two-section split
+
+gtfs-viz add_calendar --service-id WKND --days sat,sun --start-date 20260101 --end-date 20261231
+gtfs-viz update_calendar --service-id WKD --days mon,tue,wed,thu,fri,sat
+gtfs-viz delete_calendar --service-id WKND
+
+gtfs-viz add_calendar_date --service-id WKD --date 20260906 --exception-type 1   # 1=add, 2=remove service on date
+gtfs-viz delete_calendar_date --service-id WKD --date 20260906
+```
+
+## Apply a Changeset (batch / mass edits)
+
+Feed many edits at once from JSON — the primary way to apply a set of service changes:
+
+```bash
+gtfs-viz apply changeset.json
+gtfs-viz apply --json '{"ops":[{"op":"trip.add","trip_id":"T2","route_id":"R1","service_id":"WKD"}]}'
+cat changeset.json | gtfs-viz apply --stdin
+```
+
+Op types: `trip.add|update|delete`, `stop_times.set`, `calendar.add|update|delete`,
+`calendar_date.add|delete`. Full schema and examples in [references/edits.md](references/edits.md).
+
 Review pending edits:
 
 ```bash
-gtfs-viz edit_table                               # Show all edit tables
+gtfs-viz edits                                    # Categorized summary of all pending edits
+gtfs-viz edits --trip trip-123                    # Original vs edited stop_times for one trip
+gtfs-viz edits --url-only                         # Open Edits & Export by category
+gtfs-viz edits --trip trip-123 --compare-view map --url-only # Expand a reroute map comparison
+gtfs-viz edits --view table --trips-page 3 --trips-page-size 20 --url-only
+gtfs-viz edit_table                               # Show all edit tables (raw rows)
 gtfs-viz edit_table stop_times                    # Show stop time edits
 gtfs-viz edit_table calendar                      # Show calendar edits
+gtfs-viz edit_table calendar_dates                # Show calendar exception-date edits
 gtfs-viz edit_table trips                         # Show trip edits
 ```
 
+Dashboard table positions are URL-backed. Use `--page` and `--page-size` for ordinary tables,
+`--services-page` and `--service-trips-page` for route service, and file-specific flags such as
+`--trips-page` or `--calendar-dates-page` for Edits & Export. Generated links preserve those values
+when opening a row and returning to its table.
+
 ## Export
 
-Export edited GTFS data as CSV files. Merges edits with original data (same as the dashboard export).
+Export edited GTFS data as text files. Merges edits with original data (same as the dashboard export).
 
 ```bash
-gtfs-viz export                           # Export stops.txt + pathways.txt + routes.txt
+gtfs-viz export                           # stops, pathways, routes, trips, stop_times, calendar, calendar_dates
 gtfs-viz export --output ./exported       # Export to specific directory
 gtfs-viz export --no-pathways             # Skip pathways.txt
-gtfs-viz export --no-stops                # Skip stops.txt
-gtfs-viz export --no-routes               # Skip routes.txt
+gtfs-viz export --no-trips                # Skip trips.txt
+gtfs-viz export --no-stop-times           # Skip stop_times.txt
+gtfs-viz export --no-calendar             # Skip calendar.txt + calendar_dates.txt
 gtfs-viz export --force                   # Export even with no pending edits
 ```
 
@@ -268,6 +337,11 @@ See [references/procedures.md](references/procedures.md) for all available macro
 
 The CLI uses the GTFS DuckDB extension (embedded SQL) for all station analysis, pathway queries, and pathfinding. The extension is bundled — no separate install needed.
 
+Every CLI DuckDB session reduces its worker count, uses a host-aware memory limit capped at 4 GB,
+disables insertion-order preservation, and can spill beside the persistent database. Override these
+defaults with `GTFS_VIZ_DUCKDB_THREADS`, `GTFS_VIZ_DUCKDB_MEMORY_LIMIT`, or
+`GTFS_VIZ_DUCKDB_TEMP_DIRECTORY` when a workload needs a different limit.
+
 ## Agent Rules
 
 - Use absolute paths for files outside the repo. Quote paths with spaces.
@@ -276,3 +350,6 @@ The CLI uses the GTFS DuckDB extension (embedded SQL) for all station analysis, 
 - Datasets auto-expire after 7 days; reimport if expired.
 - Read [references/commands.md](references/commands.md) for exact flag names when constructing commands.
 - Read [references/tables.md](references/tables.md) for column names when writing SQL.
+- Use `gtfs-viz edits --trip <id> --compare-view map --url-only` for a direct reroute verification
+  link in Edits & Export; use `gtfs-viz trip <id> --compare <donor> --view map --url-only` to compare
+  affected and donor trips.

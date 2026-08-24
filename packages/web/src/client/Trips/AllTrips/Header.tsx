@@ -34,7 +34,13 @@ export function TripsHeader({
   return (
     <div className="flex flex-col gap-4 mt-2">
       <div className={`grid grid-cols-1 sm:grid-cols-2 ${hasStopTimes ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-2 mb-1`}>
-        <Combobox options={availableTripIds} Message="Trip ID" value={tripId || ""} setValue={(val) => updateSearch({ tripId: val || undefined })} />
+        <Combobox
+          options={availableTripIds}
+          Message="Trip ID"
+          value={tripId || ""}
+          setValue={(val) => updateSearch({ tripId: val || undefined })}
+          wrapLabel
+        />
         <Combobox options={availableRouteIds} Message="Route" value={routeId || ""} setValue={(val) => updateSearch({ routeId: val || undefined })} />
         <MultiSelect options={availableRouteTypes} onValueChange={(values) => updateSearch({ routeType: values.length ? values : undefined })}
           defaultValue={routeType || []} placeholder="Route Type" />

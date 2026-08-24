@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { BiCheck, BiChevronsDown, BiX } from "react-icons/bi";
 
 import { cn } from "@/lib/utils";
@@ -29,6 +29,8 @@ interface ComboboxProps {
   Message: string;
   setValue: (value: string | undefined) => void;
   value: string | undefined;
+  wrapLabel?: boolean;
+  disabled?: boolean;
 }
 
 export default function Combobox({
@@ -37,8 +39,12 @@ export default function Combobox({
   Message,
   setValue,
   value,
+  wrapLabel = false,
+  disabled = false,
 }: ComboboxProps) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
 
   const normalizedOptions = useMemo(() => {
     if (options && options.length > 0) {
@@ -51,12 +57,15 @@ export default function Combobox({
     }));
   }, [Selections, options]);
 
-  const optionByLabel = useMemo(() => {
-    return normalizedOptions.reduce((acc, option) => {
-      acc[(option.searchLabel ?? option.label).toLowerCase()] = option;
-      return acc;
-    }, {} as Record<string, ComboboxOption>);
-  }, [normalizedOptions]);
+  const filteredOptions = useMemo(() => {
+    const query = deferredSearch.trim().toLowerCase();
+    if (!query) return normalizedOptions;
+    return normalizedOptions.filter((option) =>
+      `${option.value} ${option.label} ${option.searchLabel ?? ""}`.toLowerCase().includes(query),
+    );
+  }, [deferredSearch, normalizedOptions]);
+
+  const visibleOptions = useMemo(() => filteredOptions.slice(0, 1000), [filteredOptions]);
 
   const selectedOption = useMemo(() => {
     if (!value) {
@@ -67,16 +76,27 @@ export default function Combobox({
   }, [normalizedOptions, value]);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={disabled ? false : open}
+      onOpenChange={(nextOpen) => {
+        if (disabled) return;
+        setOpen(nextOpen);
+        if (!nextOpen) setSearch("");
+      }}
+    >
       <PopoverTrigger asChild>
       <div
         role="combobox"
-        aria-expanded={open}
-        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={disabled ? false : open}
+        aria-disabled={disabled}
+        onClick={() => {
+          if (!disabled) setOpen((prev) => !prev);
+        }}
         className={cn(
           "flex w-full p-2 text-sm rounded-md border min-h-10 cursor-pointer items-center justify-between",
           "bg-background hover:bg-accent/10 transition-colors",
-          selectedOption ? "text-foreground" : "text-muted-foreground"
+          selectedOption ? "text-foreground" : "text-muted-foreground",
+          disabled && "cursor-not-allowed opacity-50 hover:bg-background",
         )}
       >
         <span className="flex min-w-0 flex-1 items-center gap-2 ml-2">
@@ -86,7 +106,7 @@ export default function Combobox({
               style={{ backgroundColor: selectedOption.color }}
             />
           ) : null}
-          <span className="truncate">
+          <span className={wrapLabel ? "break-all text-left" : "truncate"}>
             {selectedOption?.label || Message}
           </span>
         </span>
@@ -95,9 +115,9 @@ export default function Combobox({
             <div
               onClick={(e) => {
                 e.stopPropagation();
-                setValue(undefined); 
+                if (!disabled) setValue(undefined);
               }}
-              className="cursor-pointer"
+              className={disabled ? "cursor-not-allowed" : "cursor-pointer"}
             >
               <BiX className="h-4 w-4 text-current opacity-50" />
             </div>
@@ -107,20 +127,25 @@ export default function Combobox({
       </div>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[200px] p-0">
-        <Command shouldFilter={true}>
-          <CommandInput placeholder={Message} />
+        <Command shouldFilter={false}>
+          <CommandInput placeholder={Message} value={search} onValueChange={setSearch} />
           <CommandList className="max-h-[300px]">
             <CommandEmpty>No results found.</CommandEmpty>
+            {filteredOptions.length > visibleOptions.length ? (
+              <div className="border-b px-3 py-2 text-xs text-muted-foreground">
+                Showing {visibleOptions.length.toLocaleString()} of{" "}
+                {filteredOptions.length.toLocaleString()} results. Type to narrow the list.
+              </div>
+            ) : null}
             <CommandGroup>
-              {normalizedOptions.slice(0, 1000).map((option) => (
+              {visibleOptions.map((option) => (
                 <CommandItem
                   key={option.value}
                   value={option.searchLabel ?? option.label}
-                  onSelect={(currentValue) => {
-                    const selectedOption = optionByLabel[currentValue.toLowerCase()];
-                    const nextValue = selectedOption?.value;
-                    setValue(nextValue === value ? undefined : nextValue);
+                  onSelect={() => {
+                    setValue(option.value === value ? undefined : option.value);
                     setOpen(false);
+                    setSearch("");
                   }}
                   className={cn(
                     "cursor-pointer",
@@ -141,7 +166,9 @@ export default function Combobox({
                       style={{ backgroundColor: option.color }}
                     />
                   ) : null}
-                  <span className="truncate">{option.label}</span>
+                  <span className={wrapLabel ? "break-all whitespace-normal" : "truncate"}>
+                    {option.label}
+                  </span>
                 </CommandItem>
               ))}
             </CommandGroup>

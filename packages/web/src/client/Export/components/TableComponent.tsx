@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { BiChevronUp, BiChevronDown, BiCheck, BiRefresh, BiUndo, BiX, BiChevronRight, BiChevronLeft, BiChevronsRight, BiChevronsLeft, BiRightArrow } from "react-icons/bi";
 import { Badge } from "@/components/ui/badge";
+import { useUrlTablePagination } from "@/lib/tablePagination";
 
 function EditeTables(props) {
   const {
@@ -44,6 +45,7 @@ function EditeTables(props) {
     getOriginalDataKey = (item) => item?.[itemIdKey],
     renderSelectionActions,
     renderSelectedSupplementaryRows,
+    paginationKey = fileTypeKey,
   } = props;
 
   const getItemId = useCallback(
@@ -77,8 +79,8 @@ function EditeTables(props) {
   }, [FileTypes, fileTypeKey, hasData]);
 
   const [sorting, setSorting] = useState([]);
-  const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const { pagination, onPaginationChange } = useUrlTablePagination(paginationKey);
+  const { pageIndex, pageSize } = pagination;
 
   useEffect(() => {
     if (!hasData && isExpanded) {
@@ -103,24 +105,10 @@ function EditeTables(props) {
     columns,
     state: {
       sorting,
-      pagination: { pageIndex, pageSize },
+      pagination,
     },
     onSortingChange: setSorting,
-    onPaginationChange: (updater) => {
-      if (typeof updater === "function") {
-        setPageIndex((prevPage) => {
-          const nextPage = updater({ pageIndex: prevPage, pageSize }).pageIndex;
-          return typeof nextPage === "number" ? nextPage : prevPage;
-        });
-        setPageSize((prevSize) => {
-          const nextSize = updater({ pageIndex, pageSize: prevSize }).pageSize;
-          return typeof nextSize === "number" ? nextSize : prevSize;
-        });
-      } else {
-        setPageIndex(updater.pageIndex ?? 0);
-        setPageSize(updater.pageSize ?? 10);
-      }
-    },
+    onPaginationChange,
     enableMultiSort: true,
     enableSortingRemoval: true,
     maxMultiSortColCount: 5,
@@ -129,6 +117,13 @@ function EditeTables(props) {
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
   });
+
+  const pageCount = table.getPageCount();
+  useEffect(() => {
+    if (pageCount > 0 && pageIndex >= pageCount) {
+      onPaginationChange({ pageIndex: pageCount - 1, pageSize });
+    }
+  }, [onPaginationChange, pageCount, pageIndex, pageSize]);
 
   const rows = table.getRowModel().rows;
 

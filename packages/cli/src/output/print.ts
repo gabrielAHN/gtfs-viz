@@ -97,7 +97,57 @@ const commandHelp: Record<string, string> = {
     --no-stops            Skip stops.txt export
     --no-pathways         Skip pathways.txt export
     --no-routes           Skip routes.txt export
+    --no-trips            Skip trips.txt export
+    --no-stop-times       Skip stop_times.txt export
+    --no-calendar         Skip calendar.txt and calendar_dates.txt export
     --force               Export even if there are no pending edits`,
+
+  "install-skill": `gtfs-viz install-skill [provider] [flags]
+
+  Install the bundled GTFS Viz skill for an AI provider.
+
+  Providers:
+    anthropic            Anthropic Claude Code (~/.claude/skills)
+    openai               OpenAI Codex (~/.codex/skills)
+    google               Google Gemini CLI (~/.gemini/skills)
+    generic              Generic Agent Skills (~/.agents/skills)
+
+  Flags:
+    --provider <name>    Provider name
+    --agent <name>       Backward-compatible alias for --provider
+    --target-dir <dir>   Override the provider's skills directory
+    --list-providers     List providers and resolved installation paths
+    --force              Replace an existing GTFS Viz skill
+
+  Examples:
+    gtfs-viz install-skill openai
+    gtfs-viz install-skill --provider anthropic
+    gtfs-viz install-skill google --force
+    gtfs-viz install-skill --list-providers
+
+  A provider is required in non-interactive shells, including with --target-dir.`,
+
+  version: `gtfs-viz version
+  gtfs-viz --version
+  gtfs-viz -v
+
+  Show the installed GTFS Viz CLI version.`,
+
+  update: `gtfs-viz update [flags]
+
+  Update the globally installed GTFS Viz CLI to the latest npm release.
+
+  Flags:
+    --check              Check the installed and latest versions without updating
+    --dry-run            Alias for --check
+    --force              Reinstall latest even when already current
+    --provider <name>    Refresh the skill for a provider after updating
+    --target-dir <dir>   Override the refreshed skill directory
+
+  Examples:
+    gtfs-viz update --check
+    gtfs-viz update
+    gtfs-viz update --provider openai`,
 
   station: `gtfs-viz station <name|id> [flags]
 
@@ -249,7 +299,53 @@ const commandHelp: Record<string, string> = {
     (none)                Show all
 
   Flags:
-    --format json         Output as JSON`,
+    --format json         Output as JSON
+    --url-only            Print the Edits & Export table-view URL
+    --dashboard           Open Edits & Export in the dashboard
+    --trips-page <n>      Open the trip edits table at page n
+    --trips-page-size <n> Set trip edits page size: 10, 20, 30, or 50`,
+
+  edits: `gtfs-viz edits [<trip-id>] [flags]
+
+  Review pending edits by category or open Edits & Export.
+
+  Flags:
+    --trip <id>             Show one trip in terminal or expand it in category view
+    --data                  Print categorized edits in terminal
+    --format json           Print JSON data
+    --dashboard             Open Edits & Export
+    --url-only              Print the Edits & Export URL without opening it
+    --view category         Open categorized edits (default)
+    --view table            Open per-file edit tables
+    --compare-view table    Open an expanded trip comparison as a table
+    --compare-view map      Open an expanded reroute comparison on the map
+    --trips-page <n>        Open the trip edits table at page n
+    --trips-page-size <n>   Set trip edits page size: 10, 20, 30, or 50
+
+  Examples:
+    gtfs-viz edits
+    gtfs-viz edits --url-only
+    gtfs-viz edits --trip trip-123 --compare-view map --url-only
+    gtfs-viz edits --view table --trips-page 3 --trips-page-size 20 --url-only`,
+
+  reroute: `gtfs-viz reroute [flags]
+
+  Replace a section of one trip with the stops from a donor trip.
+  Donor schedule time does not need to overlap the affected trip. The shared
+  boundaries must occur in the same order, and replacement times are fitted
+  to the affected trip's boundary window.
+
+  Flags:
+    --trip <id>             Affected trip ID
+    --via <id>              Donor trip ID
+    --from <station>        Shared start boundary station
+    --to <station>          Shared end boundary station
+
+  Review:
+    gtfs-viz query --sql "SELECT * FROM get_trip_reroute_routes('trip-id')" --data
+    gtfs-viz edits --trip <id>
+    gtfs-viz edits --trip <id> --compare-view map --url-only
+    gtfs-viz trip <id> --compare <donor-id> --view map --url-only`,
 
   add_connection: `gtfs-viz add_connection [flags]
 
@@ -399,6 +495,10 @@ const commandHelp: Record<string, string> = {
     --trip-id <id>          Select a specific trip
     --trip <id>             Alias for --trip-id
     --compare <t1,t2,...>   Compare trips side-by-side (max 5, with --data)
+    --services-page <n>     Open the services table at page n
+    --services-page-size <n> Set services page size: 10, 20, 30, or 50
+    --service-trips-page <n> Open the selected service trips at page n
+    --service-trips-page-size <n> Set service trips page size: 10, 20, 30, or 50
     --data                  Print service/trip data in terminal
     --format json           JSON output
 
@@ -445,6 +545,10 @@ const commandHelp: Record<string, string> = {
   Compare:
     --compare <t1,t2,...>   Compare trips side-by-side (max 5)
 
+  Pagination:
+    --page <n>              Open the trips table at page n
+    --page-size <n>         Set page size: 10, 20, 30, or 50
+
   Views (dashboard mode):
     --view timetable        Stop times table (default)
     --view timeline         Time-based horizontal chart
@@ -476,6 +580,8 @@ const commandHelp: Record<string, string> = {
     --format json           JSON output
     --view <view>           Dashboard view or data mode
     --compare <t1,t2,...>   Compare with other trips (comma-separated)
+    --page <n>              Open the trips table at page n
+    --page-size <n>         Set page size: 10, 20, 30, or 50
 
   Views:
     timetable               Stop times table (default)
@@ -520,12 +626,14 @@ const commandHelp: Record<string, string> = {
     --stop-id <id>          Select a stop
     --map-focus <v>         Map center: lat,lon,zoom
     --node-id <id>          Focus on a station part
+    --page <n>              Table page
+    --page-size <n>         Table page size: 10, 20, 30, or 50
 
   Views: auto, routes/map, routes/table, routes/info, routes/service,
     stations/info, stations/map, stations/table,
     stations/pathways/flow/radial, stations/pathways/map/directional,
     stations/pathways/table/start, stations/pathways/table/end,
-    stops/map, stops/table`,
+    stops/map, stops/table, trips/table, export`,
 
   stop: `gtfs-viz stop
 
@@ -564,6 +672,7 @@ const commandAliases: Record<string, string> = {
   "route:map": "routes",
   "route:table": "routes",
   "route:info": "route",
+  "self-update": "update",
 };
 
 export const printCommandHelp = (command: string): boolean => {
@@ -595,7 +704,9 @@ Data:
 
 Edit:
   edit_table [table]                 Show edit tracking tables
-  export [--output --no-stops --no-pathways --no-routes --force]
+  edits [--trip --view --url-only]   Review categorized edits or open Edits & Export
+  reroute [--trip --via --from --to] Reroute a trip through donor stops
+  export [--output --force]          Export the merged GTFS files
 
 Query:
   query --sql <sql>                  Run SQL
@@ -607,8 +718,25 @@ Session:
   restart                            Stop session + remove local import
   clean                              Stop daemon + remove all data
 
-Global flags: --data, --format json, --url-only, --view <view>
-Run gtfs-viz help <command> for details. Use -h with --view for view-specific flags.`);
+Agent Skills:
+  install-skill [provider]           Install the skill for an AI provider
+  skill-path                         Print the packaged SKILL.md path
+
+Version & Updates:
+  version                            Show the installed CLI version
+  update [--check]                   Update the CLI to the latest npm release
+
+DuckDB memory:
+  GTFS_VIZ_DUCKDB_THREADS            Override the reduced worker count
+  GTFS_VIZ_DUCKDB_MEMORY_LIMIT       Override the host-aware memory cap
+  GTFS_VIZ_DUCKDB_TEMP_DIRECTORY     Override the persistent spill directory
+
+Help:
+  h [command]                        Show general or command-specific help
+  help [command]                     Same as h
+
+Global flags: -v, --version, --data, --format json, --url-only, --view <view>
+Run gtfs-viz h <command>, gtfs-viz help <command>, or gtfs-viz <command> -h for details.`);
 };
 
 export const printExamples = () => {
@@ -651,6 +779,9 @@ Edit nodes:
   gtfs-viz update_node --stop-id door-new --stop-name "Main Entrance"
   gtfs-viz delete_node --stop-id door-new
   gtfs-viz edit_table
+  gtfs-viz edits --url-only
+  gtfs-viz edits --trip trip-123 --compare-view map --url-only
+  gtfs-viz edits --view table --trips-page 3 --trips-page-size 20 --url-only
 
 Export:
   gtfs-viz export
@@ -665,5 +796,15 @@ SQL:
 Cleanup:
   gtfs-viz stop
   gtfs-viz restart
-  gtfs-viz clean`);
+  gtfs-viz clean
+
+Agent skills and help:
+  gtfs-viz --version
+  gtfs-viz update --check
+  gtfs-viz update
+  gtfs-viz install-skill --list-providers
+  gtfs-viz install-skill openai
+  gtfs-viz h install-skill
+  gtfs-viz h reroute
+  gtfs-viz h edits`);
 };

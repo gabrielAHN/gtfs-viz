@@ -3,6 +3,35 @@
 Install skill: `npx skills add gabrielAHN/gtfs-viz`
 Install CLI: `npm install -g @gabrielahn/gtfs-viz-cli`
 
+## Install the Skill by AI Provider
+
+```bash
+gtfs-viz install-skill openai
+gtfs-viz install-skill anthropic
+gtfs-viz install-skill google
+gtfs-viz install-skill generic
+gtfs-viz install-skill --provider openai
+gtfs-viz install-skill --list-providers
+gtfs-viz h install-skill
+```
+
+Use `--target-dir <dir>` to override the provider default and `--force` to replace an existing installation. Non-interactive use still requires a provider when `--target-dir` is set. The backward-compatible `--agent codex`, `--agent claude`, and `--agent opensource` forms are also accepted.
+
+`gtfs-viz h` and `gtfs-viz help` show general help. Add a command, such as `gtfs-viz h reroute` or `gtfs-viz h edits`, for the same detailed output as `gtfs-viz reroute -h` or `gtfs-viz edits -h`.
+
+## Version and Updates
+
+```bash
+gtfs-viz version
+gtfs-viz --version
+gtfs-viz -v
+gtfs-viz update --check
+gtfs-viz update
+gtfs-viz update --provider openai
+```
+
+`update` installs the latest global npm release while preserving the imported GTFS dataset and session. `--check` only compares versions. Add `--provider` to refresh that provider skill after updating.
+
 ## Import & Status
 
 ```bash
@@ -158,7 +187,14 @@ gtfs-viz edit_table routes                                   # Show route edits
 gtfs-viz edit_table stops --format json                      # JSON output
 gtfs-viz edit_table stop_times                               # Show stop time edits
 gtfs-viz edit_table calendar                                 # Show calendar edits
+gtfs-viz edit_table calendar_dates                           # Show calendar exception-date edits
 gtfs-viz edit_table trips                                    # Show trip edits
+gtfs-viz edits                                               # Categorized summary of all edits
+gtfs-viz edits --trip TRIP_ID                                # Original vs edited stop_times for a trip
+gtfs-viz edits --url-only                                    # Edits & Export, by category
+gtfs-viz edits --trip TRIP_ID --compare-view map --url-only  # Expanded reroute map comparison
+gtfs-viz edits --view table --trips-page 3 --trips-page-size 20 --url-only
+gtfs-viz edit_table --url-only                               # Edits & Export, by table
 ```
 
 ## Data Editing (CLI)
@@ -180,14 +216,47 @@ gtfs-viz update_node --stop-id STOP_ID --stop-name "New Name"
 gtfs-viz delete_node --stop-id STOP_ID
 ```
 
+### Trips, Stop Times & Calendar
+
+See [edits.md](edits.md) for the full changeset format and the alert → edit workflow.
+
+```bash
+gtfs-viz add_trip --trip-id T2 --route-id R1 --service-id WKD --headsign "Express" --direction-id 0
+gtfs-viz update_trip --trip-id T2 --headsign "Express"       # only given fields change
+gtfs-viz delete_trip --trip-id T2                            # cascades to stop_times
+gtfs-viz set_stop_times --trip-id T2 --stops-json '[{"stop_sequence":1,"stop_id":"S1","arrival_time":"09:00:00","departure_time":"09:00:00"}]'
+gtfs-viz set_stop_times --trip-id T2 --stops-file ./stops.json
+gtfs-viz reroute --trip A_TRIP --via F_TRIP --from "W 4 St-Wash Sq" --to "Jay St-MetroTech"   # splice a donor route's stops in (scaled timing)
+gtfs-viz remove_stops --trip T2 --stops "Spring St,Canal St"          # skip/express, station bypass
+gtfs-viz truncate_trip --trip T2 --to "14 St"                          # short-turn / ends early (also --from)
+gtfs-viz run_local --trip T2 --via LOCAL_TRIP --from "W 4 St-Wash Sq" --to "Jay St-MetroTech"  # run local (add stops back)
+gtfs-viz split_trip --trip T2 --gap-from "Crescent St" --gap-to "Broadway Junction" --new-trip-id T2_SEC2  # two-section split
+gtfs-viz add_calendar --service-id WKND --days sat,sun --start-date 20260101 --end-date 20261231
+gtfs-viz update_calendar --service-id WKD --days mon,tue,wed,thu,fri,sat
+gtfs-viz delete_calendar --service-id WKND
+gtfs-viz add_calendar_date --service-id WKD --date 20260906 --exception-type 1   # 1=add, 2=remove
+gtfs-viz delete_calendar_date --service-id WKD --date 20260906
+```
+
+### Batch Changeset
+
+```bash
+gtfs-viz apply changeset.json                  # Apply many typed ops at once
+gtfs-viz apply --json '{"ops":[...]}'          # Inline JSON
+cat changeset.json | gtfs-viz apply --stdin    # From stdin
+```
+
+Ops: `trip.add|update|delete`, `stop_times.set`, `calendar.add|update|delete`, `calendar_date.add|delete`. Schema + examples in [edits.md](edits.md).
+
 ## Export
 
 ```bash
-gtfs-viz export                                # Export edited GTFS as CSV
+gtfs-viz export                                # Export merged GTFS (stops, pathways, routes, trips, stop_times, calendar, calendar_dates)
 gtfs-viz export --output ./exported            # Export to specific directory
 gtfs-viz export --no-pathways                  # Skip pathways.txt
-gtfs-viz export --no-stops                     # Skip stops.txt
-gtfs-viz export --no-routes                    # Skip routes.txt
+gtfs-viz export --no-trips                     # Skip trips.txt
+gtfs-viz export --no-stop-times                # Skip stop_times.txt
+gtfs-viz export --no-calendar                  # Skip calendar.txt + calendar_dates.txt
 gtfs-viz export --force                        # Export even with no pending edits
 ```
 
@@ -209,6 +278,18 @@ gtfs-viz query --name routes --data
 | `--url`          | Open dashboard and print URL             |
 | `--url-only`     | Print URL without opening                |
 | `--view <view>`  | Choose dashboard view                    |
+| `--page <n>`     | Open an ordinary dashboard table at page n |
+| `--page-size <n>` | Table page size: 10, 20, 30, or 50      |
+
+Edits & Export accepts file-specific pagination flags:
+`--stops-page`, `--pathways-page`, `--routes-page`, `--trips-page`, `--calendar-page`, and
+`--calendar-dates-page`, each with a matching `-page-size` flag. Route service accepts
+`--services-page`, `--services-page-size`, `--service-trips-page`, and
+`--service-trips-page-size`.
+
+Dashboard views include `trips/table` and `export`. `gtfs-viz view --view export --url-only` opens
+Edits & Export by category; add `--view table` through `gtfs-viz edits --view table --url-only` for
+the per-file tables.
 
 ## Context-Aware Help
 

@@ -13,6 +13,24 @@ import { parseArgs, getFlagString, hasFlag, wantsDataOutput } from "./args.js";
 import type { Args } from "./args.js";
 import { runProcess, queryRows, executeRows, executeSqlFile } from "./duckdb/runner.js";
 import { buildImportSql } from "./duckdb/import-sql.js";
+import {
+  applyChangeset,
+  upsertTrip,
+  deleteTrip,
+  setStopTimes,
+  rerouteViaDonor,
+  removeStops,
+  truncateTripStops,
+  splitTrip,
+  upsertCalendar,
+  deleteCalendar,
+  upsertCalendarDate,
+  deleteCalendarDate,
+  refreshTrips,
+  refreshCalendar,
+  ensureStopTimeEditMetadata,
+} from "./duckdb/edits.js";
+import type { ChangeOp } from "./duckdb/edits.js";
 import { createServer, listen, validateAppDist } from "./server/http-server.js";
 import { printResult, printHelp, printCommandHelp, printExamples } from "./output/print.js";
 import {
@@ -52,6 +70,75 @@ const resolvePackageRoot = () => {
   }
 };
 const packageRoot = resolvePackageRoot();
+const cliPackageName = "@gabrielahn/gtfs-viz-cli";
+
+const readCliVersion = async () => {
+  const packageJson = JSON.parse(
+    await readFile(path.join(packageRoot, "package.json"), "utf-8"),
+  ) as { version?: string };
+  if (!packageJson.version) throw new Error("CLI package version is missing");
+  return packageJson.version;
+};
+
+const compareVersions = (left: string, right: string) => {
+  const parse = (value: string) => {
+    const [main, prerelease] = value.replace(/^v/, "").split("-", 2);
+    return {
+      parts: main.split(".").map((part) => Number.parseInt(part, 10) || 0),
+      prerelease,
+    };
+  };
+  const a = parse(left);
+  const b = parse(right);
+  for (let index = 0; index < Math.max(a.parts.length, b.parts.length); index += 1) {
+    const difference = (a.parts[index] || 0) - (b.parts[index] || 0);
+    if (difference !== 0) return Math.sign(difference);
+  }
+  if (a.prerelease === b.prerelease) return 0;
+  if (!a.prerelease) return 1;
+  if (!b.prerelease) return -1;
+  return a.prerelease.localeCompare(b.prerelease);
+};
+
+const npmCommand = () =>
+  process.env.GTFS_VIZ_NPM_BIN || (process.platform === "win32" ? "npm.cmd" : "npm");
+
+const readLatestCliVersion = async () => {
+  const { stdout } = await runProcess(npmCommand(), [
+    "view",
+    `${cliPackageName}@latest`,
+    "version",
+    "--json",
+  ]);
+  const trimmed = stdout.trim();
+  if (!trimmed) throw new Error("npm returned no latest version");
+  let version: string;
+  try {
+    const value = JSON.parse(trimmed) as string | string[];
+    version = Array.isArray(value) ? value.at(-1) || "" : value;
+  } catch {
+    version = trimmed.replace(/^"|"$/g, "");
+  }
+  if (!/^\d+\.\d+\.\d+/.test(version)) throw new Error(`Invalid npm version: ${version}`);
+  return version;
+};
+
+const runUpdateInstall = (version: string) =>
+  new Promise<void>((resolve, reject) => {
+    const child = spawn(
+      npmCommand(),
+      ["install", "--global", `${cliPackageName}@${version}`, "--no-fund", "--no-audit"],
+      {
+        stdio: "inherit",
+        env: { ...process.env, GTFS_VIZ_PRESERVE_DATA: "1" },
+      },
+    );
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`npm install exited with ${code}`));
+    });
+  });
 
 const supportedViews = new Set([
   "auto",
@@ -72,6 +159,7 @@ const supportedViews = new Set([
   "trips/table",
   "stops/map",
   "stops/table",
+  "export",
 ]);
 
 const openBrowser = (url: string) => {
@@ -423,6 +511,7 @@ const importDataset = async (feedArg: string) => {
     await extractZipEntry(feedPath, calendarDatesEntry, calendarDatesPath);
 
   const importSqlContent = await buildImportSql({
+    databasePath: currentDbPath,
     stopsPath,
     pathwaysPath,
     routesPath,
@@ -877,6 +966,11 @@ const dashboardParamsFromFlags = (args: Args) => {
     getFlagString(args.flags, "selected-route") || getFlagString(args.flags, "route-id");
   const selectedNode =
     getFlagString(args.flags, "selected-node") || getFlagString(args.flags, "node-id");
+  const selectedTrip =
+    getFlagString(args.flags, "selected-trip") ||
+    getFlagString(args.flags, "trip-id") ||
+    getFlagString(args.flags, "trip");
+  const compareView = getFlagString(args.flags, "compare-view");
   if (stationFilter) params.cliStationFilter = stationFilter;
   if (stopFilter) params.cliStopFilter = stopFilter;
   if (routeFilter) params.cliRouteFilter = routeFilter;
@@ -888,6 +982,32 @@ const dashboardParamsFromFlags = (args: Args) => {
   if (selectedNode) {
     params.cliSelectedNode = selectedNode;
     params.selectedNodeId = selectedNode;
+  }
+  if (selectedTrip) params.selectedTripId = selectedTrip;
+  if (compareView) params.compareView = compareView;
+  const searchFlags = [
+    ["page", "page"],
+    ["page-size", "pageSize"],
+    ["services-page", "servicesPage"],
+    ["services-page-size", "servicesPageSize"],
+    ["service-trips-page", "serviceTripsPage"],
+    ["service-trips-page-size", "serviceTripsPageSize"],
+    ["stops-page", "stopsPage"],
+    ["stops-page-size", "stopsPageSize"],
+    ["pathways-page", "pathwaysPage"],
+    ["pathways-page-size", "pathwaysPageSize"],
+    ["routes-page", "routesPage"],
+    ["routes-page-size", "routesPageSize"],
+    ["trips-page", "tripsPage"],
+    ["trips-page-size", "tripsPageSize"],
+    ["calendar-page", "calendarPage"],
+    ["calendar-page-size", "calendarPageSize"],
+    ["calendar-dates-page", "calendar_datesPage"],
+    ["calendar-dates-page-size", "calendar_datesPageSize"],
+  ] as const;
+  for (const [flag, searchParam] of searchFlags) {
+    const value = getFlagString(args.flags, flag);
+    if (value) params[searchParam] = value;
   }
   return params;
 };
@@ -1021,9 +1141,10 @@ const commandStops = async (args: Args) => {
     if (locationType) filters.push(`location_type_name = ${sqlString(locationType)}`);
     const where = filters.length > 0 ? ` WHERE ${filters.join(" AND ")}` : "";
     let rows = await queryRows(dataset.dbPath, `SELECT * FROM StopsTable${where}`);
-    // Fall back to raw stops table for IDs not in StopsTable (e.g. subway platforms)
-    if (rows.length === 0 && id && filters.length === 1) {
-      rows = await queryRows(dataset.dbPath, `SELECT * FROM stops WHERE stop_id = ${sqlString(id)}`);
+    // StopsTable holds only standalone stops. Fall back to the full stop set (stations, platforms,
+    // nodes) so name/id lookups also find them — e.g. `stops --name symphony` or a platform id.
+    if (rows.length === 0 && filters.length > 0) {
+      rows = await queryRows(dataset.dbPath, `SELECT * FROM StopsView${where}`);
     }
     printOrNone(rows, args);
     return;
@@ -1312,7 +1433,7 @@ const commandTrips = async (args: Args) => {
         const rows = await queryRows(
           ds.dbPath,
           `SELECT st.stop_sequence, st.stop_id, s.stop_name, st.arrival_time, st.departure_time
-           FROM stop_times st LEFT JOIN stops s ON s.stop_id = st.stop_id
+           FROM StopTimesView st LEFT JOIN StopsView s ON s.stop_id = st.stop_id
            WHERE st.trip_id = ${sqlString(tid)} ORDER BY st.stop_sequence`,
         );
         if (rows.length === 0) { console.log(`No stop_times for trip "${tid}".`); return; }
@@ -1390,7 +1511,7 @@ const commandTrip = async (args: Args) => {
         const rows = await queryRows(
           ds.dbPath,
           `SELECT st.stop_sequence, st.stop_id, s.stop_name, st.arrival_time, st.departure_time
-           FROM stop_times st LEFT JOIN stops s ON s.stop_id = st.stop_id
+           FROM StopTimesView st LEFT JOIN StopsView s ON s.stop_id = st.stop_id
            WHERE st.trip_id = ${sqlString(tid)} ORDER BY st.stop_sequence`,
         );
         for (const row of rows) {
@@ -1405,13 +1526,13 @@ const commandTrip = async (args: Args) => {
     }
 
     if (view === "info") {
-      const rows = await queryRows(ds.dbPath, `SELECT t.* FROM trips t WHERE t.trip_id = ${sqlString(tripId)}`);
+      const rows = await queryRows(ds.dbPath, `SELECT t.* FROM TripsView t WHERE t.trip_id = ${sqlString(tripId)}`);
       printOrNone(rows, args);
     } else {
       const rows = await queryRows(
         ds.dbPath,
         `SELECT st.stop_sequence, st.stop_id, s.stop_name, st.arrival_time, st.departure_time, s.stop_lat, s.stop_lon
-         FROM stop_times st LEFT JOIN stops s ON s.stop_id = st.stop_id
+         FROM StopTimesView st LEFT JOIN StopsView s ON s.stop_id = st.stop_id
          WHERE st.trip_id = ${sqlString(tripId)} ORDER BY st.stop_sequence`,
       );
       printOrNone(rows, args);
@@ -1421,7 +1542,8 @@ const commandTrip = async (args: Args) => {
 
   // Dashboard mode
   const ds = await readDatasetState();
-  const tripRows = await queryRows(ds.dbPath, `SELECT route_id, service_id FROM trips WHERE trip_id = ${sqlString(tripId)} LIMIT 1`);
+  // Resolve via TripsView so newly-added (edit-only) trips also open in the dashboard.
+  const tripRows = await queryRows(ds.dbPath, `SELECT route_id, service_id FROM TripsView WHERE trip_id = ${sqlString(tripId)} LIMIT 1`);
   if (tripRows.length === 0) { console.log(`No trip found with ID "${tripId}".`); return; }
   const params = dashboardParamsFromFlags(args);
   const resolvedRoute = String(tripRows[0].route_id);
@@ -1450,12 +1572,12 @@ const commandCalendar = async (args: Args) => {
     const ds = await readDatasetState();
     if (serviceId) {
       // Show calendar + dates for a specific service
-      const cal = await queryRows(ds.dbPath, `SELECT * FROM calendar WHERE service_id = ${sqlString(serviceId)}`);
+      const cal = await queryRows(ds.dbPath, `SELECT service_id, monday, tuesday, wednesday, thursday, friday, saturday, sunday, start_date, end_date, status FROM CalendarView WHERE service_id = ${sqlString(serviceId)}`);
       if (cal.length > 0) {
         console.log("Calendar:");
         printOrNone(cal, args);
       }
-      const dates = await queryRows(ds.dbPath, `SELECT * FROM calendar_dates WHERE service_id = ${sqlString(serviceId)} ORDER BY date`);
+      const dates = await queryRows(ds.dbPath, `SELECT service_id, date, exception_type, status FROM CalendarDatesView WHERE service_id = ${sqlString(serviceId)} ORDER BY date`);
       if (dates.length > 0) {
         console.log("\nCalendar Dates:");
         printOrNone(dates, args);
@@ -1470,8 +1592,8 @@ const commandCalendar = async (args: Args) => {
         ds.dbPath,
         `SELECT c.service_id, c.monday, c.tuesday, c.wednesday, c.thursday, c.friday, c.saturday, c.sunday,
                 c.start_date, c.end_date, COUNT(DISTINCT t.trip_id) AS trip_count
-         FROM calendar c
-         LEFT JOIN trips t ON t.service_id = c.service_id ${where ? `AND ${filters.join(" AND ")}` : ""}
+         FROM CalendarView c
+         LEFT JOIN TripsView t ON t.service_id = c.service_id ${where ? `AND ${filters.join(" AND ")}` : ""}
          GROUP BY c.service_id, c.monday, c.tuesday, c.wednesday, c.thursday, c.friday, c.saturday, c.sunday, c.start_date, c.end_date
          ORDER BY trip_count DESC`,
       );
@@ -1591,28 +1713,27 @@ const commandExport = async (args: Args) => {
   const includeStops = !hasFlag(args.flags, "no-stops");
   const includePathways = !hasFlag(args.flags, "no-pathways");
   const includeRoutes = !hasFlag(args.flags, "no-routes");
+  const includeTrips = !hasFlag(args.flags, "no-trips");
+  const includeStopTimes = !hasFlag(args.flags, "no-stop-times");
+  const includeCalendar = !hasFlag(args.flags, "no-calendar");
 
-  if (!includeStops && !includePathways && !includeRoutes) {
-    throw new Error("Nothing to export. Remove --no-stops, --no-pathways, or --no-routes.");
-  }
+  const count = async (sql: string) => {
+    const rows = await queryRows(ds.dbPath, sql).catch(() => [{ c: 0 }]);
+    return Number(rows[0]?.c || 0);
+  };
 
-  // Check for pending edits
-  const stopEdits = await queryRows(ds.dbPath, "SELECT COUNT(*) AS c FROM EditStopTable").catch(
-    () => [{ c: 0 }],
-  );
-  const pathwayEdits = await queryRows(
-    ds.dbPath,
-    "SELECT COUNT(*) AS c FROM EditPathwayTable",
-  ).catch(() => [{ c: 0 }]);
-  const routeEdits = await queryRows(
-    ds.dbPath,
-    "SELECT COUNT(*) AS c FROM EditRouteTable",
-  ).catch(() => [{ c: 0 }]);
-  const stopEditCount = Number(stopEdits[0]?.c || 0);
-  const pathwayEditCount = Number(pathwayEdits[0]?.c || 0);
-  const routeEditCount = Number(routeEdits[0]?.c || 0);
+  // Check for pending edits across every editable entity.
+  const stopEditCount = await count("SELECT COUNT(*) AS c FROM EditStopTable");
+  const pathwayEditCount = await count("SELECT COUNT(*) AS c FROM EditPathwayTable");
+  const routeEditCount = await count("SELECT COUNT(*) AS c FROM EditRouteTable");
+  const tripEditCount = await count("SELECT COUNT(*) AS c FROM EditTripsTable");
+  const stopTimeEditCount = await count("SELECT COUNT(*) AS c FROM EditStopTimesTable");
+  const calendarEditCount = await count("SELECT COUNT(*) AS c FROM EditCalendarTable");
+  const calendarDateEditCount = await count("SELECT COUNT(*) AS c FROM EditCalendarDatesTable");
+  const totalEdits =
+    stopEditCount + pathwayEditCount + routeEditCount + tripEditCount + stopTimeEditCount + calendarEditCount + calendarDateEditCount;
 
-  if (stopEditCount === 0 && pathwayEditCount === 0 && routeEditCount === 0 && !hasFlag(args.flags, "force")) {
+  if (totalEdits === 0 && !hasFlag(args.flags, "force")) {
     console.log("No edits to export. Use --force to export original data unchanged.");
     return;
   }
@@ -1670,6 +1791,22 @@ const commandExport = async (args: Args) => {
     return filePath;
   };
 
+  // Export a merged *View directly (used where merge is multi-key, e.g. stop_times / calendar_dates).
+  const exportView = async (view: string, removeColumns: string[], fileName: string) => {
+    const colRows = await queryRows(
+      ds.dbPath,
+      `SELECT column_name FROM information_schema.columns WHERE table_name = '${view}' ORDER BY ordinal_position`,
+    );
+    const cols = colRows.map((r) => String(r.column_name)).filter((c) => !removeColumns.includes(c));
+    if (cols.length === 0) return null;
+    const filePath = path.join(outPath, fileName);
+    await executeRows(
+      ds.dbPath,
+      `COPY (SELECT ${cols.join(", ")} FROM ${view}) TO '${filePath.replace(/'/g, "''")}' (FORMAT CSV, HEADER, DELIMITER ',')`,
+    );
+    return filePath;
+  };
+
   const exported: string[] = [];
 
   if (includeStops) {
@@ -1719,6 +1856,38 @@ const commandExport = async (args: Args) => {
       exported.push(f);
     } else {
       console.log("No routes data to export.");
+    }
+  }
+
+  if (includeTrips && (await count("SELECT COUNT(*) AS c FROM TripsView")) > 0) {
+    const f = await exportView("TripsView", ["row_id", "status"], "trips.txt");
+    if (f) {
+      console.log(`Exported trips.txt (${tripEditCount} edits applied)`);
+      exported.push(f);
+    }
+  }
+
+  if (includeStopTimes && (await count("SELECT COUNT(*) AS c FROM StopTimesView")) > 0) {
+    const f = await exportView("StopTimesView", ["row_id", "status"], "stop_times.txt");
+    if (f) {
+      console.log(`Exported stop_times.txt (${stopTimeEditCount} edits applied)`);
+      exported.push(f);
+    }
+  }
+
+  if (includeCalendar && (await count("SELECT COUNT(*) AS c FROM CalendarView")) > 0) {
+    const f = await exportView("CalendarView", ["row_id", "status"], "calendar.txt");
+    if (f) {
+      console.log(`Exported calendar.txt (${calendarEditCount} edits applied)`);
+      exported.push(f);
+    }
+  }
+
+  if (includeCalendar && (await count("SELECT COUNT(*) AS c FROM CalendarDatesView")) > 0) {
+    const f = await exportView("CalendarDatesView", ["row_id", "status"], "calendar_dates.txt");
+    if (f) {
+      console.log(`Exported calendar_dates.txt (${calendarDateEditCount} edits applied)`);
+      exported.push(f);
     }
   }
 
@@ -2010,6 +2179,13 @@ const commandEditStop = async (args: Args) => {
 };
 
 const commandEditTable = async (args: Args) => {
+  ensureOutputMode(args);
+  if (wantsDashboardOutput(args)) {
+    const params = dashboardParamsFromFlags(args);
+    params.view = "table";
+    await openDashboardView("export", params);
+    return;
+  }
   const table = args.positionals[0] || getFlagString(args.flags, "table");
   const ds = await readDatasetState();
   if (table === "pathways" || table === "pathway" || table === "EditPathwayTable") {
@@ -2029,6 +2205,9 @@ const commandEditTable = async (args: Args) => {
     printResult({ columns: rows.length > 0 ? Object.keys(rows[0]) : [], rows }, args.flags);
   } else if (table === "trips" || table === "EditTripsTable") {
     const rows = await queryRows(ds.dbPath, "SELECT * FROM EditTripsTable");
+    printResult({ columns: rows.length > 0 ? Object.keys(rows[0]) : [], rows }, args.flags);
+  } else if (table === "calendar_dates" || table === "calendar-dates" || table === "EditCalendarDatesTable") {
+    const rows = await queryRows(ds.dbPath, "SELECT * FROM EditCalendarDatesTable");
     printResult({ columns: rows.length > 0 ? Object.keys(rows[0]) : [], rows }, args.flags);
   } else if (!table) {
     console.log("EditPathwayTable:");
@@ -2067,9 +2246,144 @@ const commandEditTable = async (args: Args) => {
       const tripRows = await queryRows(ds.dbPath, "SELECT * FROM EditTripsTable");
       printResult({ columns: tripRows.length > 0 ? Object.keys(tripRows[0]) : [], rows: tripRows }, args.flags);
     } catch { /* table may not exist */ }
+    try {
+      console.log("\nEditCalendarDatesTable:");
+      const cdRows = await queryRows(ds.dbPath, "SELECT * FROM EditCalendarDatesTable");
+      printResult({ columns: cdRows.length > 0 ? Object.keys(cdRows[0]) : [], rows: cdRows }, args.flags);
+    } catch { /* table may not exist */ }
   } else {
-    throw new Error("edit_table accepts: pathways, routes, stops, stop_times, calendar, trips, or no argument for all");
+    throw new Error("edit_table accepts: pathways, routes, stops, stop_times, calendar, calendar_dates, trips, or no argument for all");
   }
+};
+
+/** Categorized, review-oriented summary of pending edits (and per-trip stop_time detail). */
+const commandEdits = async (args: Args) => {
+  ensureOutputMode(args);
+  if (wantsDashboardOutput(args)) {
+    const view = getFlagString(args.flags, "view");
+    if (view && view !== "category" && view !== "table") {
+      throw new Error("Edits dashboard view must be category or table");
+    }
+    const compareView = getFlagString(args.flags, "compare-view");
+    if (compareView && compareView !== "table" && compareView !== "map") {
+      throw new Error("Edit comparison view must be table or map");
+    }
+    const params = dashboardParamsFromFlags(args);
+    if (view === "table") params.view = "table";
+    await openDashboardView("export", params);
+    return;
+  }
+  const ds = await readDatasetState();
+  await ensureStopTimeEditMetadata(ds.dbPath);
+  const tripId =
+    getFlagString(args.flags, "trip-id") || getFlagString(args.flags, "trip") || getPositionalId(args);
+
+  if (tripId) {
+    const meta = await queryRows(
+      ds.dbPath,
+      `SELECT trip_id, route_id, service_id, trip_headsign, direction_id, shape_id, status FROM EditTripsTable WHERE trip_id = ${sqlString(tripId)}`,
+    );
+    const edited = await queryRows(
+      ds.dbPath,
+      `SELECT stop_sequence, stop_id, arrival_time, departure_time, status, edit_type, edit_source_trip_id, edit_from_stop_name, edit_to_stop_name FROM EditStopTimesTable WHERE trip_id = ${sqlString(tripId)} ORDER BY stop_sequence`,
+    );
+    if (meta.length === 0 && edited.length === 0) {
+      console.log(`No pending edits for trip ${tripId}.`);
+      return;
+    }
+    if (meta.length) {
+      console.log(`Trip ${tripId} — metadata (${meta[0].status}):`);
+      printResult({ columns: Object.keys(meta[0]), rows: meta }, args.flags);
+    }
+    const orig = await queryRows(
+      ds.dbPath,
+      `SELECT stop_sequence, stop_id, arrival_time, departure_time FROM stop_times WHERE trip_id = ${sqlString(tripId)} ORDER BY stop_sequence`,
+    );
+    if (orig.length) {
+      console.log(`\nOriginal stop_times (${tripId}):`);
+      printResult({ columns: Object.keys(orig[0]), rows: orig }, args.flags);
+    }
+    if (edited.length) {
+      console.log(`\nEdited stop_times (${tripId}):`);
+      printResult({ columns: Object.keys(edited[0]), rows: edited }, args.flags);
+    }
+    return;
+  }
+
+  let total = 0;
+  const section = async (title: string, sql: string) => {
+    const rows = await queryRows(ds.dbPath, sql).catch(() => [] as Record<string, unknown>[]);
+    if (rows.length === 0) return;
+    total += rows.length;
+    console.log(`\n${title} (${rows.length}):`);
+    printResult({ columns: Object.keys(rows[0]), rows }, args.flags);
+  };
+  await section("Trip additions", `SELECT trip_id, route_id, service_id, trip_headsign FROM EditTripsTable WHERE status = 'new'`);
+  await section(
+    "Trip metadata changes",
+    `SELECT trip_id, route_id, service_id, trip_headsign, status
+     FROM EditTripsTable metadata
+     WHERE status IN ('edit','new edit')
+       AND NOT EXISTS (
+         SELECT 1
+         FROM EditStopTimesTable stop_edit
+         WHERE stop_edit.trip_id = metadata.trip_id
+           AND stop_edit.edit_type = 'reroute'
+       )`,
+  );
+  await section("Trip deletions", `SELECT trip_id FROM EditTripsTable WHERE status = 'deleted'`);
+  await section(
+    "Multiple trip edits",
+    `SELECT stop_edit.trip_id,
+            ANY_VALUE(edit_source_trip_id) FILTER (WHERE edit_type = 'reroute') AS donor_trip_id,
+            ANY_VALUE(edit_from_stop_name) FILTER (WHERE edit_type = 'reroute') AS from_stop,
+            ANY_VALUE(edit_to_stop_name) FILTER (WHERE edit_type = 'reroute') AS to_stop,
+            COUNT(*) FILTER (WHERE status = 'new') AS added,
+            COUNT(*) FILTER (WHERE status = 'deleted') AS removed
+     FROM EditStopTimesTable stop_edit
+     GROUP BY stop_edit.trip_id
+     HAVING COUNT(*) FILTER (WHERE edit_type = 'reroute') > 0
+        AND (
+          COUNT(*) FILTER (WHERE edit_type IS NULL OR edit_type <> 'reroute') > 0
+          OR EXISTS (
+            SELECT 1
+            FROM EditTripsTable metadata
+            WHERE metadata.trip_id = stop_edit.trip_id
+              AND metadata.status IN ('edit','new edit')
+          )
+        )
+     ORDER BY stop_edit.trip_id`,
+  );
+  await section(
+    "Trip reroutes (stops swapped)",
+    `SELECT stop_edit.trip_id,
+            ANY_VALUE(edit_source_trip_id) FILTER (WHERE edit_type = 'reroute') AS donor_trip_id,
+            ANY_VALUE(edit_from_stop_name) FILTER (WHERE edit_type = 'reroute') AS from_stop,
+            ANY_VALUE(edit_to_stop_name) FILTER (WHERE edit_type = 'reroute') AS to_stop,
+            COUNT(*) FILTER (WHERE status = 'new') AS added,
+            COUNT(*) FILTER (WHERE status = 'deleted') AS removed
+     FROM EditStopTimesTable stop_edit
+     GROUP BY stop_edit.trip_id
+     HAVING COUNT(*) FILTER (WHERE edit_type = 'reroute') > 0
+        AND COUNT(*) FILTER (WHERE edit_type IS NULL OR edit_type <> 'reroute') = 0
+        AND NOT EXISTS (
+          SELECT 1
+          FROM EditTripsTable metadata
+          WHERE metadata.trip_id = stop_edit.trip_id
+            AND metadata.status IN ('edit','new edit')
+        )
+     ORDER BY stop_edit.trip_id`,
+  );
+  await section(
+    "Schedule changes (stop_times by trip)",
+    `SELECT trip_id, COUNT(*) FILTER (WHERE status IN ('new','new edit')) AS changed_or_added, COUNT(*) FILTER (WHERE status = 'deleted') AS removed FROM EditStopTimesTable GROUP BY trip_id HAVING COUNT(*) FILTER (WHERE edit_type = 'reroute') = 0 ORDER BY trip_id`,
+  );
+  await section("Service changes (calendar)", `SELECT service_id, monday, tuesday, wednesday, thursday, friday, saturday, sunday, start_date, end_date, status FROM EditCalendarTable ORDER BY service_id`);
+  await section("Date exceptions (calendar_dates)", `SELECT service_id, date, exception_type, status FROM EditCalendarDatesTable ORDER BY service_id, date`);
+  await section("Stop / node changes", `SELECT stop_id, stop_name, location_type_name, status FROM EditStopTable ORDER BY stop_id`);
+  await section("Pathway changes", `SELECT pathway_id, from_stop_id, to_stop_id, status FROM EditPathwayTable ORDER BY pathway_id`);
+  await section("Route changes", `SELECT route_id, route_short_name, route_long_name, status FROM EditRouteTable ORDER BY route_id`);
+  if (total === 0) console.log("No pending edits.");
 };
 
 const commandAddConnection = async (args: Args) => {
@@ -2318,6 +2632,273 @@ const commandDeleteNode = async (args: Args) => {
   console.log(`Deleted node ${stopId}`);
 };
 
+// ── Trip / stop_time / calendar / calendar_date edits (see duckdb/edits.ts) ──
+const parseDayList = (spec: string) => {
+  const names = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+  const set = new Set(spec.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean));
+  const out: Record<string, number> = {};
+  for (const n of names) out[n] = set.has(n) || set.has(n.slice(0, 3)) ? 1 : 0;
+  return out;
+};
+
+const commandAddTrip = async (args: Args) => {
+  const ds = await readDatasetState();
+  const tripId = getFlagString(args.flags, "trip-id") || getFlagString(args.flags, "id");
+  const routeId = getFlagString(args.flags, "route-id");
+  const serviceId = getFlagString(args.flags, "service-id");
+  if (!tripId) throw new Error("Provide --trip-id for the new trip");
+  if (!routeId || !serviceId) throw new Error("Provide --route-id and --service-id");
+  await upsertTrip(
+    ds.dbPath,
+    {
+      trip_id: tripId,
+      route_id: routeId,
+      service_id: serviceId,
+      trip_headsign: getFlagString(args.flags, "headsign") || getFlagString(args.flags, "trip-headsign"),
+      direction_id: numberOrUndefined(getFlagString(args.flags, "direction-id")),
+      shape_id: getFlagString(args.flags, "shape-id"),
+    },
+    true,
+  );
+  await refreshTrips(ds.dbPath);
+  console.log(`Added trip ${tripId} (route ${routeId}, service ${serviceId})`);
+};
+
+const commandUpdateTrip = async (args: Args) => {
+  const ds = await readDatasetState();
+  const tripId = getFlagString(args.flags, "trip-id") || getFlagString(args.flags, "id");
+  if (!tripId) throw new Error("Provide --trip-id to identify the trip");
+  await upsertTrip(
+    ds.dbPath,
+    {
+      trip_id: tripId,
+      route_id: getFlagString(args.flags, "route-id"),
+      service_id: getFlagString(args.flags, "service-id"),
+      trip_headsign: getFlagString(args.flags, "headsign") || getFlagString(args.flags, "trip-headsign"),
+      direction_id: numberOrUndefined(getFlagString(args.flags, "direction-id")),
+      shape_id: getFlagString(args.flags, "shape-id"),
+    },
+    false,
+  );
+  await refreshTrips(ds.dbPath);
+  console.log(`Updated trip ${tripId}`);
+};
+
+const commandDeleteTrip = async (args: Args) => {
+  const ds = await readDatasetState();
+  const tripId = getFlagString(args.flags, "trip-id") || getFlagString(args.flags, "id");
+  if (!tripId) throw new Error("Provide --trip-id to identify the trip");
+  await deleteTrip(ds.dbPath, tripId);
+  await refreshTrips(ds.dbPath);
+  console.log(`Deleted trip ${tripId}`);
+};
+
+const commandSetStopTimes = async (args: Args) => {
+  const ds = await readDatasetState();
+  const tripId = getFlagString(args.flags, "trip-id") || getFlagString(args.flags, "id");
+  if (!tripId) throw new Error("Provide --trip-id");
+  let raw = getFlagString(args.flags, "stops-json");
+  const stopsFile = getFlagString(args.flags, "stops-file");
+  if (!raw && stopsFile) raw = await readFile(path.resolve(stopsFile), "utf-8");
+  if (!raw) throw new Error("Provide --stops-json '<json>' or --stops-file <path>");
+  let stops: unknown;
+  try {
+    stops = JSON.parse(raw);
+  } catch {
+    throw new Error("stop_times payload must be valid JSON");
+  }
+  if (!Array.isArray(stops)) throw new Error("stop_times payload must be a JSON array");
+  const changed = await setStopTimes(ds.dbPath, tripId, stops as never);
+  await refreshTrips(ds.dbPath);
+  console.log(
+    changed ? `Set ${stops.length} stop_times for trip ${tripId}` : `No stop_time changes for trip ${tripId}`,
+  );
+};
+
+const commandReroute = async (args: Args) => {
+  const ds = await readDatasetState();
+  const tripId =
+    getFlagString(args.flags, "trip-id") || getFlagString(args.flags, "trip") || getFlagString(args.flags, "id");
+  const donor =
+    getFlagString(args.flags, "via") || getFlagString(args.flags, "donor-trip") || getFlagString(args.flags, "donor");
+  const from = getFlagString(args.flags, "from");
+  const to = getFlagString(args.flags, "to");
+  if (!tripId || !donor || !from || !to)
+    throw new Error(
+      'Usage: gtfs-viz reroute --trip <trip_id> --via <donor_trip_id> --from "<boundary stop>" --to "<boundary stop>"',
+    );
+  const changed = await rerouteViaDonor(ds.dbPath, tripId, donor, from, to);
+  await refreshTrips(ds.dbPath);
+  console.log(
+    changed
+      ? `Rerouted ${tripId} via ${donor} between "${from}" and "${to}"`
+      : `No change for ${tripId} (already follows that path)`,
+  );
+};
+
+// Skip/express or station bypass — drop named stops from a trip.
+const commandRemoveStops = async (args: Args) => {
+  const ds = await readDatasetState();
+  const tripId = getFlagString(args.flags, "trip-id") || getFlagString(args.flags, "trip") || getFlagString(args.flags, "id");
+  const stopsRaw = getFlagString(args.flags, "stops");
+  if (!tripId) throw new Error("Provide --trip-id");
+  if (!stopsRaw) throw new Error('Provide --stops "Stop A,Stop B"');
+  const names = stopsRaw.split(",").map((s) => s.trim()).filter(Boolean);
+  const changed = await removeStops(ds.dbPath, tripId, names);
+  await refreshTrips(ds.dbPath);
+  console.log(changed ? `Removed ${names.length} stop(s) from ${tripId}` : `No change for ${tripId}`);
+};
+
+// Short-turn / ends-early / segment truncation — keep only stops between --from and --to.
+const commandTruncateTrip = async (args: Args) => {
+  const ds = await readDatasetState();
+  const tripId = getFlagString(args.flags, "trip-id") || getFlagString(args.flags, "trip") || getFlagString(args.flags, "id");
+  const from = getFlagString(args.flags, "from");
+  const to = getFlagString(args.flags, "to");
+  if (!tripId) throw new Error("Provide --trip-id");
+  if (!from && !to) throw new Error('Provide --from "<start>" and/or --to "<end>"');
+  const changed = await truncateTripStops(ds.dbPath, tripId, from, to);
+  await refreshTrips(ds.dbPath);
+  console.log(
+    changed
+      ? `Truncated ${tripId}${from ? ` from "${from}"` : ""}${to ? ` to "${to}"` : ""}`
+      : `No change for ${tripId}`,
+  );
+};
+
+// Two-section / split operation — split one trip into two at a gap.
+const commandSplitTrip = async (args: Args) => {
+  const ds = await readDatasetState();
+  const tripId = getFlagString(args.flags, "trip-id") || getFlagString(args.flags, "trip") || getFlagString(args.flags, "id");
+  const gapFrom = getFlagString(args.flags, "gap-from");
+  const gapTo = getFlagString(args.flags, "gap-to");
+  const newTripId = getFlagString(args.flags, "new-trip-id") || getFlagString(args.flags, "new-trip");
+  const newHeadsign = getFlagString(args.flags, "new-headsign");
+  if (!tripId || !gapFrom || !gapTo || !newTripId)
+    throw new Error(
+      'Usage: gtfs-viz split_trip --trip <trip_id> --gap-from "<stop>" --gap-to "<stop>" --new-trip-id <id2> [--new-headsign "<h>"]',
+    );
+  await splitTrip(ds.dbPath, tripId, gapFrom, gapTo, newTripId, newHeadsign);
+  await refreshTrips(ds.dbPath);
+  console.log(`Split ${tripId}: section 1 ends at "${gapFrom}"; new trip ${newTripId} runs from "${gapTo}".`);
+};
+
+// Run local instead of express — add back the skipped stops using a same-line local donor trip.
+const commandRunLocal = async (args: Args) => {
+  const ds = await readDatasetState();
+  const tripId = getFlagString(args.flags, "trip-id") || getFlagString(args.flags, "trip") || getFlagString(args.flags, "id");
+  const donor = getFlagString(args.flags, "via") || getFlagString(args.flags, "local-trip");
+  const from = getFlagString(args.flags, "from");
+  const to = getFlagString(args.flags, "to");
+  if (!tripId || !donor || !from || !to)
+    throw new Error('Usage: gtfs-viz run_local --trip <trip_id> --via <local_trip> --from "<stop>" --to "<stop>"');
+  const changed = await rerouteViaDonor(ds.dbPath, tripId, donor, from, to);
+  await refreshTrips(ds.dbPath);
+  console.log(changed ? `${tripId} now runs local between "${from}" and "${to}" (via ${donor})` : `No change for ${tripId}`);
+};
+
+const commandAddCalendar = async (args: Args) => {
+  const ds = await readDatasetState();
+  const serviceId = getFlagString(args.flags, "service-id") || getFlagString(args.flags, "id");
+  if (!serviceId) throw new Error("Provide --service-id");
+  const daysSpec = getFlagString(args.flags, "days");
+  await upsertCalendar(
+    ds.dbPath,
+    {
+      service_id: serviceId,
+      ...(daysSpec ? parseDayList(daysSpec) : {}),
+      start_date: getFlagString(args.flags, "start-date"),
+      end_date: getFlagString(args.flags, "end-date"),
+    },
+    true,
+  );
+  await refreshCalendar(ds.dbPath);
+  console.log(`Added service ${serviceId}`);
+};
+
+const commandUpdateCalendar = async (args: Args) => {
+  const ds = await readDatasetState();
+  const serviceId = getFlagString(args.flags, "service-id") || getFlagString(args.flags, "id");
+  if (!serviceId) throw new Error("Provide --service-id to identify the service");
+  const daysSpec = getFlagString(args.flags, "days");
+  await upsertCalendar(
+    ds.dbPath,
+    {
+      service_id: serviceId,
+      ...(daysSpec ? parseDayList(daysSpec) : {}),
+      start_date: getFlagString(args.flags, "start-date"),
+      end_date: getFlagString(args.flags, "end-date"),
+    },
+    false,
+  );
+  await refreshCalendar(ds.dbPath);
+  console.log(`Updated service ${serviceId}`);
+};
+
+const commandDeleteCalendar = async (args: Args) => {
+  const ds = await readDatasetState();
+  const serviceId = getFlagString(args.flags, "service-id") || getFlagString(args.flags, "id");
+  if (!serviceId) throw new Error("Provide --service-id to identify the service");
+  await deleteCalendar(ds.dbPath, serviceId);
+  await refreshCalendar(ds.dbPath);
+  console.log(`Deleted service ${serviceId}`);
+};
+
+const commandAddCalendarDate = async (args: Args) => {
+  const ds = await readDatasetState();
+  const serviceId = getFlagString(args.flags, "service-id") || getFlagString(args.flags, "id");
+  const date = getFlagString(args.flags, "date");
+  const exc = numberOrUndefined(getFlagString(args.flags, "exception-type"));
+  if (!serviceId || !date) throw new Error("Provide --service-id and --date (YYYYMMDD)");
+  if (exc !== 1 && exc !== 2)
+    throw new Error("Provide --exception-type 1 (add service on date) or 2 (remove service on date)");
+  await upsertCalendarDate(ds.dbPath, { service_id: serviceId, date, exception_type: exc });
+  console.log(`Added calendar exception: ${serviceId} ${date} (type ${exc})`);
+};
+
+const commandDeleteCalendarDate = async (args: Args) => {
+  const ds = await readDatasetState();
+  const serviceId = getFlagString(args.flags, "service-id") || getFlagString(args.flags, "id");
+  const date = getFlagString(args.flags, "date");
+  if (!serviceId || !date) throw new Error("Provide --service-id and --date (YYYYMMDD)");
+  await deleteCalendarDate(ds.dbPath, serviceId, date);
+  console.log(`Deleted calendar exception: ${serviceId} ${date}`);
+};
+
+const readStdin = () =>
+  new Promise<string>((resolve, reject) => {
+    let data = "";
+    processStdin.setEncoding("utf-8");
+    processStdin.on("data", (c) => (data += c));
+    processStdin.on("end", () => resolve(data));
+    processStdin.on("error", reject);
+  });
+
+const commandApply = async (args: Args) => {
+  const ds = await readDatasetState();
+  const fileArg = getPositionalId(args) || getFlagString(args.flags, "file");
+  const inline = getFlagString(args.flags, "json");
+  let raw: string | undefined = inline;
+  if (!raw && fileArg) raw = await readFile(path.resolve(fileArg), "utf-8");
+  if (!raw && hasFlag(args.flags, "stdin")) raw = await readStdin();
+  if (!raw) throw new Error("Provide a changeset: gtfs-viz apply <changeset.json> | --json '<json>' | --stdin");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Changeset must be valid JSON");
+  }
+  const ops = (Array.isArray(parsed) ? parsed : (parsed as { ops?: unknown }).ops) as ChangeOp[] | undefined;
+  if (!Array.isArray(ops)) throw new Error('Changeset must be a JSON array of ops, or { "ops": [...] }');
+  const summary = await applyChangeset(ds.dbPath, ops);
+  console.log(`Applied ${summary.total} op(s):`);
+  for (const [op, count] of Object.entries(summary.byOp)) console.log(`  ${op}: ${count}`);
+  if (summary.skipped.length) {
+    console.log(`Skipped ${summary.skipped.length}:`);
+    for (const s of summary.skipped) console.log(`  - ${s}`);
+  }
+};
+
 const commandStationRoutes = async (args: Args) => {
   ensureOutputMode(args);
   const st = await resolveStationFromArgs(args);
@@ -2517,56 +3098,96 @@ const commandSkillPath = () => {
   console.log(path.join(packageRoot, "skills", "gtfs-viz", "SKILL.md"));
 };
 
-type SkillAgent = "claude" | "codex" | "opensource";
-
-const normalizeSkillAgent = (value: string): SkillAgent => {
-  const n = value.trim().toLowerCase().replace(/\s+/g, "-");
-  if (n === "claude" || n === "claude-code") return "claude";
-  if (n === "codex") return "codex";
-  if (n === "opensource" || n === "open-source" || n === "opencode" || n === "open-code")
-    return "opensource";
-  throw new Error("Choose --agent claude, --agent codex, or --agent opensource");
+const commandVersion = async () => {
+  console.log(`gtfs-viz ${await readCliVersion()}`);
 };
 
-const defaultSkillRoot = (agent: SkillAgent) => {
-  if (agent === "claude")
+type SkillProvider = "anthropic" | "openai" | "google" | "generic";
+
+const skillProviderChoices: Array<{ provider: SkillProvider; label: string; aliases: string[] }> = [
+  {
+    provider: "anthropic",
+    label: "Anthropic / Claude Code",
+    aliases: ["anthropic", "claude", "claude-code"],
+  },
+  {
+    provider: "openai",
+    label: "OpenAI / Codex",
+    aliases: ["openai", "codex", "chatgpt"],
+  },
+  {
+    provider: "google",
+    label: "Google / Gemini CLI",
+    aliases: ["google", "gemini", "gemini-cli"],
+  },
+  {
+    provider: "generic",
+    label: "Generic Agent Skills",
+    aliases: ["generic", "agents", "agent-skills", "opensource", "open-source", "opencode", "open-code"],
+  },
+];
+
+const normalizeSkillProvider = (value: string): SkillProvider => {
+  const n = value.trim().toLowerCase().replace(/\s+/g, "-");
+  const choice = skillProviderChoices.find(({ aliases }) => aliases.includes(n));
+  if (choice) return choice.provider;
+  throw new Error("Choose --provider anthropic, openai, google, or generic");
+};
+
+const defaultSkillRoot = (provider: SkillProvider) => {
+  if (provider === "anthropic")
     return path.join(process.env.CLAUDE_HOME || path.join(os.homedir(), ".claude"), "skills");
-  if (agent === "codex")
+  if (provider === "openai")
     return path.join(process.env.CODEX_HOME || path.join(os.homedir(), ".codex"), "skills");
-  return path.join(os.homedir(), ".skills");
+  if (provider === "google")
+    return path.join(process.env.GEMINI_HOME || path.join(os.homedir(), ".gemini"), "skills");
+  return path.join(os.homedir(), ".agents", "skills");
 };
 
 const commandInstallSkill = async (args: Args) => {
-  const agentFlag = getFlagString(args.flags, "agent");
-  let agent: SkillAgent | undefined;
+  if (hasFlag(args.flags, "list-providers")) {
+    for (const choice of skillProviderChoices) {
+      console.log(`${choice.provider}\t${choice.label}\t${defaultSkillRoot(choice.provider)}`);
+    }
+    return;
+  }
 
-  if (agentFlag) {
-    agent = normalizeSkillAgent(agentFlag);
-  } else if (!processStdin.isTTY) {
+  const providerFlag = getFlagString(args.flags, "provider");
+  const agentFlag = getFlagString(args.flags, "agent");
+  const positionalProvider = args.positionals[0];
+  const selectedValues = [providerFlag, agentFlag, positionalProvider].filter(
+    (value): value is string => Boolean(value),
+  );
+  const selectedProviders = selectedValues.map(normalizeSkillProvider);
+  if (new Set(selectedProviders).size > 1) {
+    throw new Error("Provider selections disagree. Pass only one provider name.");
+  }
+  let provider = selectedProviders[0];
+
+  if (!provider && !processStdin.isTTY) {
     throw new Error(
-      "Pass --agent claude, --agent codex, or --agent opensource in non-interactive shells",
+      "Pass a provider or use --provider anthropic, openai, google, or generic in non-interactive shells",
     );
-  } else {
+  }
+  if (!provider) {
     const rl = readline.createInterface({
       input: processStdin,
       output: processStdout,
     });
     console.log("\nInstall GTFS Viz skill for:");
-    console.log("  1. Claude Code (~/.claude/skills)");
-    console.log("  2. Codex (~/.codex/skills)");
-    console.log("  3. Open source (~/.skills)");
-    const answer = await new Promise<string>((r) => rl.question("Choose 1-3: ", r));
+    skillProviderChoices.forEach((choice, index) => {
+      console.log(`  ${index + 1}. ${choice.label} (${defaultSkillRoot(choice.provider)})`);
+    });
+    const answer = await new Promise<string>((r) => rl.question("Choose 1-4: ", r));
     rl.close();
-    if (answer.trim() === "1") agent = "claude";
-    else if (answer.trim() === "2") agent = "codex";
-    else if (answer.trim() === "3") agent = "opensource";
-    else agent = normalizeSkillAgent(answer);
+    const index = Number(answer.trim()) - 1;
+    provider = skillProviderChoices[index]?.provider || normalizeSkillProvider(answer);
   }
 
   const targetRoot =
     getFlagString(args.flags, "target-dir") ||
     getFlagString(args.flags, "target") ||
-    defaultSkillRoot(agent || "opensource");
+    defaultSkillRoot(provider);
   const sourceDir = path.join(packageRoot, "skills", "gtfs-viz");
   const targetDir = path.join(targetRoot, "gtfs-viz");
   const force = hasFlag(args.flags, "force");
@@ -2580,28 +3201,62 @@ const commandInstallSkill = async (args: Args) => {
   const skillMdPath = path.join(targetDir, "SKILL.md");
   let skillMd = await readFile(skillMdPath, "utf-8");
 
-  const compatibilityByAgent: Record<SkillAgent, string> = {
-    claude: "Designed for Claude Code. Requires Node.js 18+ and DuckDB CLI on PATH or DUCKDB_BIN.",
-    codex: "Designed for Codex. Requires Node.js 18+ and DuckDB CLI on PATH or DUCKDB_BIN.",
-    opensource: "Requires Node.js 18+ and DuckDB CLI on PATH or DUCKDB_BIN.",
-  };
-  const allowedToolsByAgent: Record<SkillAgent, string | null> = {
-    claude: "Bash(gtfs-viz:*) Bash(duckdb:*) Read",
-    codex: null,
-    opensource: null,
+  const allowedToolsByProvider: Record<SkillProvider, string | null> = {
+    anthropic: "Bash(gtfs-viz:*) Bash(duckdb:*) Read",
+    openai: null,
+    google: null,
+    generic: null,
   };
 
-  skillMd = skillMd.replace(
-    /^compatibility:.*$/m,
-    `compatibility: ${compatibilityByAgent[agent!]}`,
-  );
-  const allowedTools = allowedToolsByAgent[agent!];
+  skillMd = skillMd.replace(/^(metadata:\s*\n)/m, `$1  provider: ${provider}\n`);
+  const allowedTools = allowedToolsByProvider[provider];
   if (allowedTools) {
     skillMd = skillMd.replace(/^(metadata:)/m, `allowed-tools: ${allowedTools}\n$1`);
   }
 
   await writeFile(skillMdPath, skillMd, "utf-8");
-  console.log(`Installed GTFS Viz skill to ${targetDir}`);
+  console.log(`Installed GTFS Viz skill for ${provider} to ${targetDir}`);
+};
+
+const commandUpdate = async (args: Args) => {
+  const currentVersion = await readCliVersion();
+  const latestVersion = await readLatestCliVersion();
+  const comparison = compareVersions(currentVersion, latestVersion);
+  const checkOnly = hasFlag(args.flags, "check") || hasFlag(args.flags, "dry-run");
+  const force = hasFlag(args.flags, "force");
+
+  console.log(`Current: ${currentVersion}`);
+  console.log(`Latest: ${latestVersion}`);
+
+  if (checkOnly) {
+    if (comparison === 0) console.log("Status: already up to date");
+    else if (comparison > 0)
+      console.log("Status: current version is newer than the latest published version");
+    else console.log("Status: update available");
+  } else if (comparison < 0 || force) {
+    console.log(`Updating ${cliPackageName} to ${latestVersion}...`);
+    await runUpdateInstall(latestVersion);
+    console.log(`Updated gtfs-viz to ${latestVersion}`);
+  } else if (comparison === 0) {
+    console.log("Status: already up to date");
+  } else {
+    console.log("Status: current version is newer than the latest published version");
+  }
+
+  const provider = getFlagString(args.flags, "provider") || getFlagString(args.flags, "agent");
+  if (provider && !checkOnly) {
+    await commandInstallSkill({
+      command: "install-skill",
+      positionals: [],
+      flags: {
+        provider,
+        force: true,
+        ...(getFlagString(args.flags, "target-dir")
+          ? { "target-dir": getFlagString(args.flags, "target-dir")! }
+          : {}),
+      },
+    });
+  }
 };
 
 const main = async () => {
@@ -2612,21 +3267,26 @@ const main = async () => {
     return;
   }
 
-  if (hasFlag(args.flags, "help") || args.command === "help") {
+  const isHelpCommand = args.command === "help" || args.command === "h";
+  if (hasFlag(args.flags, "help") || isHelpCommand) {
     // View-specific help: e.g. `routes --view service -h` or `routes service -h`
     const view = getViewFlag(args);
     if (args.command && view && args.command !== "help") {
       const viewKey = `${args.command}:${view}`;
       if (printCommandHelp(viewKey)) return;
     }
-    if (args.command && args.command !== "help" && printCommandHelp(args.command)) {
+    if (args.command && !isHelpCommand && printCommandHelp(args.command)) {
       return;
     }
-    const helpTarget = args.command === "help" ? args.positionals[0] : undefined;
+    const helpTarget = isHelpCommand ? args.positionals[0] : undefined;
     if (helpTarget && printCommandHelp(helpTarget)) {
       return;
     }
     printHelp();
+    return;
+  }
+  if (hasFlag(args.flags, "version") || args.command === "version") {
+    await commandVersion();
     return;
   }
   if (args.command === "examples") {
@@ -2703,6 +3363,10 @@ const main = async () => {
     await commandInstallSkill(args);
     return;
   }
+  if (args.command === "update" || args.command === "self-update") {
+    await commandUpdate(args);
+    return;
+  }
   if (args.command === "export") {
     await commandExport(args);
     return;
@@ -2744,6 +3408,10 @@ const main = async () => {
     await commandEditTable(args);
     return;
   }
+  if (args.command === "edits") {
+    await commandEdits(args);
+    return;
+  }
   if (args.command === "add_connection" || args.command === "add-connection") {
     await commandAddConnection(args);
     return;
@@ -2766,6 +3434,66 @@ const main = async () => {
   }
   if (args.command === "delete_node" || args.command === "delete-node") {
     await commandDeleteNode(args);
+    return;
+  }
+  if (args.command === "add_trip" || args.command === "add-trip") {
+    await commandAddTrip(args);
+    return;
+  }
+  if (args.command === "update_trip" || args.command === "update-trip") {
+    await commandUpdateTrip(args);
+    return;
+  }
+  if (args.command === "delete_trip" || args.command === "delete-trip") {
+    await commandDeleteTrip(args);
+    return;
+  }
+  if (args.command === "set_stop_times" || args.command === "set-stop-times") {
+    await commandSetStopTimes(args);
+    return;
+  }
+  if (args.command === "add_calendar" || args.command === "add-calendar") {
+    await commandAddCalendar(args);
+    return;
+  }
+  if (args.command === "update_calendar" || args.command === "update-calendar") {
+    await commandUpdateCalendar(args);
+    return;
+  }
+  if (args.command === "delete_calendar" || args.command === "delete-calendar") {
+    await commandDeleteCalendar(args);
+    return;
+  }
+  if (args.command === "add_calendar_date" || args.command === "add-calendar-date") {
+    await commandAddCalendarDate(args);
+    return;
+  }
+  if (args.command === "delete_calendar_date" || args.command === "delete-calendar-date") {
+    await commandDeleteCalendarDate(args);
+    return;
+  }
+  if (args.command === "apply") {
+    await commandApply(args);
+    return;
+  }
+  if (args.command === "reroute") {
+    await commandReroute(args);
+    return;
+  }
+  if (args.command === "remove_stops" || args.command === "remove-stops") {
+    await commandRemoveStops(args);
+    return;
+  }
+  if (args.command === "truncate_trip" || args.command === "truncate-trip") {
+    await commandTruncateTrip(args);
+    return;
+  }
+  if (args.command === "split_trip" || args.command === "split-trip") {
+    await commandSplitTrip(args);
+    return;
+  }
+  if (args.command === "run_local" || args.command === "run-local") {
+    await commandRunLocal(args);
     return;
   }
   if (args.command === "station_routes" || args.command === "station-routes") {

@@ -22,7 +22,7 @@ type EditProps = {
   addStopPreview?: { name: string; arrival: string; departure: string; stopSequence?: number };
   onAddArrivalChange?: (v: string) => void;
   onAddDepartureChange?: (v: string) => void;
-  originalStops?: Array<{ stop_id?: string; arrival_time?: string; departure_time?: string }>;
+  originalStops?: TripStopTime[];
   onInsertAt?: (seq: number, arrival: string, departure: string) => void;
   onDragStart?: () => void;
 };

@@ -3,7 +3,7 @@
  * Executes embedded SQL for macros, views, tables, and indexes.
  */
 
-import { GTFS_LOAD_SQL, GTFS_INIT_SQL } from "../dist/sql.js";
+import { GTFS_LOAD_SQL, GTFS_INIT_SQL, GTFS_REROUTE_SQL } from "../dist/sql.js";
 
 export type SqlExecutor = (sql: string) => Promise<void>;
 
@@ -42,9 +42,9 @@ async function executeStatements(
   }
 }
 
-/** Returns the full install SQL (macros + init combined). */
+/** Returns the full install SQL (macros + init + reroute helpers combined). */
 export function getInstallSql(): string {
-  return GTFS_LOAD_SQL + "\n" + GTFS_INIT_SQL;
+  return GTFS_LOAD_SQL + "\n" + GTFS_INIT_SQL + "\n" + GTFS_REROUTE_SQL;
 }
 
 /** Install enum macros and edit tables. */
@@ -58,6 +58,7 @@ export async function installInit(
   options: InstallInitOptions = {},
 ): Promise<void> {
   await executeStatements(executor, GTFS_INIT_SQL, options);
+  await executeStatements(executor, GTFS_REROUTE_SQL, options);
 }
 
 /** Full install: macros + views + tables + indexes. */
@@ -83,4 +84,4 @@ export async function recreatePathwaysView(
   await installInit(executor);
 }
 
-export { GTFS_LOAD_SQL, GTFS_INIT_SQL };
+export { GTFS_LOAD_SQL, GTFS_INIT_SQL, GTFS_REROUTE_SQL };

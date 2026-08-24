@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { BiChevronDown, BiChevronUp, BiCrosshair, BiGitCompare, BiMapPin, BiPencil, BiPlus, BiReset, BiSave, BiUndo, BiX } from "react-icons/bi";
+import { BiChevronDown, BiChevronUp, BiCrosshair, BiGitCompare, BiMapPin, BiPencil, BiPlus, BiReset, BiSave, BiTransferAlt, BiUndo, BiX } from "react-icons/bi";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,10 +26,15 @@ import {
 import { Timetable, TripStopPanel } from "@/client/Trips/components/Timetable";
 import { Timeline } from "@/client/Trips/components/Timeline";
 import { TripMap } from "@/client/Trips/components/Map";
+import {
+  fetchTripRerouteRoutes,
+  REROUTE_QUERY_STALE_TIME,
+} from "@/lib/duckdb/DataEditing/rerouteTrip";
 import type { TripRow, AllTripsProps } from "./types";
 import { TripsHeader } from "./Header";
 import { useTripColumns } from "./TripColumns";
 import { StopEditPanel } from "./StopEditPanel";
+import { RerouteTripDialog } from "./RerouteTripDialog";
 
 function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch }: AllTripsProps) {
   const { conn, initialized } = useDuckDB() ?? {};
@@ -56,6 +61,7 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
   }, [updateSearch]);
   const [isPicking, setIsPicking] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [showReroute, setShowReroute] = useState(false);
   const [hiddenTripIndices, setHiddenTripIndices] = useState<Set<number>>(new Set());
   const toggleTripVisibility = useCallback((idx: number) => {
     setHiddenTripIndices((prev) => { const next = new Set(prev); if (next.has(idx)) next.delete(idx); else next.add(idx); return next; });
@@ -215,6 +221,22 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
     retry: false,
   });
 
+  const {
+    data: rerouteRoutes = [],
+    isLoading: rerouteRoutesLoading,
+    error: rerouteRoutesError,
+  } = useQuery({
+    queryKey: ["tripRerouteRoutes", selectedTripId],
+    queryFn: () => fetchTripRerouteRoutes(conn, selectedTripId!),
+    enabled:
+      !!conn &&
+      !!initialized &&
+      !!selectedTripId &&
+      hasStopTimes &&
+      stopTimes.length > 1,
+    staleTime: REROUTE_QUERY_STALE_TIME,
+  });
+
   const compareTrips = useMemo(
     () => compareTripIds.flatMap((id) => { const t = tripById.get(id); return t ? [t] : []; }),
     [compareTripIds, tripById],
@@ -273,6 +295,7 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
     setCompareTripIds([]);
     setIsPicking(false);
     setIsEditing(false);
+    setShowReroute(false);
     setViewSelectedIdx(null);
   };
 
@@ -354,15 +377,21 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
         departure_time: s.departure_time, stop_headsign: s.stop_headsign,
         pickup_type: s.pickup_type, drop_off_type: s.drop_off_type,
       })));
+      return fetchServiceTripStopTimesData(conn, selectedTripId!);
     },
-    onSuccess: () => {
+    onSuccess: (updatedStopTimes) => {
       setIsEditing(false);
       setEditErrors([]);
-      queryClient.invalidateQueries({ queryKey: ["fetchServiceTripStopTimesData", selectedTripId] });
+      queryClient.setQueryData(
+        ["fetchServiceTripStopTimesData", selectedTripId],
+        updatedStopTimes,
+      );
       queryClient.invalidateQueries({ queryKey: ["fetchAllTripsData"] });
       queryClient.invalidateQueries({ queryKey: ["fetchTripsTimeBounds"] });
       queryClient.invalidateQueries({ queryKey: ["editedTripMap"] });
+      queryClient.invalidateQueries({ queryKey: ["fetchCompareStopTimes"] });
       queryClient.invalidateQueries({ queryKey: ["EditStopTimesTable"] });
+      queryClient.invalidateQueries({ queryKey: ["editsOverview"] });
     },
   });
 
@@ -666,6 +695,37 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
               <BiPencil className="mr-1 h-4 w-4" />Edit
             </Button>
           )}
+          {hasStopTimes && compareTrips.length === 0 && (
+            <Button
+              variant="outline"
+              onClick={() => setShowReroute(true)}
+              size="sm"
+              className="flex items-center"
+              disabled={
+                stopTimesLoading ||
+                stopTimes.length < 2 ||
+                !!rerouteRoutesError ||
+                (!rerouteRoutesLoading && rerouteRoutes.length === 0)
+              }
+              title={
+                stopTimesLoading
+                  ? "Checking trip stations"
+                  : stopTimes.length < 2
+                    ? "At least two stations are required to reroute this trip"
+                    : rerouteRoutesLoading
+                      ? "Checking shared reroute stations"
+                      : rerouteRoutesError
+                        ? rerouteRoutesError instanceof Error
+                          ? rerouteRoutesError.message
+                          : "Unable to check shared reroute stations"
+                      : rerouteRoutes.length === 0
+                        ? "No other route has a different stop section between shared stations at any schedule time"
+                        : undefined
+              }
+            >
+              <BiTransferAlt className="mr-1 h-4 w-4" />Reroute
+            </Button>
+          )}
           {hasStopTimes && compareTrips.length === 0 && stopTimes.length > 0 && (
             <Button variant="outline" onClick={startPicking} size="sm" className="flex items-center">
               <BiGitCompare className="mr-1 h-4 w-4" />Compare
@@ -673,6 +733,14 @@ function AllTrips({ allTrips, tripTimeBounds, hasStopTimes, search, updateSearch
           )}
         </div>
       )}
+      {selectedTrip && selectedTripId ? (
+        <RerouteTripDialog
+          key={selectedTripId}
+          open={showReroute}
+          tripId={selectedTripId}
+          onOpenChange={setShowReroute}
+        />
+      ) : null}
       {/* Compare trips chips */}
       {compareTrips.length > 0 && !isPicking && !isEditing && (
         <div className="space-y-2">

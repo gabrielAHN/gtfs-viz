@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { buildDuckDbSessionSql } from "./config.js";
 
 const duckdbBin = process.env.DUCKDB_BIN || "duckdb";
 
@@ -51,14 +52,16 @@ export const runDuckDb = async (args: string[]) => {
 };
 
 export const queryRows = async (dbPath: string, sql: string) => {
-  const { stdout } = await runDuckDb(["-readonly", "-json", dbPath, "-c", sql]);
+  const configuredSql = `${buildDuckDbSessionSql(dbPath)}\n${sql}`;
+  const { stdout } = await runDuckDb(["-readonly", "-json", dbPath, "-c", configuredSql]);
   const trimmed = stdout.trim();
   if (!trimmed) return [];
   return JSON.parse(trimmed) as Record<string, unknown>[];
 };
 
 export const executeRows = async (dbPath: string, sql: string) => {
-  const { stdout } = await runDuckDb(["-json", dbPath, "-c", sql]);
+  const configuredSql = `${buildDuckDbSessionSql(dbPath)}\n${sql}`;
+  const { stdout } = await runDuckDb(["-json", dbPath, "-c", configuredSql]);
   const trimmed = stdout.trim();
   if (!trimmed) return [];
   try {

@@ -414,6 +414,7 @@ function RouteService({
       {/* Service table */}
       {!selectedService && !isDeleting ? (
         <TableComponent key="all-services" data={filteredServices} columns={serviceColumns}
+          paginationKey="services"
           ClickInfo={undefined} setClickInfo={hasStopTimes ? handleServiceSelect : undefined} selectionKey="service_id"
           hasActiveFilters={hasServiceFilters} onSortingChange={undefined} clearSortingTrigger={undefined}
           onClearFilters={() => { setServiceFilterId(""); setDateRange(dateBounds); handleServiceSelect(undefined); }}>
@@ -442,6 +443,7 @@ function RouteService({
       {selectedService && hasStopTimes && !serviceTripsLoading && !serviceTripsError && !isDeletingTrip ? (
         <TableComponent
           key={activeServiceId}
+          paginationKey="serviceTrips"
           data={filteredTrips}
           columns={tripColumns}
           ClickInfo={selectedTripId ? { trip_id: selectedTripId } : undefined}

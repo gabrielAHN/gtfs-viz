@@ -37,6 +37,7 @@ export function TripTimeline({ trips, selectedStopIdx, onSelectStop, selectedTri
       name: st.stop_name || st.stop_id || `Stop ${i + 1}`,
       arrivalSec: timeToSec(st.arrival_time),
       departureSec: timeToSec(st.departure_time),
+      editStatus: st.edit_status,
     })),
   })), [trips]);
 
@@ -176,7 +177,7 @@ export function TripTimeline({ trips, selectedStopIdx, onSelectStop, selectedTri
             const labelBaseY = laneY + dotR + 10;
             const pts = stops
               .map((s, si) => ({ ...s, idx: si, timeSec: s.departureSec ?? s.arrivalSec }))
-              .filter((p) => p.timeSec != null) as Array<{ stopId: string; name: string; arrivalSec?: number; departureSec?: number; idx: number; timeSec: number }>;
+              .filter((p) => p.timeSec != null) as Array<{ stopId: string; name: string; arrivalSec?: number; departureSec?: number; editStatus?: "new" | "edit"; idx: number; timeSec: number }>;
 
             const labelMinPx = 50;
             const rowLastX: number[] = Array(labelRows).fill(-Infinity);
@@ -220,6 +221,7 @@ export function TripTimeline({ trips, selectedStopIdx, onSelectStop, selectedTri
                   const isPrimarySelected = (selectedTripIdx != null ? selectedTripIdx === ti : ti === 0) && selectedStopIdx === p.idx;
                   const isStopHighlighted = selectedStopIdx === p.idx; // highlight same stop across all trips
                   const canClick = !!(onSelectStop || onSelectStopWithTrip);
+                  const editColor = p.editStatus === "new" ? "#22c55e" : p.editStatus === "edit" ? "#f59e0b" : color;
                   return (
                     <g key={`d-${pi}`} data-stop-idx={p.idx}
                       style={{ cursor: canClick ? "pointer" : undefined }}
@@ -235,10 +237,10 @@ export function TripTimeline({ trips, selectedStopIdx, onSelectStop, selectedTri
                       } : undefined}>
                       {p.arrivalSec != null && p.departureSec != null && p.departureSec !== p.arrivalSec && (
                         <line x1={timeToX(p.arrivalSec)} y1={laneY} x2={timeToX(p.departureSec)} y2={laneY}
-                          stroke={isStopHighlighted ? "#f59e0b" : color} strokeWidth={6} opacity={isStopHighlighted ? 0.4 : 0.25} strokeLinecap="round" />
+                          stroke={isStopHighlighted ? "#f59e0b" : editColor} strokeWidth={6} opacity={isStopHighlighted ? 0.4 : 0.25} strokeLinecap="round" />
                       )}
                       <circle cx={x} cy={laneY} r={isStopHighlighted ? dotR + 2 : dotR}
-                        fill={isPrimarySelected ? "#f59e0b" : isStopHighlighted ? color : color}
+                        fill={isPrimarySelected ? "#f59e0b" : isStopHighlighted ? color : editColor}
                         stroke={isStopHighlighted ? "#f59e0b" : "var(--background)"} strokeWidth={isStopHighlighted ? 2.5 : 2} />
                     </g>
                   );
@@ -255,7 +257,7 @@ export function TripTimeline({ trips, selectedStopIdx, onSelectStop, selectedTri
                       <line x1={x} y1={laneY + dotR + 1} x2={x} y2={ly - 2}
                         stroke="currentColor" strokeWidth={0.5} opacity={0.15} />
                       <text x={x} y={ly + 9} textAnchor="middle"
-                        fill="currentColor" fontSize={9} fontWeight={500} opacity={0.6}
+                        fill={p.editStatus === "new" ? "#22c55e" : p.editStatus === "edit" ? "#f59e0b" : "currentColor"} fontSize={9} fontWeight={500} opacity={0.6}
                         style={{ pointerEvents: "none" }}>{idLabel}</text>
                     </g>
                   );
@@ -307,7 +309,11 @@ export function TripTimeline({ trips, selectedStopIdx, onSelectStop, selectedTri
                         if (isPrimSel) { onSelectStop?.(null); onSelectStopWithTrip?.(ti, null); }
                         else { onSelectStop?.(p.idx); onSelectStopWithTrip?.(ti, p.idx); }
                       } : undefined}
-                      onMouseMove={(e) => showTooltip(e, [p.name, timeLine])}
+                      onMouseMove={(e) => showTooltip(e, [
+                        p.name,
+                        timeLine,
+                        ...(p.editStatus ? [p.editStatus === "new" ? "Added stop" : "Edited stop"] : []),
+                      ])}
                       onMouseLeave={hideTooltip}
                     />
                   );

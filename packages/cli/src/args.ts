@@ -16,6 +16,10 @@ export const parseArgs = (argv: string[]): Args => {
       flags.help = true;
       continue;
     }
+    if (value === "-v") {
+      flags.version = true;
+      continue;
+    }
 
     if (!value.startsWith("--")) {
       positionals.push(value);

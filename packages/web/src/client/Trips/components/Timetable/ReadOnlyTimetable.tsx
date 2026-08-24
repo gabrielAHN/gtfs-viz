@@ -1,17 +1,26 @@
 import { Link } from "@tanstack/react-router";
+import { EditIndicator } from "@/components/ui/EditIndicator";
 import type { TripStopTime, TripInfo } from "@/lib/tripUtils";
+
+const combinedEditStatus = (
+  current?: TripStopTime["edit_status"],
+  next?: TripStopTime["edit_status"],
+) => (current === "new" || next === "new" ? "new" : current || next);
 
 export function TripStopSequence({ stopTimes, view = "stops" }: { stopTimes: TripStopTime[]; view?: "stops" | "stations" }) {
   if (view === "stations") {
-    const grouped: Array<{ station_name: string; station_id: string; isStation: boolean; sequence: number; stop_count: number; arrival_time: string; departure_time: string }> = [];
+    const grouped: Array<{ station_name: string; station_id: string; isStation: boolean; sequence: number; stop_count: number; arrival_time: string; departure_time: string; edit_status?: TripStopTime["edit_status"] }> = [];
     for (const st of stopTimes) {
       const hasParent = st.parent_station && st.parent_station !== "" && st.parent_station !== st.stop_id;
       const isStationType = st.location_type_name === "Station";
       const name = st.station_name || st.stop_name || "Unknown";
       const sid = hasParent ? st.parent_station! : (st.stop_id || "");
       const last = grouped[grouped.length - 1];
-      if (last && last.station_name === name) { last.stop_count++; last.departure_time = st.departure_time || last.departure_time; }
-      else grouped.push({ station_name: name, station_id: sid, isStation: !!hasParent || isStationType, sequence: grouped.length + 1, stop_count: 1, arrival_time: st.arrival_time || "", departure_time: st.departure_time || "" });
+      if (last && last.station_name === name) {
+        last.stop_count++;
+        last.departure_time = st.departure_time || last.departure_time;
+        last.edit_status = combinedEditStatus(last.edit_status, st.edit_status);
+      } else grouped.push({ station_name: name, station_id: sid, isStation: !!hasParent || isStationType, sequence: grouped.length + 1, stop_count: 1, arrival_time: st.arrival_time || "", departure_time: st.departure_time || "", edit_status: st.edit_status });
     }
     return (
       <div className="rounded-md border shadow-sm overflow-hidden">
@@ -23,7 +32,12 @@ export function TripStopSequence({ stopTimes, view = "stops" }: { stopTimes: Tri
             <tbody>
               {grouped.length > 0 ? grouped.map((g, i) => (
                 <tr key={i} className="border-t hover:bg-muted/50">
-                  <td className="px-3 py-2 text-muted-foreground">{g.sequence}</td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <EditIndicator status={g.edit_status} className="h-3.5 w-3.5" />
+                      {g.sequence}
+                    </span>
+                  </td>
                   <td className="px-3 py-2 font-medium">
                     {g.station_id ? (
                       g.isStation ? (
@@ -63,7 +77,12 @@ export function TripStopSequence({ stopTimes, view = "stops" }: { stopTimes: Tri
               const linkClass = "inline-flex items-center rounded px-1.5 py-0.5 hover:bg-primary/10 text-primary/80 transition-colors";
               return (
                 <tr key={i} className="border-t hover:bg-muted/50">
-                  <td className="px-3 py-2 text-muted-foreground">{st.stop_sequence ?? i + 1}</td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <EditIndicator status={st.edit_status} className="h-3.5 w-3.5" />
+                      {st.stop_sequence ?? i + 1}
+                    </span>
+                  </td>
                   <td className="px-3 py-2 font-medium">
                     {st.stop_id ? (
                       (hasParent || st.location_type_name === "Station") ? (

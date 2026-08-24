@@ -47,6 +47,7 @@ function extractRawString(content, varName) {
 
 const loadSql = extractRawString(hpp, "GTFS_LOAD_SQL");
 const initSql = extractRawString(hpp, "GTFS_INIT_SQL");
+const rerouteSql = extractRawString(hpp, "GTFS_REROUTE_SQL");
 
 mkdirSync(outDir, { recursive: true });
 
@@ -55,6 +56,7 @@ writeFileSync(
   `// Auto-generated from src/include/gtfs_sql.hpp — do not edit
 export const GTFS_LOAD_SQL = ${JSON.stringify(loadSql)};
 export const GTFS_INIT_SQL = ${JSON.stringify(initSql)};
+export const GTFS_REROUTE_SQL = ${JSON.stringify(rerouteSql)};
 `,
 );
 
@@ -63,6 +65,7 @@ writeFileSync(
   `// Auto-generated from src/include/gtfs_sql.hpp — do not edit
 export declare const GTFS_LOAD_SQL: string;
 export declare const GTFS_INIT_SQL: string;
+export declare const GTFS_REROUTE_SQL: string;
 `,
 );
 

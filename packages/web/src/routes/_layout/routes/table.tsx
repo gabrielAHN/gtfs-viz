@@ -18,12 +18,15 @@ import {
 import { fetchStationsData } from "@/lib/duckdb/DataFetching/fetchGTFSData";
 import { mutationDeleteRouteFn } from "@/lib/duckdb/DataEditing/editRoutes";
 import { refreshRoutesTables } from "@/lib/extensions";
+import { tablePaginationSearch } from "@/lib/tablePagination";
 
 type RoutesTableSearchParams = {
   routeId?: string;
   routeName?: string;
   routeType?: string[];
   selectedRouteId?: string;
+  page?: number;
+  pageSize?: number;
 };
 
 export const Route = createFileRoute("/_layout/routes/table")({
@@ -38,6 +41,7 @@ export const Route = createFileRoute("/_layout/routes/table")({
           ? [search.routeType as string]
           : undefined,
       selectedRouteId: search.selectedRouteId as string | undefined,
+      ...tablePaginationSearch(search),
     };
   },
 });

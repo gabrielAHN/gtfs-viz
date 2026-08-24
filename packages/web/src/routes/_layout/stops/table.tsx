@@ -13,6 +13,7 @@ import EntityForm from "@/components/forms/EntityForm";
 import PageFooter from "@/components/PageFooter";
 import { WHEELCHAIR_STATUS, getStopColor } from "@/components/style";
 import { rgbToHex } from "@/components/colorUtil";
+import { tablePaginationSearch } from "@/lib/tablePagination";
 
 type StopsTableSearchParams = {
   stopId?: string;
@@ -21,6 +22,8 @@ type StopsTableSearchParams = {
   wheelchairStatus?: string[];
   editStatus?: string[];
   selectedStopId?: string;
+  page?: number;
+  pageSize?: number;
 };
 
 export const Route = createFileRoute("/_layout/stops/table")({
@@ -45,6 +48,7 @@ export const Route = createFileRoute("/_layout/stops/table")({
           ? [search.editStatus as string]
           : undefined,
       selectedStopId: search.selectedStopId as string | undefined,
+      ...tablePaginationSearch(search),
     };
   },
 });
