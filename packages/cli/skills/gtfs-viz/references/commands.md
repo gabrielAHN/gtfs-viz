@@ -226,6 +226,7 @@ gtfs-viz update_trip --trip-id T2 --headsign "Express"       # only given fields
 gtfs-viz delete_trip --trip-id T2                            # cascades to stop_times
 gtfs-viz set_stop_times --trip-id T2 --stops-json '[{"stop_sequence":1,"stop_id":"S1","arrival_time":"09:00:00","departure_time":"09:00:00"}]'
 gtfs-viz set_stop_times --trip-id T2 --stops-file ./stops.json
+gtfs-viz reroute --trip A_TRIP   # open the selected trip's reroute form
 gtfs-viz reroute --trip A_TRIP --via F_TRIP --from "W 4 St-Wash Sq" --to "Jay St-MetroTech"   # splice a donor route's stops in (scaled timing)
 gtfs-viz remove_stops --trip T2 --stops "Spring St,Canal St"          # skip/express, station bypass
 gtfs-viz truncate_trip --trip T2 --to "14 St"                          # short-turn / ends early (also --from)
@@ -237,6 +238,10 @@ gtfs-viz delete_calendar --service-id WKND
 gtfs-viz add_calendar_date --service-id WKD --date 20260906 --exception-type 1   # 1=add, 2=remove
 gtfs-viz delete_calendar_date --service-id WKD --date 20260906
 ```
+
+`reroute --trip <id>` opens `/trips/table` with the trip selected and its reroute form open. A
+complete reroute opens the edited trip after applying the splice. Add `--url-only` to print that
+deep link without browser navigation, or `--data` to apply the reroute in terminal-only mode.
 
 ### Batch Changeset
 

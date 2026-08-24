@@ -18,6 +18,7 @@ export interface AllTripsProps {
     routeId?: string;
     routeType?: string[];
     selectedTripId?: string;
+    reroute?: boolean;
     view?: string;
     compareTripIds?: string;
   };
