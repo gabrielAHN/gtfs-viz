@@ -46,7 +46,37 @@ const stopTime = (stop: RerouteStop) => {
   return `${stop.arrival_time || "—"} → ${stop.departure_time}`;
 };
 
-function SegmentStopList({ stops, emptyText }: { stops: RerouteStop[]; emptyText: string }) {
+const stopStationKey = (stop: RerouteStop) =>
+  stop.parent_station || stop.station_name || stop.stop_name || stop.stop_id;
+
+const addedStopIndexes = (originalStops: RerouteStop[], replacementStops: RerouteStop[]) => {
+  const remainingOriginalStops = new Map<string, number>();
+  for (const stop of originalStops) {
+    const key = stopStationKey(stop);
+    remainingOriginalStops.set(key, (remainingOriginalStops.get(key) || 0) + 1);
+  }
+  const added = new Set<number>();
+  replacementStops.forEach((stop, index) => {
+    const key = stopStationKey(stop);
+    const remaining = remainingOriginalStops.get(key) || 0;
+    if (remaining > 0) {
+      remainingOriginalStops.set(key, remaining - 1);
+    } else {
+      added.add(index);
+    }
+  });
+  return added;
+};
+
+function SegmentStopList({
+  stops,
+  emptyText,
+  addedIndexes = new Set<number>(),
+}: {
+  stops: RerouteStop[];
+  emptyText: string;
+  addedIndexes?: ReadonlySet<number>;
+}) {
   if (stops.length === 0) {
     return (
       <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
@@ -56,19 +86,35 @@ function SegmentStopList({ stops, emptyText }: { stops: RerouteStop[]; emptyText
   }
   return (
     <div className="max-h-52 space-y-1 overflow-y-auto pr-1">
-      {stops.map((stop, index) => (
-        <div
-          key={`${stop.stop_id}-${stop.stop_sequence}-${index}`}
-          className="flex items-center gap-2 rounded-md border bg-background px-2.5 py-2 text-sm"
-        >
-          <span className="w-5 shrink-0 text-right text-xs text-muted-foreground">{index + 1}</span>
-          <div className="min-w-0 flex-1">
-            <div className="truncate font-medium">{stop.station_name}</div>
-            <div className="truncate text-xs text-muted-foreground">{stop.stop_id}</div>
+      {stops.map((stop, index) => {
+        const isAdded = addedIndexes.has(index);
+        return (
+          <div
+            key={`${stop.stop_id}-${stop.stop_sequence}-${index}`}
+            className={`flex items-center gap-2 rounded-md border px-2.5 py-2 text-sm ${
+              isAdded
+                ? "border-green-500/40 bg-green-50 text-green-950 dark:bg-green-950/20 dark:text-green-100"
+                : "bg-background"
+            }`}
+          >
+            <span className="w-5 shrink-0 text-right text-xs text-muted-foreground">
+              {index + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="truncate font-medium">{stop.station_name}</div>
+                {isAdded ? (
+                  <Badge className="h-5 shrink-0 bg-green-600 px-1.5 text-[10px] hover:bg-green-600">
+                    Added
+                  </Badge>
+                ) : null}
+              </div>
+              <div className="truncate text-xs text-muted-foreground">{stop.stop_id}</div>
+            </div>
+            <span className="shrink-0 text-xs text-muted-foreground">{stopTime(stop)}</span>
           </div>
-          <span className="shrink-0 text-xs text-muted-foreground">{stopTime(stop)}</span>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -80,6 +126,10 @@ function RerouteStopChanges({
   preview: TripReroutePreview;
   routeLabel: string;
 }) {
+  const addedIndexes = addedStopIndexes(
+    preview.originalSegment,
+    preview.replacementSegment,
+  );
   return (
     <div className="space-y-3 rounded-md border bg-muted/20 p-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -104,11 +154,17 @@ function RerouteStopChanges({
         <section className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <h4 className="text-sm font-semibold">New section via {routeLabel}</h4>
-            <Badge variant="default">{preview.replacementSegment.length}</Badge>
+            <div className="flex items-center gap-1.5">
+              <Badge className="bg-green-600 hover:bg-green-600">
+                {addedIndexes.size} added
+              </Badge>
+              <Badge variant="outline">{preview.replacementSegment.length} total</Badge>
+            </div>
           </div>
           <SegmentStopList
             stops={preview.replacementSegment}
             emptyText="The replacement route runs directly between these stations."
+            addedIndexes={addedIndexes}
           />
         </section>
       </div>
