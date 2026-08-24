@@ -6,6 +6,7 @@ import { PathStyleExtension } from "@deck.gl/extensions";
 const stripAccents = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
 const pathStyleExt = [new PathStyleExtension({ offset: true })];
+const DEFAULT_HIGHLIGHTED_SEGMENT_COLOR: [number, number, number, number] = [249, 115, 22, 255];
 
 /** Create a circle icon as a data URL for use with IconLayer */
 const makeCircleIcon = (() => {
@@ -93,6 +94,7 @@ interface MapSectionProps {
   onClickSegment: (segment: Segment | null) => void;
   hiddenTripIndices?: Set<number>;
   highlightedSegmentRange?: { fromStopIdx: number; toStopIdx: number };
+  highlightedSegmentColor?: [number, number, number, number];
 }
 
 export function MapSection({
@@ -104,6 +106,7 @@ export function MapSection({
   onDragStop, onSelectStop, onClickStop, onClickSegment,
   hiddenTripIndices,
   highlightedSegmentRange,
+  highlightedSegmentColor = DEFAULT_HIGHLIGHTED_SEGMENT_COLOR,
 }: MapSectionProps) {
   const { theme } = useThemeContext();
   const isDraggingRef = useRef(false);
@@ -513,14 +516,14 @@ export function MapSection({
               d.fromIdx >= highlightedSegmentRange.fromStopIdx &&
               d.toIdx <= highlightedSegmentRange.toStopIdx
             ) {
-              return [249, 115, 22, 255] as [number, number, number, number];
+              return highlightedSegmentColor;
             }
             const isClicked = clickedSegment?.fromIdx === d.fromIdx && clickedSegment?.toIdx === d.toIdx;
             const rgb = safeHexToRgb(TRIP_LINE_COLORS[0]);
             return isClicked ? [...rgb, 255] as [number, number, number, number] : [...rgb, 200] as [number, number, number, number];
           },
           getWidth: isCompare ? 12 : 10, widthUnits: "pixels", pickable: true,
-          updateTriggers: { getColor: [deletedStopIndices.size, clickedSegment?.fromIdx, clickedSegment?.toIdx, isCompare, highlightedSegmentRange?.fromStopIdx, highlightedSegmentRange?.toStopIdx] },
+          updateTriggers: { getColor: [deletedStopIndices.size, clickedSegment?.fromIdx, clickedSegment?.toIdx, isCompare, highlightedSegmentRange?.fromStopIdx, highlightedSegmentRange?.toStopIdx, ...highlightedSegmentColor] },
         }));
       }
     }
@@ -645,7 +648,7 @@ export function MapSection({
           d.stopIdx >= highlightedSegmentRange.fromStopIdx &&
           d.stopIdx <= highlightedSegmentRange.toStopIdx
         ) {
-          return [249, 115, 22, 255] as [number, number, number, number];
+          return highlightedSegmentColor;
         }
         const rgb = safeHexToRgb(TRIP_LINE_COLORS[d.tripIdx % TRIP_LINE_COLORS.length]);
         return [...rgb, 240] as [number, number, number, number];
@@ -681,7 +684,7 @@ export function MapSection({
         return false;
       } : undefined,
       updateTriggers: {
-        getFillColor: [clickedStop?.stopIdx, clickedStop?.tripIdx, deletedStopIndices.size, selectedStopIdx, clickedLocKey, highlightedSegmentRange?.fromStopIdx, highlightedSegmentRange?.toStopIdx],
+        getFillColor: [clickedStop?.stopIdx, clickedStop?.tripIdx, deletedStopIndices.size, selectedStopIdx, clickedLocKey, highlightedSegmentRange?.fromStopIdx, highlightedSegmentRange?.toStopIdx, ...highlightedSegmentColor],
         getRadius: [clickedStop?.stopIdx, clickedStop?.tripIdx, deletedStopIndices.size, selectedStopIdx, clickedLocKey],
       },
     }));
@@ -768,7 +771,7 @@ export function MapSection({
     }
 
     return layerList;
-  }, [stopPoints, segments, paths, clickedStop, clickedSegment, theme, editable, deletedStopIndices, previewStop, externalPreview, stopStatusMap, selectedStopIdx, hiddenTripIndices, highlightedSegmentRange, zoomBucket]);
+  }, [stopPoints, segments, paths, clickedStop, clickedSegment, theme, editable, deletedStopIndices, previewStop, externalPreview, stopStatusMap, selectedStopIdx, hiddenTripIndices, highlightedSegmentRange, highlightedSegmentColor, zoomBucket]);
 
   return (
     <div className="h-full w-full">

@@ -44,6 +44,7 @@ export interface TripMapProps {
   trips: Array<{ trip: TripInfo; stopTimes: (TripStopTime | EditableStop)[] }>;
   heightClassName?: string;
   highlightedSegmentRange?: { fromStopIdx: number; toStopIdx: number };
+  highlightedSegmentColor?: [number, number, number, number];
   editable?: boolean;
   onDeleteStop?: (stopIdx: number) => void;
   onRestoreStop?: (stopIdx: number) => void;

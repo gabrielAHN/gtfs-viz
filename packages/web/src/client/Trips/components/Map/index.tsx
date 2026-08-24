@@ -13,6 +13,7 @@ export function TripMap({
   trips,
   heightClassName = "h-[50vh]",
   highlightedSegmentRange,
+  highlightedSegmentColor,
   editable = false,
   onDeleteStop: _onDeleteStop,
   onRestoreStop: _onRestoreStop,
@@ -489,6 +490,7 @@ export function TripMap({
             onClickSegment={setClickedSegment}
             hiddenTripIndices={hiddenTripIndices}
             highlightedSegmentRange={highlightedSegmentRange}
+            highlightedSegmentColor={highlightedSegmentColor}
           />
         </MapContainer>
       </div>

@@ -38,6 +38,10 @@ type RerouteTripDialogProps = {
 
 type ReroutePreviewView = "timetable" | "map";
 
+const POSSIBLE_SEGMENT_COLOR: [number, number, number, number] = [249, 115, 22, 255];
+const SELECTED_SEGMENT_COLOR: [number, number, number, number] = [34, 197, 94, 255];
+const EMPTY_STOP_INDEXES = new Set<number>();
+
 const stopTime = (stop: RerouteStop) => {
   if (!stop.arrival_time && !stop.departure_time) return "";
   if (!stop.departure_time || stop.arrival_time === stop.departure_time) {
@@ -71,11 +75,13 @@ const addedStopIndexes = (originalStops: RerouteStop[], replacementStops: Rerout
 function SegmentStopList({
   stops,
   emptyText,
-  addedIndexes = new Set<number>(),
+  addedIndexes = EMPTY_STOP_INDEXES,
+  confirmed = false,
 }: {
   stops: RerouteStop[];
   emptyText: string;
   addedIndexes?: ReadonlySet<number>;
+  confirmed?: boolean;
 }) {
   if (stops.length === 0) {
     return (
@@ -93,7 +99,9 @@ function SegmentStopList({
             key={`${stop.stop_id}-${stop.stop_sequence}-${index}`}
             className={`flex items-center gap-2 rounded-md border px-2.5 py-2 text-sm ${
               isAdded
-                ? "border-green-500/40 bg-green-50 text-green-950 dark:bg-green-950/20 dark:text-green-100"
+                ? confirmed
+                  ? "border-green-500/40 bg-green-50 text-green-950 dark:bg-green-950/20 dark:text-green-100"
+                  : "border-orange-500/40 bg-orange-50 text-orange-950 dark:bg-orange-950/20 dark:text-orange-100"
                 : "bg-background"
             }`}
           >
@@ -104,8 +112,14 @@ function SegmentStopList({
               <div className="flex min-w-0 items-center gap-2">
                 <div className="truncate font-medium">{stop.station_name}</div>
                 {isAdded ? (
-                  <Badge className="h-5 shrink-0 bg-green-600 px-1.5 text-[10px] hover:bg-green-600">
-                    Added
+                  <Badge
+                    className={`h-5 shrink-0 px-1.5 text-[10px] ${
+                      confirmed
+                        ? "bg-green-600 hover:bg-green-600"
+                        : "bg-orange-500 hover:bg-orange-500"
+                    }`}
+                  >
+                    {confirmed ? "Added" : "Preview"}
                   </Badge>
                 ) : null}
               </div>
@@ -122,16 +136,24 @@ function SegmentStopList({
 function RerouteStopChanges({
   preview,
   routeLabel,
+  confirmed,
 }: {
   preview: TripReroutePreview;
   routeLabel: string;
+  confirmed: boolean;
 }) {
   const addedIndexes = addedStopIndexes(
     preview.originalSegment,
     preview.replacementSegment,
   );
   return (
-    <div className="space-y-3 rounded-md border bg-muted/20 p-3">
+    <div
+      className={`space-y-3 rounded-md border p-3 ${
+        confirmed
+          ? "border-green-500/30 bg-green-500/5"
+          : "border-orange-500/30 bg-orange-500/5"
+      }`}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <BiGitCompare className="h-4 w-4 text-primary" />
         <span className="font-semibold">Stop changes</span>
@@ -139,6 +161,15 @@ function RerouteStopChanges({
         <span className="font-semibold">{preview.fromStation}</span>
         <span className="text-muted-foreground">→</span>
         <span className="font-semibold">{preview.toStation}</span>
+        <Badge
+          className={`ml-auto ${
+            confirmed
+              ? "bg-green-600 hover:bg-green-600"
+              : "bg-orange-500 hover:bg-orange-500"
+          }`}
+        >
+          {confirmed ? "Selected change" : "Possible preview"}
+        </Badge>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <section className="space-y-2">
@@ -155,8 +186,14 @@ function RerouteStopChanges({
           <div className="flex items-center justify-between gap-2">
             <h4 className="text-sm font-semibold">New section via {routeLabel}</h4>
             <div className="flex items-center gap-1.5">
-              <Badge className="bg-green-600 hover:bg-green-600">
-                {addedIndexes.size} added
+              <Badge
+                className={
+                  confirmed
+                    ? "bg-green-600 hover:bg-green-600"
+                    : "bg-orange-500 hover:bg-orange-500"
+                }
+              >
+                {addedIndexes.size} {confirmed ? "added" : "to add"}
               </Badge>
               <Badge variant="outline">{preview.replacementSegment.length} total</Badge>
             </div>
@@ -165,6 +202,7 @@ function RerouteStopChanges({
             stops={preview.replacementSegment}
             emptyText="The replacement route runs directly between these stations."
             addedIndexes={addedIndexes}
+            confirmed={confirmed}
           />
         </section>
       </div>
@@ -178,12 +216,14 @@ export function ReroutePreviewDetails({
   view,
   onViewChange,
   disabled = false,
+  confirmed,
 }: {
   preview: TripReroutePreview;
   routeLabel: string;
   view: ReroutePreviewView;
   onViewChange: (view: ReroutePreviewView) => void;
   disabled?: boolean;
+  confirmed: boolean;
 }) {
   const mapTrips = useMemo(
     () => [
@@ -226,14 +266,18 @@ export function ReroutePreviewDetails({
         </TabsTrigger>
       </TabsList>
       <TabsContent value="timetable" className="mt-0">
-        <RerouteStopChanges preview={preview} routeLabel={routeLabel} />
+        <RerouteStopChanges preview={preview} routeLabel={routeLabel} confirmed={confirmed} />
       </TabsContent>
       <TabsContent value="map" className="mt-0 space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h4 className="text-sm font-semibold">Rerouted trip</h4>
+            <h4 className="text-sm font-semibold">
+              {confirmed ? "Selected reroute" : "Possible reroute preview"}
+            </h4>
             <p className="text-xs text-muted-foreground">
-              One route is shown; only the replaced section is highlighted.
+              {confirmed
+                ? "The visible section matches the route, From, and To inputs."
+                : "The highlighted section will update as the From and To inputs are selected."}
             </p>
           </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -242,8 +286,12 @@ export function ReroutePreviewDetails({
               Unchanged
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-orange-500" />
-              Rerouted section
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  confirmed ? "bg-green-500" : "bg-orange-500"
+                }`}
+              />
+              {confirmed ? "Selected section" : "Preview section"}
             </span>
           </div>
         </div>
@@ -251,6 +299,9 @@ export function ReroutePreviewDetails({
           trips={mapTrips}
           heightClassName="h-80"
           highlightedSegmentRange={highlightedSegmentRange}
+          highlightedSegmentColor={
+            confirmed ? SELECTED_SEGMENT_COLOR : POSSIBLE_SEGMENT_COLOR
+          }
         />
       </TabsContent>
     </Tabs>
@@ -517,12 +568,26 @@ export function RerouteTripDialog({
           {previewQuery.isLoading && !activePreview ? <Skeleton className="h-44 w-full" /> : null}
           {activePreview ? (
             <div className="relative space-y-2">
-              {!selectedBoundaryPair ? (
-                <p className="text-xs text-muted-foreground">
-                  Possible reroute shown from {activePreview.fromStation} to{" "}
-                  {activePreview.toStation}. Select both boundary stations to apply it.
-                </p>
-              ) : null}
+              <p
+                className={`rounded-md border px-2.5 py-2 text-xs ${
+                  previewMatchesSelection
+                    ? "border-green-500/30 bg-green-500/5 text-green-700 dark:text-green-300"
+                    : "border-orange-500/30 bg-orange-500/5 text-orange-700 dark:text-orange-300"
+                }`}
+              >
+                {previewMatchesSelection ? (
+                  <>
+                    Selected change from {activePreview.fromStation} to {activePreview.toStation}.
+                    These stops will be added when you press Reroute.
+                  </>
+                ) : (
+                  <>
+                    Possible reroute shown from {activePreview.fromStation} to{" "}
+                    {activePreview.toStation}. Select both boundary stations to confirm these stop
+                    changes.
+                  </>
+                )}
+              </p>
               {previewQuery.isFetching ? (
                 <div className="absolute right-2 top-7 z-10 flex items-center gap-2 rounded-md border bg-background/90 px-2.5 py-1.5 text-xs font-medium shadow-sm backdrop-blur-sm">
                   <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -535,6 +600,7 @@ export function RerouteTripDialog({
                 view={previewView}
                 onViewChange={setPreviewView}
                 disabled={saveMutation.isPending}
+                confirmed={previewMatchesSelection}
               />
             </div>
           ) : null}
