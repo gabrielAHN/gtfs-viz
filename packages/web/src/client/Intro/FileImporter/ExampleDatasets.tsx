@@ -4,12 +4,16 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/components/ui/select"
 
 export const ExampleDataDict = [
   {
     name: "NYC Subway GTFS",
     url: "https://files.mobilitydatabase.org/mdb-511/mdb-511-202605310002/mdb-511-202605310002.zip",
+  },
+  {
+    name: "Chicago CTA 'L' GTFS (the Loop)",
+    url: "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/us-illinois-chicago-transit-authority-cta-gtfs-389.zip?alt=media",
   },
   {
     name: "Boston MBTA GTFS",
@@ -27,25 +31,20 @@ export const ExampleDataDict = [
     name: "Paris Metro GTFS",
     url: "https://storage.googleapis.com/storage/v1/b/mdb-latest/o/fr-paris-ile-de-france-mobilite-gtfs-1026.zip?alt=media",
   },
-];
+]
 
 export default function ExampleDatasets({ handleExampleFileUpload }) {
   return (
     <Select
       onValueChange={(value) => {
-        const selectedItem = ExampleDataDict.find(
-          (item) => item.name === value
-        );
+        const selectedItem = ExampleDataDict.find((item) => item.name === value)
         if (selectedItem) {
-          handleExampleFileUpload(selectedItem.url);
+          handleExampleFileUpload(selectedItem.url)
         }
       }}
     >
       <SelectTrigger className="w-[30vh] text-center">
-        <SelectValue
-          placeholder="Example Datasets"
-          className="text-center text-gray-500"
-        />
+        <SelectValue placeholder="Example Datasets" className="text-center text-gray-500" />
       </SelectTrigger>
       <SelectContent>
         {ExampleDataDict.map((item, index) => (
@@ -55,5 +54,5 @@ export default function ExampleDatasets({ handleExampleFileUpload }) {
         ))}
       </SelectContent>
     </Select>
-  );
+  )
 }

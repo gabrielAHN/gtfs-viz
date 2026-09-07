@@ -1,73 +1,74 @@
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { isCliSession } from "@/lib/cli/isCliSession";
-import { useQuery } from "@tanstack/react-query";
-import { BiCalendar, BiInfoCircle } from "react-icons/bi";
-import { Skeleton } from "@/components/ui/skeleton";
-import { TabHeader } from "@/components/ui/tab-header";
-import PageFooter from "@/components/PageFooter";
-import { EditIndicator } from "@/components/ui/EditIndicator";
-import { useDuckDB } from "@/context/duckdb.client";
-import RouteService from "@/client/Routes/SelectedRoutes/RouteService";
-import { getRouteTypeColor } from "@/client/Routes/routeTypeColors";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
+import { isCliSession } from "@/lib/cli/isCliSession"
+import { useQuery } from "@tanstack/react-query"
+import { BiCalendar, BiInfoCircle } from "react-icons/bi"
+import { Skeleton } from "@/components/ui/skeleton"
+import { TabHeader } from "@/components/ui/tab-header"
+import PageFooter from "@/components/PageFooter"
+import { EditIndicator } from "@/components/ui/EditIndicator"
+import { useDuckDB } from "@/context/duckdb.client"
+import RouteService from "@/client/Routes/SelectedRoutes/RouteService"
+import { getRouteTypeColor } from "@/client/Routes/routeTypeColors"
 import {
   fetchServiceRouteInfoData,
   fetchServiceRouteServicesData,
-} from "@/lib/duckdb/DataFetching/fetchRouteData";
-import { tablePaginationSearch } from "@/lib/tablePagination";
+} from "@/lib/duckdb/DataFetching/fetchRouteData"
+import { tablePaginationSearch } from "@/lib/tablePagination"
 
 type RouteServiceSearchParams = {
-  selectedRouteId?: string;
-  selectedServiceId?: string;
-  servicesPage?: number;
-  servicesPageSize?: number;
-  serviceTripsPage?: number;
-  serviceTripsPageSize?: number;
-};
+  selectedRouteId?: string
+  selectedServiceId?: string
+  servicesPage?: number
+  servicesPageSize?: number
+  serviceTripsPage?: number
+  serviceTripsPageSize?: number
+}
 
 export const Route = createFileRoute("/_layout/routes/service")({
   component: RouteServicePage,
   validateSearch: (search: Record<string, unknown>): RouteServiceSearchParams => {
-    const strip = (v: unknown) => v != null ? String(v).replace(/^"|"$/g, "") || undefined : undefined;
+    const strip = (v: unknown) =>
+      v != null ? String(v).replace(/^"|"$/g, "") || undefined : undefined
     return {
       selectedRouteId: strip(search.selectedRouteId),
       selectedServiceId: strip(search.selectedServiceId),
       ...tablePaginationSearch(search, "services"),
       ...tablePaginationSearch(search, "serviceTrips"),
-    };
+    }
   },
   beforeLoad: ({ search }) => {
-    if (isCliSession()) return;
-    const hasTrips = localStorage.getItem("gtfs_has_trips") === "true";
+    if (isCliSession()) return
+    const hasTrips = sessionStorage.getItem("gtfs_has_trips") === "true"
     if (!hasTrips) {
       throw redirect({
         to: "/routes/info",
         search: { selectedRouteId: (search as any).selectedRouteId },
-      });
+      })
     }
   },
-});
+})
 
 const ToggleTabs = [
   { value: "info", label: "Info", icon: <BiInfoCircle />, path: "/routes/info" },
   { value: "service", label: "Service", icon: <BiCalendar />, path: "/routes/service" },
-];
+]
 
 function RouteServicePage() {
-  const search = Route.useSearch();
-  const navigate = useNavigate();
-  const duckDB = useDuckDB();
-  const conn = duckDB?.conn;
-  const initialized = duckDB?.initialized ?? false;
-  const hasStopTimes = duckDB?.hasStopTimes ?? false;
-  const routeId = search.selectedRouteId;
+  const search = Route.useSearch()
+  const navigate = useNavigate()
+  const duckDB = useDuckDB()
+  const conn = duckDB?.conn
+  const initialized = duckDB?.initialized ?? false
+  const hasStopTimes = duckDB?.hasStopTimes ?? false
+  const routeId = search.selectedRouteId
 
   const updateSearch = (next: Partial<RouteServiceSearchParams>) => {
     navigate({
       to: "/routes/service",
       search: (prev) => ({ ...prev, ...next }),
       resetScroll: false,
-    });
-  };
+    })
+  }
 
   const {
     data: routeData,
@@ -78,7 +79,7 @@ function RouteServicePage() {
     queryFn: async () => fetchServiceRouteInfoData(conn, routeId!),
     enabled: !!conn && !!routeId && initialized,
     retry: false,
-  });
+  })
 
   const {
     data: services = [],
@@ -89,7 +90,7 @@ function RouteServicePage() {
     queryFn: async () => fetchServiceRouteServicesData(conn, routeId!),
     enabled: !!conn && !!routeId && initialized,
     retry: false,
-  });
+  })
 
   if (!routeId) {
     return (
@@ -98,7 +99,7 @@ function RouteServicePage() {
           No route selected. Please select a route from the routes list.
         </div>
       </div>
-    );
+    )
   }
 
   if (!conn || !initialized || routeLoading || servicesLoading) {
@@ -108,14 +109,14 @@ function RouteServicePage() {
         <Skeleton className="mb-4 h-10 w-full" />
         <Skeleton className="h-[74vh] w-full" />
       </div>
-    );
+    )
   }
 
   if (routeError || servicesError || !routeData) {
-    return <div className="p-4">Error loading route service.</div>;
+    return <div className="p-4">Error loading route service.</div>
   }
 
-  const routeColor = routeData.route_color_hex || getRouteTypeColor(routeData.route_type_name);
+  const routeColor = routeData.route_color_hex || getRouteTypeColor(routeData.route_type_name)
 
   return (
     <div className="p-4">
@@ -144,5 +145,5 @@ function RouteServicePage() {
       />
       <PageFooter />
     </div>
-  );
+  )
 }
