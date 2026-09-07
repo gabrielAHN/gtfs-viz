@@ -1,22 +1,18 @@
-import { useState } from "react";
-import { BiChevronDown, BiChevronUp } from "react-icons/bi";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { useState } from "react"
+import { BiChevronDown, BiChevronUp } from "react-icons/bi"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 interface LegendItem {
-  label: string;
-  color: string;
+  label: string
+  color: string
 }
 
 interface MapLegendProps {
-  title: string;
-  items: LegendItem[];
-  collapsible?: boolean;
-  defaultExpanded?: boolean;
-  children?: React.ReactNode;
+  title: string
+  items: LegendItem[]
+  collapsible?: boolean
+  defaultExpanded?: boolean
+  children?: React.ReactNode
 }
 
 function MapLegend({
@@ -26,7 +22,7 @@ function MapLegend({
   defaultExpanded = true,
   children,
 }: MapLegendProps) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [expanded, setExpanded] = useState(defaultExpanded)
 
   if (!collapsible) {
     return (
@@ -45,7 +41,7 @@ function MapLegend({
           ))}
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -61,11 +57,7 @@ function MapLegend({
             className="p-0.5 hover:bg-accent rounded"
             aria-label={expanded ? "Collapse" : "Expand"}
           >
-            {expanded ? (
-              <BiChevronUp className="h-3 w-3" />
-            ) : (
-              <BiChevronDown className="h-3 w-3" />
-            )}
+            {expanded ? <BiChevronUp className="h-3 w-3" /> : <BiChevronDown className="h-3 w-3" />}
           </button>
         </CollapsibleTrigger>
       </div>
@@ -84,7 +76,7 @@ function MapLegend({
         </div>
       </CollapsibleContent>
     </Collapsible>
-  );
+  )
 }
 
-export default MapLegend;
+export default MapLegend

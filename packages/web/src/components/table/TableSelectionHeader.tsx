@@ -1,12 +1,12 @@
-import { Button } from "@/components/ui/button";
-import { BiX } from "react-icons/bi";
-import { getStopColor } from "@/components/style";
+import { Button } from "@/components/ui/button"
+import { BiX } from "react-icons/bi"
+import { getStopColor } from "@/components/style"
 
 interface TableSelectionHeaderProps {
-  clickInfo: any;
-  onClose: () => void;
-  emptyMessage?: string;
-  children?: React.ReactNode;
+  clickInfo: any
+  onClose: () => void
+  emptyMessage?: string
+  children?: React.ReactNode
 }
 
 function TableSelectionHeader({
@@ -16,9 +16,9 @@ function TableSelectionHeader({
   children,
 }: TableSelectionHeaderProps) {
   const getNodeColor = (locationType: string) => {
-    const [r, g, b] = getStopColor(locationType);
-    return `rgb(${r}, ${g}, ${b})`;
-  };
+    const [r, g, b] = getStopColor(locationType)
+    return `rgb(${r}, ${g}, ${b})`
+  }
 
   return (
     <div className="mb-3">
@@ -56,12 +56,7 @@ function TableSelectionHeader({
                 {clickInfo.location_type_name && ` • ${clickInfo.location_type_name}`}
               </p>
             </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={onClose}
-              className="h-8 w-8 p-0"
-            >
+            <Button size="sm" variant="ghost" onClick={onClose} className="h-8 w-8 p-0">
               <BiX className="h-4 w-4" />
             </Button>
           </div>
@@ -71,7 +66,7 @@ function TableSelectionHeader({
         </div>
       )}
     </div>
-  );
+  )
 }
 
-export default TableSelectionHeader;
+export default TableSelectionHeader

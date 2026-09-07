@@ -1,13 +1,13 @@
-import { forwardRef } from "react";
-import { Input } from "@/components/ui/input";
-import { normalizeHex } from "../colors";
+import { forwardRef } from "react"
+import { Input } from "@/components/ui/input"
+import { normalizeHex } from "../colors"
 
 type ColorInputProps = {
-  value: unknown;
-  onChange: (value: string) => void;
-  disabled?: boolean;
-  fallback?: string;
-};
+  value: unknown
+  onChange: (value: string) => void
+  disabled?: boolean
+  fallback?: string
+}
 
 /**
  * Color picker + hex text input combo.
@@ -15,7 +15,7 @@ type ColorInputProps = {
  */
 const ColorInput = forwardRef<HTMLInputElement, ColorInputProps>(
   ({ value, onChange, disabled, fallback = "#4f46e5" }, ref) => {
-    const displayValue = normalizeHex(value, fallback);
+    const displayValue = normalizeHex(value, fallback)
     return (
       <div className="flex items-center gap-2">
         <Input
@@ -33,10 +33,10 @@ const ColorInput = forwardRef<HTMLInputElement, ColorInputProps>(
           disabled={disabled}
         />
       </div>
-    );
-  }
-);
+    )
+  },
+)
 
-ColorInput.displayName = "ColorInput";
+ColorInput.displayName = "ColorInput"
 
-export default ColorInput;
+export default ColorInput

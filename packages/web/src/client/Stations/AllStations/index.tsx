@@ -1,44 +1,44 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo } from "react"
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { createStationsTable } from "@/lib/extensions";
-import { useQuery } from "@tanstack/react-query";
-import { useDuckDB } from "@/context/duckdb.client";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { createStationsTable } from "@/lib/extensions"
+import { useQuery } from "@tanstack/react-query"
+import { useDuckDB } from "@/context/duckdb.client"
+import { Skeleton } from "@/components/ui/skeleton"
 
-import StationTable from "./StationTable";
-import StationMap from "./StationsMap";
-import Header from "./Header";
+import StationTable from "./StationTable"
+import StationMap from "./StationsMap"
+import Header from "./Header"
 
-import { BiMap, BiTable } from "react-icons/bi";
+import { BiMap, BiTable } from "react-icons/bi"
 import {
   fetchStopsIdData,
   fetchStationsData,
   fetchStopsNamesData,
   fetchPathwaysStatusData,
   fetchWheelchairStatusData,
-} from "@/lib/duckdb/DataFetching/fetchGTFSData";
-import EntityForm from "@/components/forms/EntityForm";
+} from "@/lib/duckdb/DataFetching/fetchGTFSData"
+import EntityForm from "@/components/forms/EntityForm"
 
 export const ToggleTabs = [
   { value: "table", label: "Table", icon: <BiTable /> },
   { value: "map", label: "Map", icon: <BiMap /> },
-];
+]
 
 function AllStations() {
-  const { conn } = useDuckDB();
-  const [Open, setOpen] = useState({ formType: null, state: false });
-  const [ClickInfo, setClickInfo] = useState();
-  const [StopIdDropdown, setStopIdDropdown] = useState();
-  const [StopNameDropDown, setStopNameDropDown] = useState();
-  const [PathwaysStatusDropDown, setPathwaysStatusDropDown] = useState([]);
-  const [WheelChairStatusDropDown, setWheelChairStatusDropDown] = useState([]);
-  const [EditStatusDropDown, setEditStatusDropDown] = useState([]);
+  const { conn } = useDuckDB()
+  const [Open, setOpen] = useState({ formType: null, state: false })
+  const [ClickInfo, setClickInfo] = useState()
+  const [StopIdDropdown, setStopIdDropdown] = useState()
+  const [StopNameDropDown, setStopNameDropDown] = useState()
+  const [PathwaysStatusDropDown, setPathwaysStatusDropDown] = useState([])
+  const [WheelChairStatusDropDown, setWheelChairStatusDropDown] = useState([])
+  const [EditStatusDropDown, setEditStatusDropDown] = useState([])
 
   const { isLoading: StationTableLoad, isFetching: StationTableFetching } = useQuery({
     queryKey: ["createStationTable"],
     queryFn: () => createStationsTable(conn),
-  });
+  })
 
   const { data: StopsIdData } = useQuery({
     queryKey: [
@@ -56,7 +56,7 @@ function AllStations() {
         PathwaysStatusDropDown,
         WheelChairStatusDropDown,
       }),
-  });
+  })
 
   const { data: StopsNameData } = useQuery({
     queryKey: [
@@ -73,7 +73,7 @@ function AllStations() {
         StopIdDropdown,
         PathwaysStatusDropDown,
       }),
-  });
+  })
 
   const { data: PathwaysStatusData } = useQuery({
     queryKey: [
@@ -90,7 +90,7 @@ function AllStations() {
         StopIdDropdown,
         StopNameDropDown,
       }),
-  });
+  })
 
   const { data: WheelchairStatusData } = useQuery({
     queryKey: [
@@ -108,7 +108,7 @@ function AllStations() {
         StopNameDropDown,
         PathwaysStatusDropDown,
       }),
-  });
+  })
 
   const { data, isLoading } = useQuery({
     queryKey: [
@@ -128,31 +128,31 @@ function AllStations() {
         PathwaysStatusDropDown,
         WheelChairStatusDropDown,
       }),
-  });
+  })
 
   const memoizedData = useMemo(() => {
-    if (!data) return data;
+    if (!data) return data
 
     if (EditStatusDropDown && EditStatusDropDown.length > 0) {
       return data.filter((item) => {
-        const hasEditStatus = item.status && item.status !== "";
-        const isEdited = EditStatusDropDown.includes("edited");
-        const isNotEdited = EditStatusDropDown.includes("not_edited");
+        const hasEditStatus = item.status && item.status !== ""
+        const isEdited = EditStatusDropDown.includes("edited")
+        const isNotEdited = EditStatusDropDown.includes("not_edited")
 
-        if (isEdited && isNotEdited) return true;
-        if (isEdited) return hasEditStatus;
-        if (isNotEdited) return !hasEditStatus;
-        return true;
-      });
+        if (isEdited && isNotEdited) return true
+        if (isEdited) return hasEditStatus
+        if (isNotEdited) return !hasEditStatus
+        return true
+      })
     }
 
-    return data;
-  }, [data, EditStatusDropDown]);
+    return data
+  }, [data, EditStatusDropDown])
 
   const hasEditedItems = useMemo(() => {
-    if (!data || !Array.isArray(data)) return false;
-    return data.some((station: any) => station.status && station.status !== "");
-  }, [data]);
+    if (!data || !Array.isArray(data)) return false
+    return data.some((station: any) => station.status && station.status !== "")
+  }, [data])
 
   return (
     <Tabs defaultValue="table">
@@ -213,7 +213,7 @@ function AllStations() {
         </>
       )}
     </Tabs>
-  );
+  )
 }
 
-export default AllStations;
+export default AllStations

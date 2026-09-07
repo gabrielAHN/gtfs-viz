@@ -1,94 +1,104 @@
-import { useState, useCallback, useMemo } from "react";
-import { useFormContext } from "react-hook-form";
-import { BiMap, BiHide } from "react-icons/bi";
+import { useState, useCallback, useMemo } from "react"
+import { useFormContext } from "react-hook-form"
+import { BiMap, BiHide } from "react-icons/bi"
 
-import {
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-} from "@/components/ui/form";
-import { Button } from "@/components/ui/button";
+import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form"
+import { Button } from "@/components/ui/button"
 
-import MapSection from "./MapSection";
+import MapSection from "./MapSection"
 
 interface MapInputProps {
   parts: {
-    data: any[];
+    data: any[]
     lat: {
-      name: string;
-      label: string;
-      renderInput: (field: any) => React.ReactNode;
-      rules?: any;
-      editLabel?: any;
-    };
+      name: string
+      label: string
+      renderInput: (field: any) => React.ReactNode
+      rules?: any
+      editLabel?: any
+    }
     lon: {
-      name: string;
-      label: string;
-      renderInput: (field: any) => React.ReactNode;
-      rules?: any;
-      editLabel?: any;
-    };
-  };
-  control: any;
-  isLoading?: boolean;
-  submittedData?: any | null;
+      name: string
+      label: string
+      renderInput: (field: any) => React.ReactNode
+      rules?: any
+      editLabel?: any
+    }
+  }
+  control: any
+  isLoading?: boolean
+  submittedData?: any | null
 }
 
 function MapInput({ parts, control, isLoading = false, submittedData = null }: MapInputProps) {
-  const { watch, setValue, trigger } = useFormContext();
+  const { watch, setValue, trigger } = useFormContext()
 
-  const latValue = isLoading && submittedData ? submittedData[parts.lat.name] : (watch(parts.lat.name) || "");
-  const lonValue = isLoading && submittedData ? submittedData[parts.lon.name] : (watch(parts.lon.name) || "");
-  const locationType = watch("location_type_name") || "";
+  const latValue =
+    isLoading && submittedData ? submittedData[parts.lat.name] : watch(parts.lat.name) || ""
+  const lonValue =
+    isLoading && submittedData ? submittedData[parts.lon.name] : watch(parts.lon.name) || ""
+  const locationType = watch("location_type_name") || ""
 
-  const [isMapVisible, setIsMapVisible] = useState(false);
+  const [isMapVisible, setIsMapVisible] = useState(false)
 
   const coordinates = useMemo(() => {
-    const lat = parseFloat(latValue);
-    const lon = parseFloat(lonValue);
+    const lat = parseFloat(latValue)
+    const lon = parseFloat(lonValue)
     return {
       lat,
       lon,
       isValid: !isNaN(lat) && !isNaN(lon),
-    };
-  }, [latValue, lonValue]);
+    }
+  }, [latValue, lonValue])
 
   const onLatitudeChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
-      setValue(parts.lat.name, e.target.value, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
-      await trigger(parts.lat.name);
+      setValue(parts.lat.name, e.target.value, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      })
+      await trigger(parts.lat.name)
     },
     [setValue, trigger, parts.lat.name],
-  );
+  )
 
   const onLongitudeChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
-      setValue(parts.lon.name, e.target.value, { shouldDirty: true, shouldTouch: true, shouldValidate: true });
-      await trigger(parts.lon.name);
+      setValue(parts.lon.name, e.target.value, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      })
+      await trigger(parts.lon.name)
     },
     [setValue, trigger, parts.lon.name],
-  );
+  )
 
   const onMapClick = useCallback(
     async (newLon: number, newLat: number) => {
-      setValue(parts.lat.name, String(newLat), { shouldDirty: true, shouldTouch: true, shouldValidate: true });
-      setValue(parts.lon.name, String(newLon), { shouldDirty: true, shouldTouch: true, shouldValidate: true });
-      await trigger([parts.lat.name, parts.lon.name]);
+      setValue(parts.lat.name, String(newLat), {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      })
+      setValue(parts.lon.name, String(newLon), {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      })
+      await trigger([parts.lat.name, parts.lon.name])
     },
     [setValue, trigger, parts.lat.name, parts.lon.name],
-  );
+  )
 
   const toggleMapVisibility = useCallback(() => {
-    setIsMapVisible((prev) => !prev);
-  }, []);
+    setIsMapVisible((prev) => !prev)
+  }, [])
 
   return (
     <div className="mt-3">
-      <div className="text-sm text-primary font-medium mb-2">
-        Location Coordinates
-      </div>
+      <div className="text-sm text-primary font-medium mb-2">Location Coordinates</div>
       <div className="border rounded-md p-3 space-y-3 overflow-hidden">
         {}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -99,13 +109,11 @@ function MapInput({ parts, control, isLoading = false, submittedData = null }: M
             rules={parts.lat.rules}
             render={({ field, fieldState }) => {
               const shouldShowError =
-                !isLoading &&
-                fieldState.error &&
-                (fieldState.isTouched || fieldState.isDirty);
+                !isLoading && fieldState.error && (fieldState.isTouched || fieldState.isDirty)
 
               const wrappedOnChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-                await onLatitudeChange(e);
-              };
+                await onLatitudeChange(e)
+              }
 
               return (
                 <FormItem>
@@ -125,7 +133,7 @@ function MapInput({ parts, control, isLoading = false, submittedData = null }: M
                   </FormControl>
                   {shouldShowError && <FormMessage />}
                 </FormItem>
-              );
+              )
             }}
           />
           <FormField
@@ -135,13 +143,11 @@ function MapInput({ parts, control, isLoading = false, submittedData = null }: M
             rules={parts.lon.rules}
             render={({ field, fieldState }) => {
               const shouldShowError =
-                !isLoading &&
-                fieldState.error &&
-                (fieldState.isTouched || fieldState.isDirty);
+                !isLoading && fieldState.error && (fieldState.isTouched || fieldState.isDirty)
 
               const wrappedOnChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-                await onLongitudeChange(e);
-              };
+                await onLongitudeChange(e)
+              }
 
               return (
                 <FormItem>
@@ -161,7 +167,7 @@ function MapInput({ parts, control, isLoading = false, submittedData = null }: M
                   </FormControl>
                   {shouldShowError && <FormMessage />}
                 </FormItem>
-              );
+              )
             }}
           />
         </div>
@@ -213,7 +219,7 @@ function MapInput({ parts, control, isLoading = false, submittedData = null }: M
         )}
       </div>
     </div>
-  );
+  )
 }
 
-export default MapInput;
+export default MapInput

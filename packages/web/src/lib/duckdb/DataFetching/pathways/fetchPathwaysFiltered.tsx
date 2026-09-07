@@ -1,20 +1,29 @@
-import { ColorsRanges } from "@/components/colorUtil";
-import { executeQuery, executeColumnQuery, buildAndQuery } from "@/lib/duckdb/QueryHelper";
-import { getDirectPathways } from "./pathfinding";
+import { ColorsRanges } from "@/components/colorUtil"
+import { executeQuery, executeColumnQuery, buildAndQuery } from "@/lib/duckdb/QueryHelper"
+import { getDirectPathways } from "./pathfinding"
 
 const ensureProceduresLoaded = async (conn: any) => {
-  
-  return Promise.resolve();
-};
+  return Promise.resolve()
+}
 
 export const fetchPathwaysData = async (props) => {
-  const { conn, table, StationView, ToStop, FromStop, EmptyArcs, TimeRange, DirectionTypes, PathwayTypes } = props;
+  const {
+    conn,
+    table,
+    StationView,
+    ToStop,
+    FromStop,
+    EmptyArcs,
+    TimeRange,
+    DirectionTypes,
+    PathwayTypes,
+  } = props
 
-  await ensureProceduresLoaded(conn);
+  await ensureProceduresLoaded(conn)
 
   const StationInfoQuery = `
     SELECT * FROM get_station_stops_for_pathways('${StationView.stop_id}')
-  `;
+  `
 
   let ConnectionQuery = `
   WITH pathways_with_direction AS (
@@ -96,51 +105,53 @@ export const fetchPathwaysData = async (props) => {
               0 -- Default case
       END AS angle
     FROM pathways_with_counts
-  `;
+  `
 
-  const conditions: string[] = [];
+  const conditions: string[] = []
 
   if (ToStop) {
-    conditions.push(`to_stop_id = '${ToStop}'`);
+    conditions.push(`to_stop_id = '${ToStop}'`)
   }
 
   if (FromStop) {
-    conditions.push(`from_stop_id = '${FromStop}'`);
+    conditions.push(`from_stop_id = '${FromStop}'`)
   }
 
   if (TimeRange.length > 0) {
-    const [minTime, maxTime] = TimeRange;
-    const nullCondition = EmptyArcs ? "AND traversal_time IS NOT NULL" : "OR traversal_time IS NULL";
-    conditions.push(`(traversal_time >= ${minTime} AND traversal_time <= ${maxTime} ${nullCondition})`);
+    const [minTime, maxTime] = TimeRange
+    const nullCondition = EmptyArcs ? "AND traversal_time IS NOT NULL" : "OR traversal_time IS NULL"
+    conditions.push(
+      `(traversal_time >= ${minTime} AND traversal_time <= ${maxTime} ${nullCondition})`,
+    )
   }
 
   if (DirectionTypes) {
-    conditions.push(`direction_type = '${DirectionTypes}'`);
+    conditions.push(`direction_type = '${DirectionTypes}'`)
   }
 
   if (PathwayTypes.length > 0) {
-    conditions.push(`pathway_mode_name IN (${PathwayTypes.map(loc => `'${loc}'`).join(", ")})`);
+    conditions.push(`pathway_mode_name IN (${PathwayTypes.map((loc) => `'${loc}'`).join(", ")})`)
   }
 
-  const ConditionsQuery = buildAndQuery(ConnectionQuery, conditions);
+  const ConditionsQuery = buildAndQuery(ConnectionQuery, conditions)
 
-  const StopsResults = await executeQuery(conn, StationInfoQuery);
-  const ConnectionResults = await executeQuery(conn, ConditionsQuery);
+  const StopsResults = await executeQuery(conn, StationInfoQuery)
+  const ConnectionResults = await executeQuery(conn, ConditionsQuery)
 
   return {
     stops: StopsResults,
     connections: ConnectionResults,
-  };
-};
+  }
+}
 
 export const fetchToStopsData = async (props) => {
-  const { conn, StationView, FromStop, TimeRange } = props;
+  const { conn, StationView, FromStop, TimeRange } = props
 
-  await ensureProceduresLoaded(conn);
+  await ensureProceduresLoaded(conn)
 
-  const fromStop = FromStop ? `'${FromStop}'` : 'NULL';
-  const minTime = TimeRange.length > 0 ? TimeRange[0] : 'NULL';
-  const maxTime = TimeRange.length > 0 ? TimeRange[1] : 'NULL';
+  const fromStop = FromStop ? `'${FromStop}'` : "NULL"
+  const minTime = TimeRange.length > 0 ? TimeRange[0] : "NULL"
+  const maxTime = TimeRange.length > 0 ? TimeRange[1] : "NULL"
 
   const ToStopsQuery = `
     SELECT to_stop_id FROM get_to_stops(
@@ -149,20 +160,20 @@ export const fetchToStopsData = async (props) => {
       ${minTime},
       ${maxTime}
     )
-  `;
+  `
 
-  const ToStopsResults = executeColumnQuery(conn, ToStopsQuery, "to_stop_id");
-  return ToStopsResults;
-};
+  const ToStopsResults = executeColumnQuery(conn, ToStopsQuery, "to_stop_id")
+  return ToStopsResults
+}
 
 export const fetchfromStopsData = async (props) => {
-  const { conn, StationView, ToStop, TimeRange } = props;
+  const { conn, StationView, ToStop, TimeRange } = props
 
-  await ensureProceduresLoaded(conn);
+  await ensureProceduresLoaded(conn)
 
-  const toStop = ToStop ? `'${ToStop}'` : 'NULL';
-  const minTime = TimeRange.length > 0 ? TimeRange[0] : 'NULL';
-  const maxTime = TimeRange.length > 0 ? TimeRange[1] : 'NULL';
+  const toStop = ToStop ? `'${ToStop}'` : "NULL"
+  const minTime = TimeRange.length > 0 ? TimeRange[0] : "NULL"
+  const maxTime = TimeRange.length > 0 ? TimeRange[1] : "NULL"
 
   const fromStopsQuery = `
     SELECT from_stop_id FROM get_from_stops(
@@ -171,22 +182,22 @@ export const fetchfromStopsData = async (props) => {
       ${minTime},
       ${maxTime}
     )
-  `;
+  `
 
-  const fromStopsResults = executeColumnQuery(conn, fromStopsQuery, "from_stop_id");
-  return fromStopsResults;
-};
+  const fromStopsResults = executeColumnQuery(conn, fromStopsQuery, "from_stop_id")
+  return fromStopsResults
+}
 
 export const fetchDirectionTypes = async (props) => {
-  const { conn, StationView, ToStop, FromStop, EmptyArcs, TimeRange } = props;
+  const { conn, StationView, ToStop, FromStop, EmptyArcs, TimeRange } = props
 
-  await ensureProceduresLoaded(conn);
+  await ensureProceduresLoaded(conn)
 
-  const toStop = ToStop ? `'${ToStop}'` : 'NULL';
-  const fromStop = FromStop ? `'${FromStop}'` : 'NULL';
-  const minTime = TimeRange.length > 0 ? TimeRange[0] : 'NULL';
-  const maxTime = TimeRange.length > 0 ? TimeRange[1] : 'NULL';
-  const includeNullTime = EmptyArcs ? 'FALSE' : 'TRUE';
+  const toStop = ToStop ? `'${ToStop}'` : "NULL"
+  const fromStop = FromStop ? `'${FromStop}'` : "NULL"
+  const minTime = TimeRange.length > 0 ? TimeRange[0] : "NULL"
+  const maxTime = TimeRange.length > 0 ? TimeRange[1] : "NULL"
+  const includeNullTime = EmptyArcs ? "FALSE" : "TRUE"
 
   const DirectionQuery = `
     SELECT direction_type FROM get_direction_types(
@@ -197,19 +208,19 @@ export const fetchDirectionTypes = async (props) => {
       ${maxTime},
       ${includeNullTime}
     )
-  `;
+  `
 
-  const DirectionResults = executeColumnQuery(conn, DirectionQuery, "direction_type");
-  return DirectionResults;
-};
+  const DirectionResults = executeColumnQuery(conn, DirectionQuery, "direction_type")
+  return DirectionResults
+}
 
 export const fetchtimeIntervalRanges = async (props) => {
-  const { conn, StationView, ToStop, FromStop } = props;
+  const { conn, StationView, ToStop, FromStop } = props
 
-  await ensureProceduresLoaded(conn);
+  await ensureProceduresLoaded(conn)
 
-  const toStop = ToStop ? `'${ToStop}'` : 'NULL';
-  const fromStop = FromStop ? `'${FromStop}'` : 'NULL';
+  const toStop = ToStop ? `'${ToStop}'` : "NULL"
+  const fromStop = FromStop ? `'${FromStop}'` : "NULL"
 
   const timeIntervalQuery = `
     SELECT * FROM get_time_interval_ranges(
@@ -217,34 +228,34 @@ export const fetchtimeIntervalRanges = async (props) => {
       ${toStop},
       ${fromStop}
     )
-  `;
+  `
 
-  const rangesResults = await executeQuery(conn, timeIntervalQuery);
+  const rangesResults = await executeQuery(conn, timeIntervalQuery)
 
   if (rangesResults.length > 0) {
-    const numRanges = rangesResults.length;
-    const adjustedColors = ColorsRanges.slice(0, numRanges);
+    const numRanges = rangesResults.length
+    const adjustedColors = ColorsRanges.slice(0, numRanges)
 
     const rangesWithColors = rangesResults.map((result, index) => {
       return {
         min: result.min_value,
         max: result.max_value,
         color: adjustedColors[index],
-      };
-    });
-    return rangesWithColors;
+      }
+    })
+    return rangesWithColors
   } else {
-    return [];
+    return []
   }
-};
+}
 
 export const fetchPathwayType = async (props) => {
-  const { conn, StationView, ToStop, FromStop } = props;
+  const { conn, StationView, ToStop, FromStop } = props
 
-  await ensureProceduresLoaded(conn);
+  await ensureProceduresLoaded(conn)
 
-  const toStop = ToStop ? `'${ToStop}'` : 'NULL';
-  const fromStop = FromStop ? `'${FromStop}'` : 'NULL';
+  const toStop = ToStop ? `'${ToStop}'` : "NULL"
+  const fromStop = FromStop ? `'${FromStop}'` : "NULL"
 
   const PathwayTypeQuery = `
     SELECT pathway_mode_name FROM get_pathway_types(
@@ -252,9 +263,8 @@ export const fetchPathwayType = async (props) => {
       ${toStop},
       ${fromStop}
     )
-  `;
+  `
 
-  const PathwayTypeResults = executeColumnQuery(conn, PathwayTypeQuery, "pathway_mode_name");
-  return PathwayTypeResults;
-};
-
+  const PathwayTypeResults = executeColumnQuery(conn, PathwayTypeQuery, "pathway_mode_name")
+  return PathwayTypeResults
+}

@@ -1,29 +1,29 @@
-import { Link, useLocation } from "@tanstack/react-router";
-import { cn } from "@/lib/utils";
+import { Link, useLocation } from "@tanstack/react-router"
+import { cn } from "@/lib/utils"
 
 interface TabItem {
-  value: string;
-  label: string;
-  icon?: React.ReactNode;
-  path: string;
-  disabled?: boolean;
-  disabledReason?: string;
+  value: string
+  label: string
+  icon?: React.ReactNode
+  path: string
+  disabled?: boolean
+  disabledReason?: string
 }
 
 interface ChildTabsConfig {
-  condition: (pathname: string) => boolean;
-  tabs: TabItem[];
+  condition: (pathname: string) => boolean
+  tabs: TabItem[]
 }
 
 interface TabHeaderProps {
-  tabs: TabItem[];
-  className?: string;
-  searchParams?: (prev: any) => any;
-  customActiveCheck?: (pathname: string, tab: TabItem) => boolean;
-  childTabs?: ChildTabsConfig[];
-  size?: "default" | "small";
-  exact?: boolean;
-  includeSearch?: boolean;
+  tabs: TabItem[]
+  className?: string
+  searchParams?: (prev: any) => any
+  customActiveCheck?: (pathname: string, tab: TabItem) => boolean
+  childTabs?: ChildTabsConfig[]
+  size?: "default" | "small"
+  exact?: boolean
+  includeSearch?: boolean
 }
 
 export function TabHeader({
@@ -36,11 +36,9 @@ export function TabHeader({
   exact = true,
   includeSearch = false,
 }: TabHeaderProps) {
-  const location = useLocation();
+  const location = useLocation()
 
-  const sizeClasses = size === "small"
-    ? "px-3 py-1.5 text-xs"
-    : "px-4 py-2 text-sm";
+  const sizeClasses = size === "small" ? "px-3 py-1.5 text-xs" : "px-4 py-2 text-sm"
 
   return (
     <>
@@ -60,12 +58,11 @@ export function TabHeader({
                 {tab.icon}
                 <span>{tab.label}</span>
               </span>
-            );
+            )
           }
 
-          
           if (customActiveCheck) {
-            const isActive = customActiveCheck(location.pathname, tab);
+            const isActive = customActiveCheck(location.pathname, tab)
             return (
               <Link
                 key={tab.value}
@@ -77,13 +74,13 @@ export function TabHeader({
                   sizeClasses,
                   isActive
                     ? "bg-background border border-b-0 border-border font-semibold text-foreground"
-                    : "text-foreground/70"
+                    : "text-foreground/70",
                 )}
               >
                 {tab.icon}
                 <span>{tab.label}</span>
               </Link>
-            );
+            )
           }
 
           return (
@@ -107,16 +104,13 @@ export function TabHeader({
                 ),
               }}
               inactiveProps={{
-                className: cn(
-                  "text-foreground/70",
-                  sizeClasses,
-                ),
+                className: cn("text-foreground/70", sizeClasses),
               }}
             >
               {tab.icon}
               <span>{tab.label}</span>
             </Link>
-          );
+          )
         })}
       </div>
 
@@ -133,10 +127,10 @@ export function TabHeader({
               exact={exact}
               includeSearch={includeSearch}
             />
-          );
+          )
         }
-        return null;
+        return null
       })}
     </>
-  );
+  )
 }

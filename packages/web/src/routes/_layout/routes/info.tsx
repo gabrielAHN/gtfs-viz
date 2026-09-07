@@ -1,39 +1,39 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { BiCalendar, BiInfoCircle } from "react-icons/bi";
-import { Skeleton } from "@/components/ui/skeleton";
-import { TabHeader } from "@/components/ui/tab-header";
-import PageFooter from "@/components/PageFooter";
-import { EditIndicator } from "@/components/ui/EditIndicator";
-import { useDuckDB } from "@/context/duckdb.client";
-import RouteInfo from "@/client/Routes/SelectedRoutes/RouteInfo";
-import { getRouteTypeColor } from "@/client/Routes/routeTypeColors";
+import { createFileRoute } from "@tanstack/react-router"
+import { useQuery } from "@tanstack/react-query"
+import { BiCalendar, BiInfoCircle } from "react-icons/bi"
+import { Skeleton } from "@/components/ui/skeleton"
+import { TabHeader } from "@/components/ui/tab-header"
+import PageFooter from "@/components/PageFooter"
+import { EditIndicator } from "@/components/ui/EditIndicator"
+import { useDuckDB } from "@/context/duckdb.client"
+import RouteInfo from "@/client/Routes/SelectedRoutes/RouteInfo"
+import { getRouteTypeColor } from "@/client/Routes/routeTypeColors"
 import {
   fetchServiceRouteInfoData,
   fetchServiceRouteShapesData,
   fetchServiceRouteStopsData,
-} from "@/lib/duckdb/DataFetching/fetchRouteData";
-import { fetchStationsData } from "@/lib/duckdb/DataFetching/fetchGTFSData";
+} from "@/lib/duckdb/DataFetching/fetchRouteData"
+import { fetchStationsData } from "@/lib/duckdb/DataFetching/fetchGTFSData"
 
 type RouteInfoSearchParams = {
-  selectedRouteId?: string;
-};
+  selectedRouteId?: string
+}
 
 export const Route = createFileRoute("/_layout/routes/info")({
   component: RouteInfoPage,
   validateSearch: (search: Record<string, unknown>): RouteInfoSearchParams => {
     return {
       selectedRouteId: search.selectedRouteId as string | undefined,
-    };
+    }
   },
-});
+})
 
 function RouteInfoPage() {
-  const search = Route.useSearch();
-  const duckDB = useDuckDB();
-  const conn = duckDB?.conn;
-  const initialized = duckDB?.initialized ?? false;
-  const hasTrips = duckDB?.hasTrips ?? false;
+  const search = Route.useSearch()
+  const duckDB = useDuckDB()
+  const conn = duckDB?.conn
+  const initialized = duckDB?.initialized ?? false
+  const hasTrips = duckDB?.hasTrips ?? false
 
   const ToggleTabs = [
     { value: "info", label: "Info", icon: <BiInfoCircle />, path: "/routes/info" },
@@ -45,8 +45,8 @@ function RouteInfoPage() {
       disabled: !hasTrips,
       disabledReason: "trips.txt was not imported",
     },
-  ];
-  const routeId = search.selectedRouteId;
+  ]
+  const routeId = search.selectedRouteId
 
   const {
     data: routeData,
@@ -57,21 +57,21 @@ function RouteInfoPage() {
     queryFn: async () => fetchServiceRouteInfoData(conn, routeId!),
     enabled: !!conn && !!routeId && initialized,
     retry: false,
-  });
+  })
 
   const { data: routeStops = [] } = useQuery({
     queryKey: ["fetchRouteStops", routeId],
     queryFn: async () => fetchServiceRouteStopsData(conn, [routeId!]),
     enabled: !!conn && !!routeId && initialized,
     staleTime: Infinity,
-  });
+  })
 
   const { data: routeShapes = [] } = useQuery({
     queryKey: ["fetchRouteShapes", routeId, "route-edit"],
     queryFn: async () => fetchServiceRouteShapesData(conn, [routeId!]),
     enabled: !!conn && !!routeId && initialized,
     staleTime: Infinity,
-  });
+  })
 
   const { data: allStops = [] } = useQuery({
     queryKey: ["fetchStopsData", "StopsTable", "route-form"],
@@ -82,7 +82,7 @@ function RouteInfoPage() {
       }),
     enabled: !!conn && initialized,
     staleTime: Infinity,
-  });
+  })
 
   const { data: allStations = [] } = useQuery({
     queryKey: ["fetchStationsData", "StationsTable", "route-form"],
@@ -93,9 +93,9 @@ function RouteInfoPage() {
       }),
     enabled: !!conn && initialized,
     staleTime: Infinity,
-  });
+  })
 
-  const routeFormData = [...routeShapes, ...routeStops, ...allStops, ...allStations];
+  const routeFormData = [...routeShapes, ...routeStops, ...allStops, ...allStations]
 
   if (!routeId) {
     return (
@@ -104,7 +104,7 @@ function RouteInfoPage() {
           No route selected. Please select a route from the routes list.
         </div>
       </div>
-    );
+    )
   }
 
   if (!conn || !initialized || isLoading) {
@@ -114,14 +114,14 @@ function RouteInfoPage() {
         <Skeleton className="mb-4 h-10 w-full" />
         <Skeleton className="h-64 w-full" />
       </div>
-    );
+    )
   }
 
   if (error || !routeData) {
-    return <div className="p-4">Error loading route information.</div>;
+    return <div className="p-4">Error loading route information.</div>
   }
 
-  const routeColor = routeData.route_color_hex || getRouteTypeColor(routeData.route_type_name);
+  const routeColor = routeData.route_color_hex || getRouteTypeColor(routeData.route_type_name)
 
   return (
     <div className="p-4">
@@ -139,5 +139,5 @@ function RouteInfoPage() {
       <RouteInfo route={routeData} routeStops={routeFormData} />
       <PageFooter />
     </div>
-  );
+  )
 }

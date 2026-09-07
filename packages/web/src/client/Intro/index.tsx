@@ -1,8 +1,8 @@
-import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
-import FileImporter from "./FileImporter";
-import UpcomingFeatures from "@/components/UpcomingFeatures";
+import ThemeSwitcher from "@/components/ui/ThemeSwitcher"
+import FileImporter from "./FileImporter"
+import UpcomingFeatures from "@/components/UpcomingFeatures"
 
-import { GithubButton } from "@/components/contact";
+import { GithubButton } from "@/components/contact"
 
 function Intro() {
   return (
@@ -17,7 +17,7 @@ function Intro() {
         <UpcomingFeatures />
       </div>
     </div>
-  );
+  )
 }
 
-export default Intro;
+export default Intro

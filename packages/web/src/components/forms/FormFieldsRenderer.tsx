@@ -1,13 +1,13 @@
-import { useFormContext } from "react-hook-form";
-import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
-import MapInput from "./MapInput";
-import RouteLineInput from "./RouteLineInput";
+import { useFormContext } from "react-hook-form"
+import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form"
+import MapInput from "./MapInput"
+import RouteLineInput from "./RouteLineInput"
 
 interface FormFieldsRendererProps {
-  inputData: any[];
-  isLoading?: boolean;
-  mode?: "add" | "edit";
-  submittedData?: any | null;
+  inputData: any[]
+  isLoading?: boolean
+  mode?: "add" | "edit"
+  submittedData?: any | null
 }
 
 function FormFieldsRenderer({
@@ -16,8 +16,8 @@ function FormFieldsRenderer({
   mode = "add",
   submittedData = null,
 }: FormFieldsRendererProps) {
-  const { control, trigger } = useFormContext();
-  const isEditMode = mode === "edit";
+  const { control, trigger } = useFormContext()
+  const isEditMode = mode === "edit"
 
   return (
     <div>
@@ -30,15 +30,15 @@ function FormFieldsRenderer({
               name={name}
               rules={parts.rules}
               render={({ field, fieldState }) => {
-                const displayValue = isLoading && submittedData ? submittedData[name] : field.value;
+                const displayValue = isLoading && submittedData ? submittedData[name] : field.value
 
                 const shouldShowError =
-                  !isLoading && fieldState.error && (fieldState.isTouched || fieldState.isDirty);
+                  !isLoading && fieldState.error && (fieldState.isTouched || fieldState.isDirty)
 
                 const wrappedOnChange = async (value: any) => {
-                  field.onChange(value);
-                  await trigger(name);
-                };
+                  field.onChange(value)
+                  await trigger(name)
+                }
 
                 return (
                   <FormItem className={isEditMode ? "flex flex-col mb-4" : ""}>
@@ -63,10 +63,10 @@ function FormFieldsRenderer({
                       </FormMessage>
                     )}
                   </FormItem>
-                );
+                )
               }}
             />
-          );
+          )
         } else if (type === "map") {
           return (
             <MapInput
@@ -76,7 +76,7 @@ function FormFieldsRenderer({
               isLoading={isLoading}
               submittedData={submittedData}
             />
-          );
+          )
         } else if (type === "routeLine") {
           return (
             <RouteLineInput
@@ -89,12 +89,12 @@ function FormFieldsRenderer({
               submittedData={submittedData}
               mode={mode}
             />
-          );
+          )
         }
-        return null;
+        return null
       })}
     </div>
-  );
+  )
 }
 
-export default FormFieldsRenderer;
+export default FormFieldsRenderer

@@ -1,25 +1,33 @@
-import { useState, useCallback, startTransition, useEffect } from "react";
+import { useState, useCallback, startTransition, useEffect } from "react"
 import {
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
   useReactTable,
   getPaginationRowModel,
-} from "@tanstack/react-table";
-import { TableBody, TableCell, TableHeader, TableHead, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { ScrollBar, ScrollArea } from "@/components/ui/scroll-area";
+} from "@tanstack/react-table"
+import { TableBody, TableCell, TableHeader, TableHead, TableRow } from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
+import { ScrollBar, ScrollArea } from "@/components/ui/scroll-area"
 import {
   Select,
   SelectItem,
   SelectValue,
   SelectTrigger,
   SelectContent,
-} from "@/components/ui/select";
-import { BiChevronUp, BiChevronDown, BiChevronRight, BiChevronLeft, BiChevronsRight, BiChevronsLeft, BiRightArrow } from "react-icons/bi";
-import { Badge } from "@/components/ui/badge";
-import { EditIndicator } from "@/components/ui/EditIndicator";
-import { useUrlTablePagination } from "@/lib/tablePagination";
+} from "@/components/ui/select"
+import {
+  BiChevronUp,
+  BiChevronDown,
+  BiChevronRight,
+  BiChevronLeft,
+  BiChevronsRight,
+  BiChevronsLeft,
+  BiRightArrow,
+} from "react-icons/bi"
+import { Badge } from "@/components/ui/badge"
+import { EditIndicator } from "@/components/ui/EditIndicator"
+import { useUrlTablePagination } from "@/lib/tablePagination"
 
 function TableComponent({
   data,
@@ -34,33 +42,33 @@ function TableComponent({
   selectionKey = "stop_id",
   paginationKey = undefined,
 }) {
-  const [sorting, setSorting] = useState([]);
-  const { pagination, onPaginationChange } = useUrlTablePagination(paginationKey);
-  const { pageIndex, pageSize } = pagination;
+  const [sorting, setSorting] = useState([])
+  const { pagination, onPaginationChange } = useUrlTablePagination(paginationKey)
+  const { pageIndex, pageSize } = pagination
 
   useEffect(() => {
     if (onSortingChange) {
-      onSortingChange(sorting);
+      onSortingChange(sorting)
     }
-  }, [sorting, onSortingChange]);
+  }, [sorting, onSortingChange])
 
   useEffect(() => {
     if (clearSortingTrigger !== undefined && clearSortingTrigger > 0) {
-      setSorting([]);
+      setSorting([])
     }
-  }, [clearSortingTrigger]);
+  }, [clearSortingTrigger])
 
   const handleRowClick = useCallback(
     (row) => {
-      if (!setClickInfo) return;
+      if (!setClickInfo) return
 
       startTransition(() => {
-        const isCurrentlySelected = ClickInfo?.[selectionKey] === row[selectionKey];
-        setClickInfo(isCurrentlySelected ? undefined : row);
-      });
+        const isCurrentlySelected = ClickInfo?.[selectionKey] === row[selectionKey]
+        setClickInfo(isCurrentlySelected ? undefined : row)
+      })
     },
     [setClickInfo, ClickInfo],
-  );
+  )
 
   const table = useReactTable({
     data,
@@ -78,16 +86,16 @@ function TableComponent({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-  });
+  })
 
-  const pageCount = table.getPageCount();
+  const pageCount = table.getPageCount()
   useEffect(() => {
     if (pageCount > 0 && pageIndex >= pageCount) {
-      onPaginationChange({ pageIndex: pageCount - 1, pageSize });
+      onPaginationChange({ pageIndex: pageCount - 1, pageSize })
     }
-  }, [onPaginationChange, pageCount, pageIndex, pageSize]);
+  }, [onPaginationChange, pageCount, pageIndex, pageSize])
 
-  const rows = table.getRowModel().rows;
+  const rows = table.getRowModel().rows
 
   return (
     <div className="space-y-4 rounded-md border shadow-sm p-3">
@@ -178,11 +186,11 @@ function TableComponent({
           <TableBody>
             {rows.length ? (
               rows.map((row) => {
-                const isSelected = ClickInfo?.[selectionKey] === row.original[selectionKey];
+                const isSelected = ClickInfo?.[selectionKey] === row.original[selectionKey]
                 const isEdited =
                   row.original.status === "edit" ||
                   row.original.status === "new" ||
-                  row.original.status === "new edit";
+                  row.original.status === "new edit"
                 return (
                   <TableRow
                     key={row.id}
@@ -194,7 +202,9 @@ function TableComponent({
                     onClick={() => handleRowClick(row.original)}
                   >
                     <TableCell className="w-8 px-2">
-                      {isEdited && <EditIndicator status={row.original.status} className="h-5 w-5" />}
+                      {isEdited && (
+                        <EditIndicator status={row.original.status} className="h-5 w-5" />
+                      )}
                     </TableCell>
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
@@ -202,7 +212,7 @@ function TableComponent({
                       </TableCell>
                     ))}
                   </TableRow>
-                );
+                )
               })
             ) : (
               <TableRow>
@@ -230,9 +240,9 @@ function TableComponent({
                 variant="link"
                 className="h-auto p-0 text-xs text-muted-foreground underline ml-1"
                 onClick={() => {
-                  setSorting([]);
+                  setSorting([])
                   if (onClearFilters) {
-                    onClearFilters();
+                    onClearFilters()
                   }
                 }}
               >
@@ -270,7 +280,7 @@ function TableComponent({
         </div>
       </div>
     </div>
-  );
+  )
 }
 
-export default TableComponent;
+export default TableComponent

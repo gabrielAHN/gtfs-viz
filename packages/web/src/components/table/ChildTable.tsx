@@ -1,15 +1,9 @@
-import { getStopColor } from "@/components/style";
-import { rgbToHex } from "@/components/colorUtil";
-import { useThemeContext } from "@/context/theme.client";
-import { ScrollBar, ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableHead,
-  TableRow,
-} from "@/components/ui/table";
+import { getStopColor } from "@/components/style"
+import { rgbToHex } from "@/components/colorUtil"
+import { useThemeContext } from "@/context/theme.client"
+import { ScrollBar, ScrollArea } from "@/components/ui/scroll-area"
+import { Skeleton } from "@/components/ui/skeleton"
+import { TableBody, TableCell, TableHeader, TableHead, TableRow } from "@/components/ui/table"
 
 function ChildTable({
   parentColumn,
@@ -21,32 +15,30 @@ function ChildTable({
   onSortChange,
   onChildRowClick,
 }) {
-  const { theme } = useThemeContext();
+  const { theme } = useThemeContext()
 
   const handleTimeSort = () => {
-    if (!onSortChange) return;
+    if (!onSortChange) return
 
     if (sortBy === "time") {
-      
       if (sortOrder === "asc") {
-        onSortChange("time", "desc");
+        onSortChange("time", "desc")
       } else if (sortOrder === "desc") {
-        onSortChange(undefined, undefined);
+        onSortChange(undefined, undefined)
       } else {
-        onSortChange("time", "asc");
+        onSortChange("time", "asc")
       }
     } else {
-      
-      onSortChange("time", "asc");
+      onSortChange("time", "asc")
     }
-  };
+  }
 
   const getSortIcon = () => {
-    if (sortBy !== "time") return null;
-    if (sortOrder === "asc") return " ↑";
-    if (sortOrder === "desc") return " ↓";
-    return null;
-  };
+    if (sortBy !== "time") return null
+    if (sortOrder === "asc") return " ↑"
+    if (sortOrder === "desc") return " ↓"
+    return null
+  }
 
   if (isLoading) {
     return (
@@ -56,7 +48,7 @@ function ChildTable({
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-24 w-full" />
       </div>
-    );
+    )
   }
 
   return (
@@ -68,11 +60,9 @@ function ChildTable({
               <TableHead className="p-2 border-b border-r first:rounded-tl-md">
                 {parentColumn.label}
               </TableHead>
-              <TableHead className="p-2 border-b border-r">
-                {childColumn.label}
-              </TableHead>
+              <TableHead className="p-2 border-b border-r">{childColumn.label}</TableHead>
               <TableHead
-                className={`p-2 border-b text-left first:rounded-tl-md last:rounded-tr-md ${onSortChange ? 'cursor-pointer hover:bg-accent/30' : ''}`}
+                className={`p-2 border-b text-left first:rounded-tl-md last:rounded-tr-md ${onSortChange ? "cursor-pointer hover:bg-accent/30" : ""}`}
                 onClick={handleTimeSort}
               >
                 Time (seconds){getSortIcon()}
@@ -81,17 +71,15 @@ function ChildTable({
           </TableHeader>
           <TableBody>
             {rows.map((row, index) => {
-              const childStops = row[childColumn.value] || [];
-              const isLastRow = index === rows.length - 1;
-              const lastChildIdx = childStops.length - 1;
+              const childStops = row[childColumn.value] || []
+              const isLastRow = index === rows.length - 1
+              const lastChildIdx = childStops.length - 1
 
               return childStops.map((childStop, childIdx) => {
-                const isLastChild = childIdx === lastChildIdx;
+                const isLastChild = childIdx === lastChildIdx
                 const isNullTime =
-                  childStop.shortest_time === null ||
-                  childStop.shortest_time === undefined;
-                const isClickable =
-                  typeof onChildRowClick === "function" && !isNullTime;
+                  childStop.shortest_time === null || childStop.shortest_time === undefined
+                const isClickable = typeof onChildRowClick === "function" && !isNullTime
 
                 return (
                   <TableRow
@@ -103,29 +91,21 @@ function ChildTable({
                           ? "opacity-60"
                           : undefined
                     }
-                    onClick={
-                      isClickable
-                        ? () => onChildRowClick({ row, childStop })
-                        : undefined
-                    }
+                    onClick={isClickable ? () => onChildRowClick({ row, childStop }) : undefined}
                     title={
-                      isClickable
-                        ? "Open in Flow"
-                        : isNullTime
-                          ? "No time interval"
-                          : undefined
+                      isClickable ? "Open in Flow" : isNullTime ? "No time interval" : undefined
                     }
                   >
                     {childIdx === 0 && (
                       <TableCell
-                        className={`p-2 border-b border-r whitespace-nowrap align-top ${isLastRow && isLastChild ? 'rounded-bl-md border-b-0' : ''}`}
+                        className={`p-2 border-b border-r whitespace-nowrap align-top ${isLastRow && isLastChild ? "rounded-bl-md border-b-0" : ""}`}
                         rowSpan={childStops.length}
                       >
                         <div className="flex items-center space-x-2">
                           <div
                             style={{
                               backgroundColor: rgbToHex(
-                                getStopColor(row.primaryLocationType, theme)
+                                getStopColor(row.primaryLocationType, theme),
                               ),
                             }}
                             className="w-2 h-2 rounded-full"
@@ -134,12 +114,14 @@ function ChildTable({
                         </div>
                       </TableCell>
                     )}
-                    <TableCell className={`p-2 border-b border-r whitespace-nowrap ${isLastRow && isLastChild ? 'border-b-0' : ''}`}>
+                    <TableCell
+                      className={`p-2 border-b border-r whitespace-nowrap ${isLastRow && isLastChild ? "border-b-0" : ""}`}
+                    >
                       <div className="flex items-center space-x-2">
                         <div
                           style={{
                             backgroundColor: rgbToHex(
-                              getStopColor(childStop.secondaryLocationType, theme)
+                              getStopColor(childStop.secondaryLocationType, theme),
                             ),
                           }}
                           className="w-2 h-2 rounded-full"
@@ -149,7 +131,9 @@ function ChildTable({
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className={`p-2 border-b text-left ${isLastRow && isLastChild ? 'rounded-br-md border-b-0' : ''}`}>
+                    <TableCell
+                      className={`p-2 border-b text-left ${isLastRow && isLastChild ? "rounded-br-md border-b-0" : ""}`}
+                    >
                       <div className="text-xs">
                         {typeof childStop.shortest_time === "number"
                           ? `${childStop.shortest_time}`
@@ -157,15 +141,15 @@ function ChildTable({
                       </div>
                     </TableCell>
                   </TableRow>
-                );
-              });
+                )
+              })
             })}
           </TableBody>
         </table>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
     </div>
-  );
+  )
 }
 
-export default ChildTable;
+export default ChildTable

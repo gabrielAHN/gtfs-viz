@@ -1,14 +1,14 @@
-import { Input } from "@/components/ui/input";
+import { Input } from "@/components/ui/input"
 
 type CoordinateInputProps = {
-  type: "lat" | "lon";
-  value: any;
-  onChange: (value: any) => void;
-  ref?: any;
-  disabled?: boolean;
-};
+  type: "lat" | "lon"
+  value: any
+  onChange: (value: any) => void
+  ref?: any
+  disabled?: boolean
+}
 
-const PLACEHOLDERS = { lat: "eg. 48.865", lon: "eg. 2.321" };
+const PLACEHOLDERS = { lat: "eg. 48.865", lon: "eg. 2.321" }
 
 /**
  * Number input for latitude or longitude values.
@@ -24,7 +24,7 @@ function CoordinateInput({ type, value, onChange, ref, disabled }: CoordinateInp
       onChange={onChange}
       disabled={disabled}
     />
-  );
+  )
 }
 
-export default CoordinateInput;
+export default CoordinateInput

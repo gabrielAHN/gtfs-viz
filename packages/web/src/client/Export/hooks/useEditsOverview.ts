@@ -1,18 +1,18 @@
-import { useQuery } from "@tanstack/react-query";
-import { useDuckDB } from "@/context/duckdb.client";
-import { executeQuery } from "@/lib/duckdb/QueryHelper";
-import { ensureRerouteEditColumns } from "@/lib/duckdb/DataEditing/rerouteTrip";
+import { useQuery } from "@tanstack/react-query"
+import { useDuckDB } from "@/context/duckdb.client"
+import { executeQuery } from "@/lib/duckdb/QueryHelper"
+import { ensureRerouteEditColumns } from "@/lib/duckdb/DataEditing/rerouteTrip"
 
 export interface EditsOverview {
-  trips: Record<string, any>[];
-  stopTimes: Record<string, any>[];
-  calendar: Record<string, any>[];
-  calendarDates: Record<string, any>[];
-  stops: Record<string, any>[];
-  pathways: Record<string, any>[];
-  routes: Record<string, any>[];
+  trips: Record<string, any>[]
+  stopTimes: Record<string, any>[]
+  calendar: Record<string, any>[]
+  calendarDates: Record<string, any>[]
+  stops: Record<string, any>[]
+  pathways: Record<string, any>[]
+  routes: Record<string, any>[]
   /** service_id → a route_id serving it, for deep-linking into /routes/service */
-  serviceRoute: Record<string, string>;
+  serviceRoute: Record<string, string>
 }
 
 /**
@@ -21,27 +21,27 @@ export interface EditsOverview {
  * appear shortly after they land in the shared DuckDB.
  */
 export function useEditsOverview() {
-  const duckDB = useDuckDB();
-  const conn = duckDB?.conn;
-  const initialized = duckDB?.initialized ?? false;
+  const duckDB = useDuckDB()
+  const conn = duckDB?.conn
+  const initialized = duckDB?.initialized ?? false
 
   return useQuery<EditsOverview>({
     queryKey: ["editsOverview"],
     enabled: !!conn && initialized,
     staleTime: 1000,
     queryFn: async () => {
-      await ensureRerouteEditColumns(conn);
+      await ensureRerouteEditColumns(conn)
       // Sequential (not Promise.all) — duckdb-wasm connections run one query at a time.
       const q = async (sql: string) => {
         try {
-          return await executeQuery(conn, sql);
+          return await executeQuery(conn, sql)
         } catch {
-          return [] as Record<string, any>[];
+          return [] as Record<string, any>[]
         }
-      };
+      }
       const trips = await q(
         "SELECT trip_id, route_id, service_id, trip_headsign, direction_id, status FROM EditTripsTable",
-      );
+      )
       const stopTimes = await q(
         `WITH summary AS (
            SELECT trip_id,
@@ -64,29 +64,29 @@ export function useEditsOverview() {
          LEFT JOIN trips donor ON donor.trip_id = summary.edit_source_trip_id
          LEFT JOIN RoutesView route ON route.route_id = donor.route_id
          ORDER BY summary.trip_id`,
-      );
+      )
       const calendar = await q(
         "SELECT service_id, monday, tuesday, wednesday, thursday, friday, saturday, sunday, start_date, end_date, status FROM EditCalendarTable ORDER BY service_id",
-      );
+      )
       const calendarDates = await q(
         "SELECT row_id, service_id, date, exception_type, status FROM EditCalendarDatesTable ORDER BY service_id, date",
-      );
+      )
       const stops = await q(
         "SELECT stop_id, stop_name, location_type_name, status FROM EditStopTable ORDER BY stop_id",
-      );
+      )
       const pathways = await q(
         "SELECT pathway_id, from_stop_id, to_stop_id, status FROM EditPathwayTable ORDER BY pathway_id",
-      );
+      )
       const routes = await q(
         "SELECT route_id, route_short_name, route_long_name, status FROM EditRouteTable ORDER BY route_id",
-      );
+      )
       const svcRoutes = await q(
         "SELECT DISTINCT service_id, route_id FROM TripsTable WHERE service_id IS NOT NULL AND route_id IS NOT NULL",
-      );
-      const serviceRoute: Record<string, string> = {};
-      for (const r of svcRoutes) serviceRoute[String(r.service_id)] = String(r.route_id);
+      )
+      const serviceRoute: Record<string, string> = {}
+      for (const r of svcRoutes) serviceRoute[String(r.service_id)] = String(r.route_id)
 
-      return { trips, stopTimes, calendar, calendarDates, stops, pathways, routes, serviceRoute };
+      return { trips, stopTimes, calendar, calendarDates, stops, pathways, routes, serviceRoute }
     },
-  });
+  })
 }

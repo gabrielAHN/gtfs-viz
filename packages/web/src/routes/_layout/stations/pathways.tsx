@@ -1,33 +1,33 @@
-import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
-import { useState, useCallback, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { BiMap, BiTable, BiInfoCircle, BiGridAlt, BiNetworkChart } from "react-icons/bi";
-import { useDuckDB } from "@/context/duckdb.client";
-import { fetchCheckStationInfo } from "@/lib/duckdb/DataFetching/fetchStationInfoData";
-import { fetchStationPathwaysComplete } from "@/lib/duckdb/DataFetching/pathways";
-import { TabHeader } from "@/components/ui/tab-header";
-import PageFooter from "@/components/PageFooter";
-import { EditIndicator } from "@/components/ui/EditIndicator";
-import { logger } from "@/lib/logger";
-import { usePathwaysNavigate } from "./pathways/-usePathwaysNavigate";
+import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router"
+import { useState, useCallback, useEffect } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { BiMap, BiTable, BiInfoCircle, BiGridAlt, BiNetworkChart } from "react-icons/bi"
+import { useDuckDB } from "@/context/duckdb.client"
+import { fetchCheckStationInfo } from "@/lib/duckdb/DataFetching/fetchStationInfoData"
+import { fetchStationPathwaysComplete } from "@/lib/duckdb/DataFetching/pathways"
+import { TabHeader } from "@/components/ui/tab-header"
+import PageFooter from "@/components/PageFooter"
+import { EditIndicator } from "@/components/ui/EditIndicator"
+import { logger } from "@/lib/logger"
+import { usePathwaysNavigate } from "./pathways/-usePathwaysNavigate"
 
 type PathwaysSearchParams = {
-  selectedStationId?: string;
-  selectedNodeId?: string;
-  selectedPathwayId?: string;
-  fromStop?: string;
-  toStop?: string;
-  wheelchairOnly?: boolean;
-  editTarget?: "node" | "pathway";
-};
+  selectedStationId?: string
+  selectedNodeId?: string
+  selectedPathwayId?: string
+  fromStop?: string
+  toStop?: string
+  wheelchairOnly?: boolean
+  editTarget?: "node" | "pathway"
+}
 
 const parseBooleanSearchParam = (value: unknown) => {
   if (value === undefined) {
-    return undefined;
+    return undefined
   }
 
-  return value !== false && value !== "false";
-};
+  return value !== false && value !== "false"
+}
 
 export const Route = createFileRoute("/_layout/stations/pathways")({
   component: StationPathwaysLayout,
@@ -43,23 +43,23 @@ export const Route = createFileRoute("/_layout/stations/pathways")({
         search.editTarget === "node" || search.editTarget === "pathway"
           ? search.editTarget
           : undefined,
-    };
+    }
   },
-});
+})
 
 function StationPathwaysLayout() {
-  const search = Route.useSearch();
-  const navigate = usePathwaysNavigate();
-  const location = useLocation();
-  const { conn, initialized } = useDuckDB();
+  const search = Route.useSearch()
+  const navigate = usePathwaysNavigate()
+  const location = useLocation()
+  const { conn, initialized } = useDuckDB()
 
-  const [Open, setOpen] = useState({ formType: null, state: false });
-  const [ClickInfo, setClickInfo] = useState();
-  const [MapViewState, setMapViewState] = useState(null);
+  const [Open, setOpen] = useState({ formType: null, state: false })
+  const [ClickInfo, setClickInfo] = useState()
+  const [MapViewState, setMapViewState] = useState(null)
 
-  const stationId = search.selectedStationId;
-  const selectedPathwayId = search.selectedPathwayId;
-  const isMapRoute = location.pathname.includes("/pathways/map/");
+  const stationId = search.selectedStationId
+  const selectedPathwayId = search.selectedPathwayId
+  const isMapRoute = location.pathname.includes("/pathways/map/")
 
   const {
     data: stationData,
@@ -69,39 +69,39 @@ function StationPathwaysLayout() {
     queryKey: ["fetchStationInfoData", stationId],
     queryFn: async () => {
       if (!stationId) {
-        throw new Error("No station ID provided");
+        throw new Error("No station ID provided")
       }
-      logger.log(`📍 Fetching station info for: ${stationId}`);
+      logger.log(`📍 Fetching station info for: ${stationId}`)
       return fetchCheckStationInfo({
         conn,
         stop_id: stationId,
-      });
+      })
     },
     enabled: !!conn && !!stationId && initialized,
     retry: false,
-  });
+  })
 
   const { data: pathwayDataComplete } = useQuery({
     queryKey: ["stationPathwaysComplete", stationId],
     queryFn: async () => {
       if (!stationId) {
-        throw new Error("No station ID provided");
+        throw new Error("No station ID provided")
       }
-      logger.log(`🔍 Fetching pathway data for station: ${stationId}`);
+      logger.log(`🔍 Fetching pathway data for station: ${stationId}`)
       const result = await fetchStationPathwaysComplete({
         conn,
         StationView: { stop_id: stationId },
-      });
+      })
       logger.log(`✅ Pathway data loaded:`, {
         connections: result.connections?.length || 0,
         stops: result.stops?.length || 0,
-      });
-      return result;
+      })
+      return result
     },
     enabled: !!conn && !!stationId && initialized,
     staleTime: Infinity,
     retry: false,
-  });
+  })
 
   const hasValidMapConnections =
     pathwayDataComplete?.connections?.some(
@@ -114,73 +114,73 @@ function StationPathwaysLayout() {
         conn.to_lat !== undefined &&
         conn.to_lon !== null &&
         conn.to_lon !== undefined,
-    ) ?? false;
-  const hasPathwayConnections = (pathwayDataComplete?.connections?.length ?? 0) > 0;
+    ) ?? false
+  const hasPathwayConnections = (pathwayDataComplete?.connections?.length ?? 0) > 0
   const hasTimeIntervalConnections =
     pathwayDataComplete?.connections?.some(
       (conn: any) =>
         conn.traversal_time !== null &&
         conn.traversal_time !== undefined &&
         conn.traversal_time !== "",
-    ) ?? false;
+    ) ?? false
   const pathwaysTabPath = hasValidMapConnections
     ? "/stations/pathways/map/directional"
-    : "/stations/pathways/flow/column";
-  const pathwayDataLoaded = Boolean(pathwayDataComplete);
+    : "/stations/pathways/flow/column"
+  const pathwayDataLoaded = Boolean(pathwayDataComplete)
 
   useEffect(() => {
     if (!pathwayDataComplete) {
-      return;
+      return
     }
 
     if (!hasPathwayConnections && isMapRoute) {
-      logger.log("⚠️ Disabled pathways sub-route, redirecting to flow view");
+      logger.log("⚠️ Disabled pathways sub-route, redirecting to flow view")
       navigate({
         to: "/stations/pathways/flow/column",
         search: (prev) => prev,
         replace: true,
-      });
-      return;
+      })
+      return
     }
 
     if (hasPathwayConnections && isMapRoute && !hasValidMapConnections) {
-      logger.log("⚠️ No valid map connections, redirecting to flow view");
+      logger.log("⚠️ No valid map connections, redirecting to flow view")
       navigate({
         to: "/stations/pathways/flow/column",
         search: (prev) => prev,
         replace: true,
-      });
+      })
     }
-  }, [hasPathwayConnections, hasValidMapConnections, isMapRoute, navigate, pathwayDataComplete]);
+  }, [hasPathwayConnections, hasValidMapConnections, isMapRoute, navigate, pathwayDataComplete])
 
   useEffect(() => {
     if (selectedPathwayId && pathwayDataComplete) {
       const pathway = pathwayDataComplete.connections?.find(
         (p: any) => p.pathway_id === selectedPathwayId,
-      );
+      )
       if (pathway) {
-        setClickInfo({ ...pathway });
+        setClickInfo({ ...pathway })
       }
     } else if (!selectedPathwayId && ClickInfo) {
-      setClickInfo(undefined);
+      setClickInfo(undefined)
     }
-  }, [selectedPathwayId, pathwayDataComplete, location.pathname]);
+  }, [selectedPathwayId, pathwayDataComplete, location.pathname])
 
   const handleSetClickInfo = useCallback(
     (value: any) => {
-      setClickInfo(value);
-      const clickData = value?.object || value;
-      const pathwayId = clickData?.pathway_id;
+      setClickInfo(value)
+      const clickData = value?.object || value
+      const pathwayId = clickData?.pathway_id
       navigate({
         search: (prev) => ({
           ...prev,
           selectedPathwayId: pathwayId || undefined,
         }),
         replace: true,
-      });
+      })
     },
     [navigate],
-  );
+  )
 
   if (!stationId) {
     return (
@@ -193,7 +193,7 @@ function StationPathwaysLayout() {
           Example: /stations/pathways?selectedStationId=place-chncl
         </div>
       </div>
-    );
+    )
   }
 
   if (stationError) {
@@ -202,11 +202,11 @@ function StationPathwaysLayout() {
         <div className="text-sm text-destructive">Error loading station data</div>
         <div className="text-xs text-muted-foreground mt-2">{String(stationError)}</div>
       </div>
-    );
+    )
   }
 
   if (!stationLoading && !stationData) {
-    return <div className="p-4">Error loading station information.</div>;
+    return <div className="p-4">Error loading station information.</div>
   }
 
   const MainTabs = [
@@ -222,33 +222,33 @@ function StationPathwaysLayout() {
       icon: <BiGridAlt />,
       path: `/stations/parts/map`,
     },
-  ];
+  ]
 
   MainTabs.push({
     value: "pathways",
     label: "Pathways",
     icon: <BiMap />,
     path: pathwaysTabPath,
-  });
+  })
 
   const mapTab = {
     value: "map",
     label: "Map",
     icon: <BiMap className="w-5" />,
     path: "/stations/pathways/map/directional",
-  };
+  }
   const flowTab = {
     value: "flow",
     label: "Flow",
     icon: <BiNetworkChart className="w-5" />,
     path: "/stations/pathways/flow/column",
-  };
+  }
   const tableTab = {
     value: "table",
     label: "Table",
     icon: <BiTable className="w-5" />,
     path: "/stations/pathways/table/start",
-  };
+  }
 
   const ToggleTabs = pathwayDataLoaded
     ? [
@@ -267,7 +267,7 @@ function StationPathwaysLayout() {
             ]
           : []),
       ]
-    : [mapTab, flowTab, tableTab];
+    : [mapTab, flowTab, tableTab]
 
   const MapSubTabs = [
     {
@@ -285,12 +285,12 @@ function StationPathwaysLayout() {
       label: "Pathway Types",
       path: `/stations/pathways/map/pathwayTypes`,
     },
-  ];
+  ]
 
   const TableSubTabs = [
     { value: "start", label: "Start", path: `/stations/pathways/table/start` },
     { value: "end", label: "End", path: `/stations/pathways/table/end` },
-  ];
+  ]
 
   const FlowSubTabs = [
     {
@@ -303,8 +303,8 @@ function StationPathwaysLayout() {
       label: "Radial",
       path: `/stations/pathways/flow/radial`,
     },
-  ];
-  const stationName = stationData?.stop_name ?? stationId;
+  ]
+  const stationName = stationData?.stop_name ?? stationId
 
   return (
     <div className="p-4">
@@ -376,5 +376,5 @@ function StationPathwaysLayout() {
 
       <PageFooter />
     </div>
-  );
+  )
 }

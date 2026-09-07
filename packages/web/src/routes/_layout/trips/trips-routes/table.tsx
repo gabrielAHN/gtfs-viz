@@ -1,16 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { tablePaginationSearch } from "@/lib/tablePagination";
+import { createFileRoute } from "@tanstack/react-router"
+import { tablePaginationSearch } from "@/lib/tablePagination"
 
 type TripsTableSearchParams = {
-  tripId?: string;
-  routeId?: string;
-  routeType?: string[];
-  selectedTripId?: string;
-  view?: string;
-  compareTripIds?: string;
-  page?: number;
-  pageSize?: number;
-};
+  tripId?: string
+  routeId?: string
+  routeType?: string[]
+  selectedTripId?: string
+  view?: string
+  compareTripIds?: string
+  page?: number
+  pageSize?: number
+}
 
 export const Route = createFileRoute("/_layout/trips/trips-routes/table")({
   validateSearch: (search: Record<string, unknown>): TripsTableSearchParams => {
@@ -26,6 +26,6 @@ export const Route = createFileRoute("/_layout/trips/trips-routes/table")({
       view: search.view as string | undefined,
       compareTripIds: search.compareTripIds as string | undefined,
       ...tablePaginationSearch(search),
-    };
+    }
   },
-});
+})

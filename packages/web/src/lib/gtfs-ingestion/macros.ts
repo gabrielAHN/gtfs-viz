@@ -1,5 +1,3 @@
-
-
 export const GTFS_ENUM_MACROS = `
 -- location_type_to_name: Convert GTFS location_type integer to human-readable name
 CREATE OR REPLACE MACRO location_type_to_name(location_type, parent_station) AS (
@@ -56,4 +54,4 @@ CREATE OR REPLACE MACRO gtfs_time_to_seconds(time_str) AS (
        + COALESCE(TRY_CAST(SPLIT_PART(time_str, ':', 3) AS INTEGER), 0)
   END
 );
-`;
+`
