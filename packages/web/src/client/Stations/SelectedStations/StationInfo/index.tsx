@@ -1,34 +1,34 @@
-import { useState } from "react";
+import { useState } from "react"
 
-import { useMutation } from "@tanstack/react-query";
-import { mutationDeleteStationFn } from "@/lib/duckdb/DataEditing/editingFn";
-import { useRouter } from "@tanstack/react-router";
+import { useMutation } from "@tanstack/react-query"
+import { mutationDeleteStationFn } from "@/lib/duckdb/DataEditing/editingFn"
+import { useRouter } from "@tanstack/react-router"
 
-import { useDuckDB } from "@/context/duckdb.client";
-import { EditButton, DeleteButton } from "@/components/ui/ActionButtons";
-import EntityForm from "@/components/forms/EntityForm";
-import PopupTable from "@/components/table/PopupTable";
-import { RouteChipsForStop } from "@/components/routes/RouteChips";
+import { useDuckDB } from "@/context/duckdb.client"
+import { EditButton, DeleteButton } from "@/components/ui/ActionButtons"
+import EntityForm from "@/components/forms/EntityForm"
+import PopupTable from "@/components/table/PopupTable"
+import { RouteChipsForStop } from "@/components/routes/RouteChips"
 
 function StationInfo({ Data }) {
-  const router = useRouter();
-  const duckDB = useDuckDB();
-  const conn = duckDB?.conn;
-  const hasStopTimes = duckDB?.hasStopTimes ?? false;
-  const [Open, setOpen] = useState({ formType: null, state: false });
-  const [isFormMutating, setIsFormMutating] = useState(false);
+  const router = useRouter()
+  const duckDB = useDuckDB()
+  const conn = duckDB?.conn
+  const hasStopTimes = duckDB?.hasStopTimes ?? false
+  const [Open, setOpen] = useState({ formType: null, state: false })
+  const [isFormMutating, setIsFormMutating] = useState(false)
 
   const mutation = useMutation({
     mutationFn: async () => {
       await mutationDeleteStationFn({
         conn: conn,
         SelectStation: Data,
-      });
+      })
     },
     onSuccess: () => {
-      router.navigate({ to: "/stations" });
+      router.navigate({ to: "/stations" })
     },
-  });
+  })
 
   return (
     <div className="w-full p-1">
@@ -82,7 +82,7 @@ function StationInfo({ Data }) {
         </div>
       )}
     </div>
-  );
+  )
 }
 
-export default StationInfo;
+export default StationInfo

@@ -1,24 +1,24 @@
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useDuckDB } from "@/context/duckdb.client";
+import { useState, useEffect } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { useDuckDB } from "@/context/duckdb.client"
 
-import { BiDownload } from "react-icons/bi";
-import { Button } from "@/components/ui/button";
+import { BiDownload } from "react-icons/bi"
+import { Button } from "@/components/ui/button"
 
-import { exportingData } from "@/lib/duckdb/DataExporting/exportingData";
+import { exportingData } from "@/lib/duckdb/DataExporting/exportingData"
 
-import StopsTable from "./components/StopsTable";
-import PathwaysTable from "./components/PathwaysTable";
-import RoutesTable from "./components/RoutesTable";
-import StopTimesTable from "./components/StopTimesTable";
-import CalendarTable from "./components/CalendarTable";
-import CalendarDatesTable from "./components/CalendarDatesTable";
-import TripsEditTable from "./components/TripsEditTable";
-import ChangeSummary from "./components/ChangeSummary";
-import CategoryView from "./CategoryView";
-import { useEditsOverview } from "./hooks/useEditsOverview";
+import StopsTable from "./components/StopsTable"
+import PathwaysTable from "./components/PathwaysTable"
+import RoutesTable from "./components/RoutesTable"
+import StopTimesTable from "./components/StopTimesTable"
+import CalendarTable from "./components/CalendarTable"
+import CalendarDatesTable from "./components/CalendarDatesTable"
+import TripsEditTable from "./components/TripsEditTable"
+import ChangeSummary from "./components/ChangeSummary"
+import CategoryView from "./CategoryView"
+import { useEditsOverview } from "./hooks/useEditsOverview"
 
-type ExportView = "category" | "table";
+type ExportView = "category" | "table"
 
 function Export({
   view,
@@ -26,24 +26,24 @@ function Export({
   compareView,
   onViewChange,
 }: {
-  view: ExportView;
-  selectedTripId?: string;
-  compareView: "table" | "map";
-  onViewChange: (view: ExportView) => void;
+  view: ExportView
+  selectedTripId?: string
+  compareView: "table" | "map"
+  onViewChange: (view: ExportView) => void
 }) {
-  const [FileTypes, setFileTypes] = useState({});
-  const duckDB = useDuckDB();
-  const { conn } = duckDB || {};
-  const { data: editsOverview, isLoading: editsOverviewLoading } = useEditsOverview();
+  const [FileTypes, setFileTypes] = useState({})
+  const duckDB = useDuckDB()
+  const { conn } = duckDB || {}
+  const { data: editsOverview, isLoading: editsOverviewLoading } = useEditsOverview()
 
   const { isLoading: exportLoading, refetch } = useQuery({
     queryKey: ["ExportingData", FileTypes],
     queryFn: () => exportingData({ conn, FileTypes }),
     enabled: false,
     staleTime: 0,
-  });
+  })
 
-  const EditsStatus = Object.values(FileTypes).some((value) => value === true);
+  const EditsStatus = Object.values(FileTypes).some((value) => value === true)
   const pendingEditCount = editsOverview
     ? editsOverview.trips.length +
       editsOverview.stopTimes.length +
@@ -52,31 +52,31 @@ function Export({
       editsOverview.stops.length +
       editsOverview.pathways.length +
       editsOverview.routes.length
-    : 0;
-  const hasPendingEdits = pendingEditCount > 0;
-  const canChooseView = !editsOverviewLoading && hasPendingEdits;
+    : 0
+  const hasPendingEdits = pendingEditCount > 0
+  const canChooseView = !editsOverviewLoading && hasPendingEdits
 
   useEffect(() => {
     if (!editsOverviewLoading && !hasPendingEdits && view !== "category") {
-      onViewChange("category");
+      onViewChange("category")
     }
-  }, [editsOverviewLoading, hasPendingEdits, onViewChange, view]);
+  }, [editsOverviewLoading, hasPendingEdits, onViewChange, view])
 
   useEffect(() => {
     if (exportLoading && duckDB) {
-      duckDB.setIsResetting(true);
-      duckDB.setLoadingMessage("Exporting data...");
-      duckDB.setLoadingSubMessage("Preparing GTFS files for download");
+      duckDB.setIsResetting(true)
+      duckDB.setLoadingMessage("Exporting data...")
+      duckDB.setLoadingSubMessage("Preparing GTFS files for download")
     } else if (!exportLoading && duckDB) {
-      duckDB.setIsResetting(false);
-      duckDB.setLoadingMessage("");
-      duckDB.setLoadingSubMessage("");
+      duckDB.setIsResetting(false)
+      duckDB.setLoadingMessage("")
+      duckDB.setLoadingSubMessage("")
     }
-  }, [exportLoading, duckDB]);
+  }, [exportLoading, duckDB])
 
   const handleExport = async () => {
-    await refetch();
-  };
+    await refetch()
+  }
 
   const tabBtn = (key: ExportView, label: string) => (
     <Button
@@ -90,7 +90,7 @@ function Export({
     >
       {label}
     </Button>
-  );
+  )
 
   return (
     <div>
@@ -148,7 +148,7 @@ function Export({
         </>
       )}
     </div>
-  );
+  )
 }
 
-export default Export;
+export default Export

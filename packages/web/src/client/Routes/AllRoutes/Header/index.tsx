@@ -1,23 +1,27 @@
-import { BiPlus, BiReset } from "react-icons/bi";
-import Combobox from "@/components/ui/combobox";
-import { MultiSelect } from "@/components/ui/multiselect";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import React from "react";
+import { BiPlus, BiReset } from "react-icons/bi"
+import Combobox from "@/components/ui/combobox"
+import { MultiSelect } from "@/components/ui/multiselect"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import React from "react"
 
 interface HeaderProps {
-  setOpen: (openState: { formType: string; state: boolean }) => void;
-  RouteIdData: Array<{ label: string; value: string; color?: string }>;
-  RouteIdDropdown: string;
-  setRouteIdDropdown: (value: string) => void;
-  RouteNameData: Array<{ label: string; value?: string; searchLabel?: string }>;
-  RouteNameDropDown: string;
-  setRouteNameDropDown: (value: string) => void;
-  RouteTypeData: Array<{ label: string; value: string; color?: string }>;
-  RouteTypeDropDown: string[];
-  setRouteTypeDropDown: (values: string[]) => void;
-  onResetFilters?: () => void;
-  isResetDisabled?: boolean;
+  setOpen: (openState: { formType: string; state: boolean }) => void
+  RouteIdData: Array<{ label: string; value: string; color?: string }>
+  RouteIdDropdown: string
+  setRouteIdDropdown: (value: string) => void
+  RouteNameData: Array<{ label: string; value?: string; searchLabel?: string }>
+  RouteNameDropDown: string
+  setRouteNameDropDown: (value: string) => void
+  RouteTypeData: Array<{ label: string; value: string; color?: string }>
+  RouteTypeDropDown: string[]
+  setRouteTypeDropDown: (values: string[]) => void
+  showBrand?: boolean
+  RouteBrandData?: Array<{ label: string; value: string }>
+  RouteBrandDropDown?: string[]
+  setRouteBrandDropDown?: (values: string[]) => void
+  onResetFilters?: () => void
+  isResetDisabled?: boolean
 }
 
 const Header: React.FC<HeaderProps> = (props) => {
@@ -32,29 +36,36 @@ const Header: React.FC<HeaderProps> = (props) => {
     RouteTypeData,
     RouteTypeDropDown,
     setRouteTypeDropDown,
+    showBrand,
+    RouteBrandData,
+    RouteBrandDropDown,
+    setRouteBrandDropDown,
     onResetFilters,
     isResetDisabled: isResetDisabledProp,
-  } = props;
+  } = props
+
+  const brandVisible = Boolean(showBrand && setRouteBrandDropDown && RouteBrandData)
 
   const isResetDisabled =
     isResetDisabledProp !== undefined
       ? isResetDisabledProp
       : (!RouteIdDropdown || RouteIdDropdown.trim() === "") &&
         (!RouteNameDropDown || RouteNameDropDown.trim() === "") &&
-        (!RouteTypeDropDown || RouteTypeDropDown.length === 0);
+        (!RouteTypeDropDown || RouteTypeDropDown.length === 0)
 
   const handleReset = () => {
-    setRouteIdDropdown("");
-    setRouteNameDropDown("");
-    setRouteTypeDropDown([]);
+    setRouteIdDropdown("")
+    setRouteNameDropDown("")
+    setRouteTypeDropDown([])
+    if (setRouteBrandDropDown) setRouteBrandDropDown([])
     if (onResetFilters) {
-      onResetFilters();
+      onResetFilters()
     }
-  };
+  }
 
   const handleOpen = ({ formType }: { formType: string }) => {
-    setOpen({ formType, state: true });
-  };
+    setOpen({ formType, state: true })
+  }
 
   return (
     <div className="flex flex-col gap-4 mt-2">
@@ -77,11 +88,19 @@ const Header: React.FC<HeaderProps> = (props) => {
           Reset
         </Button>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-1">
+      <div
+        className={`grid grid-cols-1 sm:grid-cols-2 gap-2 mb-1 ${
+          brandVisible ? "lg:grid-cols-4" : "lg:grid-cols-3"
+        }`}
+      >
         <div className="col-span-1">
           {RouteNameData ? (
             <Combobox
-              options={RouteNameData.map((item) => ({ value: item.value || item.label, label: item.label, searchLabel: item.searchLabel }))}
+              options={RouteNameData.map((item) => ({
+                value: item.value || item.label,
+                label: item.label,
+                searchLabel: item.searchLabel,
+              }))}
               Message="Route Name"
               value={RouteNameDropDown}
               setValue={(val) => setRouteNameDropDown(val || "")}
@@ -114,9 +133,19 @@ const Header: React.FC<HeaderProps> = (props) => {
             <Skeleton className="h-12 rounded-md" />
           )}
         </div>
+        {brandVisible && (
+          <div className="col-span-1">
+            <MultiSelect
+              options={RouteBrandData!}
+              onValueChange={(newValue) => setRouteBrandDropDown!(newValue)}
+              defaultValue={RouteBrandDropDown || []}
+              placeholder="Brand"
+            />
+          </div>
+        )}
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default Header;
+export default Header

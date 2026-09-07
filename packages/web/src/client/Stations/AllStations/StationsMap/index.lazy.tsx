@@ -1,8 +1,7 @@
+import { lazy, Suspense } from "react"
+import { Skeleton } from "@/components/ui/skeleton"
 
-import { lazy, Suspense } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
-
-const StationsMapLazy = lazy(() => import('./index'));
+const StationsMapLazy = lazy(() => import("./index"))
 
 export default function StationsMap(props: any) {
   return (
@@ -18,5 +17,5 @@ export default function StationsMap(props: any) {
     >
       <StationsMapLazy {...props} />
     </Suspense>
-  );
+  )
 }

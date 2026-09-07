@@ -1,29 +1,29 @@
-import { BiPlus, BiReset } from "react-icons/bi";
-import Combobox from "@/components/ui/combobox";
-import { MultiSelect } from "@/components/ui/multiselect";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import React from "react";
+import { BiPlus, BiReset } from "react-icons/bi"
+import Combobox from "@/components/ui/combobox"
+import { MultiSelect } from "@/components/ui/multiselect"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import React from "react"
 
 interface HeaderProps {
-  setOpen: (openState: { formType: string; state: boolean }) => void;
-  StopsIdData: Array<{ label: string }>;
-  StopIdDropdown: string;
-  setStopIdDropdown: (value: string) => void;
-  StopsNameData: Array<{ label: string }>;
-  StopNameDropDown: string;
-  setStopNameDropDown: (value: string) => void;
-  PathwaysStatusData: Array<{ label: string; value: string }>;
-  PathwaysStatusDropDown: string[];
-  setPathwaysStatusDropDown: (values: string[]) => void;
-  WheelChairStatusData: Array<{ label: string; value: string }>;
-  WheelChairStatusDropDown: string[];
-  setWheelChairStatusDropDown: (values: string[]) => void;
-  EditStatusDropDown?: string[];
-  setEditStatusDropDown?: (values: string[]) => void;
-  onResetFilters?: () => void;
-  isResetDisabled?: boolean;
-  hasEditedItems?: boolean;
+  setOpen: (openState: { formType: string; state: boolean }) => void
+  StopsIdData: Array<{ label: string }>
+  StopIdDropdown: string
+  setStopIdDropdown: (value: string) => void
+  StopsNameData: Array<{ label: string }>
+  StopNameDropDown: string
+  setStopNameDropDown: (value: string) => void
+  PathwaysStatusData: Array<{ label: string; value: string }>
+  PathwaysStatusDropDown: string[]
+  setPathwaysStatusDropDown: (values: string[]) => void
+  WheelChairStatusData: Array<{ label: string; value: string }>
+  WheelChairStatusDropDown: string[]
+  setWheelChairStatusDropDown: (values: string[]) => void
+  EditStatusDropDown?: string[]
+  setEditStatusDropDown?: (values: string[]) => void
+  onResetFilters?: () => void
+  isResetDisabled?: boolean
+  hasEditedItems?: boolean
 }
 
 const Header: React.FC<HeaderProps> = (props) => {
@@ -45,31 +45,32 @@ const Header: React.FC<HeaderProps> = (props) => {
     setEditStatusDropDown,
     onResetFilters,
     isResetDisabled: isResetDisabledProp,
-    hasEditedItems = false
-  } = props;
+    hasEditedItems = false,
+  } = props
 
   const handleOpen = ({ formType }: { formType: string }) => {
-    setOpen({ formType, state: true });
-  };
+    setOpen({ formType, state: true })
+  }
 
   const isResetDisabled =
-    isResetDisabledProp !== undefined ? isResetDisabledProp :
-    (!StopIdDropdown || StopIdDropdown.trim() === "") &&
-    (!StopNameDropDown || StopNameDropDown.trim() === "") &&
-    (!PathwaysStatusDropDown || PathwaysStatusDropDown.length === 0) &&
-    (!WheelChairStatusDropDown || WheelChairStatusDropDown.length === 0) &&
-    (!EditStatusDropDown || EditStatusDropDown.length === 0);
+    isResetDisabledProp !== undefined
+      ? isResetDisabledProp
+      : (!StopIdDropdown || StopIdDropdown.trim() === "") &&
+        (!StopNameDropDown || StopNameDropDown.trim() === "") &&
+        (!PathwaysStatusDropDown || PathwaysStatusDropDown.length === 0) &&
+        (!WheelChairStatusDropDown || WheelChairStatusDropDown.length === 0) &&
+        (!EditStatusDropDown || EditStatusDropDown.length === 0)
 
   const handleReset = () => {
-    setStopIdDropdown("");
-    setStopNameDropDown("");
-    setPathwaysStatusDropDown([]);
-    setWheelChairStatusDropDown([]);
-    setEditStatusDropDown?.([]);
+    setStopIdDropdown("")
+    setStopNameDropDown("")
+    setPathwaysStatusDropDown([])
+    setWheelChairStatusDropDown([])
+    setEditStatusDropDown?.([])
     if (onResetFilters) {
-      onResetFilters();
+      onResetFilters()
     }
-  };
+  }
 
   return (
     <div className="flex flex-col gap-4 mt-2">
@@ -93,7 +94,9 @@ const Header: React.FC<HeaderProps> = (props) => {
           Reset
         </Button>
       </div>
-      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${hasEditedItems ? 'xl:grid-cols-5' : 'xl:grid-cols-4'} gap-2 mb-1`}>
+      <div
+        className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${hasEditedItems ? "xl:grid-cols-5" : "xl:grid-cols-4"} gap-2 mb-1`}
+      >
         <div className="col-span-1">
           {StopsNameData ? (
             <Combobox
@@ -157,7 +160,7 @@ const Header: React.FC<HeaderProps> = (props) => {
         )}
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default Header;
+export default Header

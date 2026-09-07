@@ -1,5 +1,5 @@
-import type { DragEvent, PointerEvent, RefObject } from "react";
-import { useEffect } from "react";
+import type { DragEvent, PointerEvent, RefObject } from "react"
+import { useEffect } from "react"
 import {
   Background,
   ConnectionLineType,
@@ -7,68 +7,68 @@ import {
   Controls,
   ReactFlow,
   useUpdateNodeInternals,
-} from "@xyflow/react";
+} from "@xyflow/react"
 
-import { FlowLegendPanel } from "./FlowLegendPanel";
-import { OrphanConnectionsSidebar } from "../sidebar/OrphanConnectionsSidebar";
-import { edgeTypes, nodeTypes } from "../core/shared";
+import { FlowLegendPanel } from "./FlowLegendPanel"
+import { OrphanConnectionsSidebar } from "../sidebar/OrphanConnectionsSidebar"
+import { edgeTypes, nodeTypes } from "../core/shared"
 
 type FlowCanvasPaneProps = {
-  viewMode: "column" | "radial";
-  theme: string;
-  handleCanvasPointerDownCapture: (event: PointerEvent<HTMLDivElement>) => void;
-  hasOrphanConnectionsSidebar: boolean;
-  sidebarOpen: boolean;
-  setSidebarOpen: (value: boolean) => void;
-  availableOrphanConnections: any[];
-  orphanPathwayIdFilter?: string;
-  setOrphanPathwayIdFilter: (value?: string) => void;
-  orphanPathwayIdOptions: Array<{ value: string; label: string }>;
-  orphanPathwayTypeFilter: string;
-  setOrphanPathwayTypeFilter: (value: string) => void;
-  orphanPathwayTypeOptions: string[];
-  filteredAvailableOrphanConnections: any[];
-  activeDetachedConnectionDraftPathwayId: string | null;
-  detachedConnectionDrafts: any[];
-  startDetachedConnectionRepair: (connection: any) => void;
-  displayNodes: any[];
-  displayEdges: any[];
-  onCanvasDragOver: (event: DragEvent) => void;
-  onCanvasDrop: (event: DragEvent) => void;
-  handleNodesChange: (...args: any[]) => void;
-  onEdgesChange: (...args: any[]) => void;
-  onInit: (...args: any[]) => void;
-  handleNodeDragStop: (...args: any[]) => void;
-  onEdgeClick: (...args: any[]) => void;
-  onNodeClick: (...args: any[]) => void;
-  onPaneClick: (...args: any[]) => void;
-  onConnect: (...args: any[]) => void;
-  onReconnect: (...args: any[]) => void;
-  legendRef: RefObject<HTMLDivElement | null>;
-  legendOpen: boolean;
-  setLegendOpen: (value: boolean) => void;
-  pathwayLegendItems: Array<{ label: string; color: string }>;
-  stopLegendItems: Array<{ label: string; color: string }>;
-};
+  viewMode: "column" | "radial"
+  theme: string
+  handleCanvasPointerDownCapture: (event: PointerEvent<HTMLDivElement>) => void
+  hasOrphanConnectionsSidebar: boolean
+  sidebarOpen: boolean
+  setSidebarOpen: (value: boolean) => void
+  availableOrphanConnections: any[]
+  orphanPathwayIdFilter?: string
+  setOrphanPathwayIdFilter: (value?: string) => void
+  orphanPathwayIdOptions: Array<{ value: string; label: string }>
+  orphanPathwayTypeFilter: string
+  setOrphanPathwayTypeFilter: (value: string) => void
+  orphanPathwayTypeOptions: string[]
+  filteredAvailableOrphanConnections: any[]
+  activeDetachedConnectionDraftPathwayId: string | null
+  detachedConnectionDrafts: any[]
+  startDetachedConnectionRepair: (connection: any) => void
+  displayNodes: any[]
+  displayEdges: any[]
+  onCanvasDragOver: (event: DragEvent) => void
+  onCanvasDrop: (event: DragEvent) => void
+  handleNodesChange: (...args: any[]) => void
+  onEdgesChange: (...args: any[]) => void
+  onInit: (...args: any[]) => void
+  handleNodeDragStop: (...args: any[]) => void
+  onEdgeClick: (...args: any[]) => void
+  onNodeClick: (...args: any[]) => void
+  onPaneClick: (...args: any[]) => void
+  onConnect: (...args: any[]) => void
+  onReconnect: (...args: any[]) => void
+  legendRef: RefObject<HTMLDivElement | null>
+  legendOpen: boolean
+  setLegendOpen: (value: boolean) => void
+  pathwayLegendItems: Array<{ label: string; color: string }>
+  stopLegendItems: Array<{ label: string; color: string }>
+}
 
 function FlowCanvasHandleSync({
   nodeIds,
   viewMode,
 }: {
-  nodeIds: string[];
-  viewMode: "column" | "radial";
+  nodeIds: string[]
+  viewMode: "column" | "radial"
 }) {
-  const updateNodeInternals = useUpdateNodeInternals();
+  const updateNodeInternals = useUpdateNodeInternals()
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
-      nodeIds.forEach((nodeId) => updateNodeInternals(nodeId));
-    });
+      nodeIds.forEach((nodeId) => updateNodeInternals(nodeId))
+    })
 
-    return () => cancelAnimationFrame(frame);
-  }, [nodeIds, updateNodeInternals, viewMode]);
+    return () => cancelAnimationFrame(frame)
+  }, [nodeIds, updateNodeInternals, viewMode])
 
-  return null;
+  return null
 }
 
 export function FlowCanvasPane({
@@ -126,9 +126,7 @@ export function FlowCanvasPane({
         setOrphanPathwayTypeFilter={setOrphanPathwayTypeFilter}
         orphanPathwayTypeOptions={orphanPathwayTypeOptions}
         filteredAvailableOrphanConnections={filteredAvailableOrphanConnections}
-        activeDetachedConnectionDraftPathwayId={
-          activeDetachedConnectionDraftPathwayId
-        }
+        activeDetachedConnectionDraftPathwayId={activeDetachedConnectionDraftPathwayId}
         detachedConnectionDrafts={detachedConnectionDrafts}
         startDetachedConnectionRepair={startDetachedConnectionRepair}
       />
@@ -293,9 +291,7 @@ export function FlowCanvasPane({
         onReconnect={onReconnect}
         edgesReconnectable
         isValidConnection={(connection) =>
-          !!connection.source &&
-          !!connection.target &&
-          connection.source !== connection.target
+          !!connection.source && !!connection.target && connection.source !== connection.target
         }
         nodesFocusable
         selectNodesOnDrag={false}
@@ -317,5 +313,5 @@ export function FlowCanvasPane({
         stopLegendItems={stopLegendItems}
       />
     </div>
-  );
+  )
 }

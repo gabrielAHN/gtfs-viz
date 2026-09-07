@@ -1,80 +1,80 @@
-import { useEffect, useState } from "react";
-import { Accessibility } from "lucide-react";
-import { rgbToHex } from "@/components/colorUtil";
-import Combobox from "@/components/ui/combobox";
-import { Button } from "@/components/ui/button";
-import { BiHide, BiShow, BiReset } from "react-icons/bi";
-import { MultiSelect } from "@/components/ui/multiselect";
-import { Skeleton } from "@/components/ui/skeleton";
-import { SmartRangeSlider } from "@/components/ui/SmartRangeSlider";
-import { Switch } from "@/components/ui/switch";
-import { getPathwayColor, getStopColor } from "@/components/style";
-import { useThemeContext } from "@/context/theme.client";
+import { useEffect, useState } from "react"
+import { Accessibility } from "lucide-react"
+import { rgbToHex } from "@/components/colorUtil"
+import Combobox from "@/components/ui/combobox"
+import { Button } from "@/components/ui/button"
+import { BiHide, BiShow, BiReset } from "react-icons/bi"
+import { MultiSelect } from "@/components/ui/multiselect"
+import { Skeleton } from "@/components/ui/skeleton"
+import { SmartRangeSlider } from "@/components/ui/SmartRangeSlider"
+import { Switch } from "@/components/ui/switch"
+import { getPathwayColor, getStopColor } from "@/components/style"
+import { useThemeContext } from "@/context/theme.client"
 
 const getNullButtonLabel = (hasNullConnections: boolean, isHidden: boolean): string => {
   if (!hasNullConnections) {
-    return "No Null Connections";
+    return "No Null Connections"
   }
-  return isHidden ? "Show Null Connections" : "Showing Null Connections";
-};
+  return isHidden ? "Show Null Connections" : "Showing Null Connections"
+}
 
 interface PathwaysHeaderProps {
-  mode: "map" | "table";
-  isLoading?: boolean;
+  mode: "map" | "table"
+  isLoading?: boolean
 
-  connectionType?: "directional" | "timeInterval" | "PathwayTypes";
-  ToStopsData?: any[];
-  ToStop?: any;
-  setToStop?: (value: any) => void;
-  fromStopsData?: any[];
-  FromStop?: any;
-  setFromStop?: (value: any) => void;
-  EmptyArcs?: boolean;
-  setEmptyArcs?: (value: boolean) => void;
-  hasNullConnections?: boolean;
-  DirectionData?: any[];
-  DirectionTypes?: any;
-  setDirectionTypes?: (value: any) => void;
-  pathwayTypeData?: any[];
-  PathwayTypes?: any[];
-  setPathwayTypes?: (value: any[]) => void;
-  ShowOnlyConnected?: boolean;
-  setShowOnlyConnected?: (value: boolean) => void;
+  connectionType?: "directional" | "timeInterval" | "PathwayTypes"
+  ToStopsData?: any[]
+  ToStop?: any
+  setToStop?: (value: any) => void
+  fromStopsData?: any[]
+  FromStop?: any
+  setFromStop?: (value: any) => void
+  EmptyArcs?: boolean
+  setEmptyArcs?: (value: boolean) => void
+  hasNullConnections?: boolean
+  DirectionData?: any[]
+  DirectionTypes?: any
+  setDirectionTypes?: (value: any) => void
+  pathwayTypeData?: any[]
+  PathwayTypes?: any[]
+  setPathwayTypes?: (value: any[]) => void
+  ShowOnlyConnected?: boolean
+  setShowOnlyConnected?: (value: boolean) => void
 
-  viewType?: "start" | "end";
-  EmptyConnect?: boolean;
-  setEmptyConnect?: (value: boolean) => void;
-  StartDropdown?: any;
-  setStartDropdown?: (value: any) => void;
-  EndDropdown?: any;
-  setEndDropdown?: (value: any) => void;
-  StartStops?: any[];
-  setStartStops?: (value: any[]) => void;
-  EndStops?: any[];
-  setEndStops?: (value: any[]) => void;
-  StartStopTypes?: any[];
-  setStartStopTypes?: (value: any[]) => void;
-  StartStopTypesDropdown?: any[];
-  setStartStopTypesDropdown?: (value: any[]) => void;
-  EndStopTypes?: any[];
-  setEndStopTypes?: (value: any[]) => void;
-  EndStopTypesDropdown?: any[];
-  setEndStopTypesDropdown?: (value: any[]) => void;
-  hasNullConnections?: boolean;
-  wheelchairAccessibleOnly?: boolean;
-  onWheelchairAccessibleOnlyChange?: (value: boolean) => void;
-  showWheelchairAccessibleSwitch?: boolean;
-  hasTimedConnections?: boolean;
+  viewType?: "start" | "end"
+  EmptyConnect?: boolean
+  setEmptyConnect?: (value: boolean) => void
+  StartDropdown?: any
+  setStartDropdown?: (value: any) => void
+  EndDropdown?: any
+  setEndDropdown?: (value: any) => void
+  StartStops?: any[]
+  setStartStops?: (value: any[]) => void
+  EndStops?: any[]
+  setEndStops?: (value: any[]) => void
+  StartStopTypes?: any[]
+  setStartStopTypes?: (value: any[]) => void
+  StartStopTypesDropdown?: any[]
+  setStartStopTypesDropdown?: (value: any[]) => void
+  EndStopTypes?: any[]
+  setEndStopTypes?: (value: any[]) => void
+  EndStopTypesDropdown?: any[]
+  setEndStopTypesDropdown?: (value: any[]) => void
+  hasNullConnections?: boolean
+  wheelchairAccessibleOnly?: boolean
+  onWheelchairAccessibleOnlyChange?: (value: boolean) => void
+  showWheelchairAccessibleSwitch?: boolean
+  hasTimedConnections?: boolean
 
-  timeIntervalRanges?: any[];
-  timeIntervalValues?: number[];
-  showTimeRangeSlider?: boolean;
-  TimeRange?: [number, number];
-  defaultTimeRange?: [number, number];
-  setTimeRange?: (value: [number, number] | undefined | { exclude: number }) => void;
-  ExcludeTime?: number;
-  onReset?: () => void;
-  sliderResetKey?: string | number;
+  timeIntervalRanges?: any[]
+  timeIntervalValues?: number[]
+  showTimeRangeSlider?: boolean
+  TimeRange?: [number, number]
+  defaultTimeRange?: [number, number]
+  setTimeRange?: (value: [number, number] | undefined | { exclude: number }) => void
+  ExcludeTime?: number
+  onReset?: () => void
+  sliderResetKey?: string | number
 }
 
 function PathwaysHeader(props: PathwaysHeaderProps) {
@@ -92,62 +92,92 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
     FromStop,
     StartDropdown,
     EndDropdown,
-    sliderResetKey = 'default',
-  } = props;
-  const { theme } = useThemeContext();
-  const [availableValues, setAvailableValues] = useState<number[]>([]);
-  const [prevFilters, setPrevFilters] = useState<{ toStop?: any; fromStop?: any; startDropdown?: any; endDropdown?: any }>({});
+    sliderResetKey = "default",
+  } = props
+  const { theme } = useThemeContext()
+  const [availableValues, setAvailableValues] = useState<number[]>([])
+  const [prevFilters, setPrevFilters] = useState<{
+    toStop?: any
+    fromStop?: any
+    startDropdown?: any
+    endDropdown?: any
+  }>({})
 
   useEffect(() => {
-    
-    let sortedValues: number[] = [];
+    let sortedValues: number[] = []
 
     if (timeIntervalValues && timeIntervalValues.length > 0) {
-      
-      sortedValues = [...timeIntervalValues].sort((a, b) => a - b);
+      sortedValues = [...timeIntervalValues].sort((a, b) => a - b)
     } else if (timeIntervalRanges && timeIntervalRanges.length > 0) {
-      
-      const values = new Set<number>();
+      const values = new Set<number>()
       timeIntervalRanges.forEach((range) => {
         if (typeof range.min === "number" && typeof range.max === "number") {
-          values.add(range.min);
-          values.add(range.max);
+          values.add(range.min)
+          values.add(range.max)
         }
-      });
-      sortedValues = Array.from(values).sort((a, b) => a - b);
+      })
+      sortedValues = Array.from(values).sort((a, b) => a - b)
     }
 
-    const valuesChanged = sortedValues.length !== availableValues.length ||
-      sortedValues.some((val, idx) => val !== availableValues[idx]);
+    const valuesChanged =
+      sortedValues.length !== availableValues.length ||
+      sortedValues.some((val, idx) => val !== availableValues[idx])
 
     if (valuesChanged) {
-      setAvailableValues(sortedValues);
+      setAvailableValues(sortedValues)
     }
 
     const filtersChanged =
       prevFilters.toStop !== ToStop ||
       prevFilters.fromStop !== FromStop ||
       prevFilters.startDropdown !== StartDropdown ||
-      prevFilters.endDropdown !== EndDropdown;
+      prevFilters.endDropdown !== EndDropdown
 
     if (sortedValues.length > 0 && setTimeRange && TimeRange) {
       if (filtersChanged) {
-        const filtersAreSet = ToStop || FromStop || StartDropdown || EndDropdown;
+        const filtersAreSet = ToStop || FromStop || StartDropdown || EndDropdown
         if (filtersAreSet) {
-          setTimeRange([sortedValues[0], sortedValues[sortedValues.length - 1]]);
+          setTimeRange([sortedValues[0], sortedValues[sortedValues.length - 1]])
         }
-        setPrevFilters({ toStop: ToStop, fromStop: FromStop, startDropdown: StartDropdown, endDropdown: EndDropdown });
-      } else if (TimeRange[0] < sortedValues[0] || TimeRange[1] > sortedValues[sortedValues.length - 1]) {
-        const newMin = Math.max(TimeRange[0], sortedValues[0]);
-        const newMax = Math.min(TimeRange[1], sortedValues[sortedValues.length - 1]);
-        setTimeRange([newMin, newMax]);
+        setPrevFilters({
+          toStop: ToStop,
+          fromStop: FromStop,
+          startDropdown: StartDropdown,
+          endDropdown: EndDropdown,
+        })
+      } else if (
+        TimeRange[0] < sortedValues[0] ||
+        TimeRange[1] > sortedValues[sortedValues.length - 1]
+      ) {
+        const newMin = Math.max(TimeRange[0], sortedValues[0])
+        const newMax = Math.min(TimeRange[1], sortedValues[sortedValues.length - 1])
+        setTimeRange([newMin, newMax])
       }
     }
 
     if (filtersChanged && !TimeRange) {
-      setPrevFilters({ toStop: ToStop, fromStop: FromStop, startDropdown: StartDropdown, endDropdown: EndDropdown });
+      setPrevFilters({
+        toStop: ToStop,
+        fromStop: FromStop,
+        startDropdown: StartDropdown,
+        endDropdown: EndDropdown,
+      })
     }
-  }, [timeIntervalRanges, timeIntervalValues, setTimeRange, TimeRange, ToStop, FromStop, StartDropdown, EndDropdown, prevFilters.toStop, prevFilters.fromStop, prevFilters.startDropdown, prevFilters.endDropdown, availableValues]);
+  }, [
+    timeIntervalRanges,
+    timeIntervalValues,
+    setTimeRange,
+    TimeRange,
+    ToStop,
+    FromStop,
+    StartDropdown,
+    EndDropdown,
+    prevFilters.toStop,
+    prevFilters.fromStop,
+    prevFilters.startDropdown,
+    prevFilters.endDropdown,
+    availableValues,
+  ])
 
   if (mode === "map") {
     const {
@@ -169,24 +199,24 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
       setPathwayTypes,
       ShowOnlyConnected,
       setShowOnlyConnected,
-    } = props;
+    } = props
 
     if (connectionType === "timeInterval") {
-      const { onReset, ExcludeTime } = props;
+      const { onReset, ExcludeTime } = props
 
-      const isSliderChanged = TimeRange !== undefined &&
+      const isSliderChanged =
+        TimeRange !== undefined &&
         defaultTimeRange !== undefined &&
-        (TimeRange[0] !== defaultTimeRange[0] ||
-         TimeRange[1] !== defaultTimeRange[1]);
+        (TimeRange[0] !== defaultTimeRange[0] || TimeRange[1] !== defaultTimeRange[1])
 
       const hasActiveFilters = !!(
         ToStop ||
         FromStop ||
         EmptyArcs ||
         isSliderChanged ||
-        (ExcludeTime !== undefined) ||
+        ExcludeTime !== undefined ||
         ShowOnlyConnected
-      );
+      )
 
       return (
         <div className="flex flex-wrap md:flex-nowrap gap-3 mb-4">
@@ -244,7 +274,6 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
               {isLoading ? (
                 <Skeleton className="h-12 rounded-md" />
               ) : availableValues.length === 0 ? (
-                
                 <div className="flex justify-center">
                   <Button
                     variant={!EmptyArcs ? "default" : "outline"}
@@ -258,7 +287,6 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
                   </Button>
                 </div>
               ) : (
-                
                 <>
                   <div className="flex justify-center">
                     <Button
@@ -282,15 +310,15 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
                       excludeValue={ExcludeTime}
                     />
                   </div>
-</>
+                </>
               )}
             </div>
           </div>
         </div>
-      );
+      )
     }
 
-    const { onReset } = props;
+    const { onReset } = props
 
     const hasActiveFilters = !!(
       ToStop ||
@@ -298,7 +326,7 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
       DirectionTypes ||
       (PathwayTypes && PathwayTypes.length > 0) ||
       ShowOnlyConnected
-    );
+    )
 
     return (
       <div className="flex flex-wrap md:flex-nowrap gap-3 mb-4">
@@ -369,7 +397,7 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
             <>
               {pathwayTypeData ? (
                 <MultiSelect
-                  options={pathwayTypeData.map(value => ({
+                  options={pathwayTypeData.map((value) => ({
                     ...value,
                     color: rgbToHex(getPathwayColor(value.value, theme)),
                   }))}
@@ -384,7 +412,7 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
           )}
         </div>
       </div>
-    );
+    )
   }
 
   const {
@@ -401,12 +429,12 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
     hasTimedConnections = true,
     onReset,
     ExcludeTime,
-  } = props;
+  } = props
 
-  const isSliderChanged = TimeRange !== undefined &&
+  const isSliderChanged =
+    TimeRange !== undefined &&
     defaultTimeRange !== undefined &&
-    (TimeRange[0] !== defaultTimeRange[0] ||
-     TimeRange[1] !== defaultTimeRange[1]);
+    (TimeRange[0] !== defaultTimeRange[0] || TimeRange[1] !== defaultTimeRange[1])
 
   const hasActiveFilters = !!(
     StartDropdown ||
@@ -414,12 +442,12 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
     (hasTimedConnections && EmptyConnect === false) ||
     wheelchairAccessibleOnly ||
     isSliderChanged ||
-    (ExcludeTime !== undefined)
-  );
+    ExcludeTime !== undefined
+  )
   const showNullConnectionSwitch =
-    hasNullConnections || EmptyConnect === false || !hasTimedConnections;
-  const nullConnectionsChecked = !hasTimedConnections || EmptyConnect === false;
-  const nullConnectionsDisabled = !hasTimedConnections;
+    hasNullConnections || EmptyConnect === false || !hasTimedConnections
+  const nullConnectionsChecked = !hasTimedConnections || EmptyConnect === false
+  const nullConnectionsDisabled = !hasTimedConnections
 
   return (
     <div className="p-4">
@@ -444,9 +472,7 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
               </span>
               <Switch
                 checked={wheelchairAccessibleOnly}
-                onCheckedChange={(checked) =>
-                  onWheelchairAccessibleOnlyChange?.(checked)
-                }
+                onCheckedChange={(checked) => onWheelchairAccessibleOnlyChange?.(checked)}
                 aria-label="Wheelchair accessible routes only"
                 className="scale-90 origin-right"
               />
@@ -492,9 +518,7 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
                   options={StartStops.map((item) => ({
                     value: item.stop_id,
                     label: item.stop_id,
-                    color: rgbToHex(
-                      getStopColor(item.location_type ?? "Unknown", theme),
-                    ),
+                    color: rgbToHex(getStopColor(item.location_type ?? "Unknown", theme)),
                     searchLabel: item.stop_id,
                   }))}
                   Message="From Nodes"
@@ -512,9 +536,7 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
                   options={EndStops.map((item) => ({
                     value: item.stop_id,
                     label: item.stop_id,
-                    color: rgbToHex(
-                      getStopColor(item.location_type ?? "Unknown", theme),
-                    ),
+                    color: rgbToHex(getStopColor(item.location_type ?? "Unknown", theme)),
                     searchLabel: item.stop_id,
                   }))}
                   Message="To Nodes"
@@ -529,7 +551,7 @@ function PathwaysHeader(props: PathwaysHeaderProps) {
         </div>
       </div>
     </div>
-  );
+  )
 }
 
-export default PathwaysHeader;
+export default PathwaysHeader

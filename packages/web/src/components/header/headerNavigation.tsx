@@ -6,8 +6,8 @@ import {
   NavigationMenuLink,
   NavigationMenuList,
   NavigationMenuTrigger,
-} from "@/components/ui/navigation-menu";
-import { ListItem } from "@/components/ui/list-item";
+} from "@/components/ui/navigation-menu"
+import { ListItem } from "@/components/ui/list-item"
 
 const HeaderNavigation = ({ TabList }) => {
   return (
@@ -48,7 +48,7 @@ const HeaderNavigation = ({ TabList }) => {
         <NavigationMenuIndicator />
       </NavigationMenuList>
     </NavigationMenu>
-  );
-};
+  )
+}
 
-export default HeaderNavigation;
+export default HeaderNavigation

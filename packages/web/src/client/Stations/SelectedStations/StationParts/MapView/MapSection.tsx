@@ -1,12 +1,12 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react"
 
-import { ScatterplotLayer } from "@deck.gl/layers";
-import { getStopColor, WHEELCHAIR_STATUS } from "@/components/style";
-import { useThemeContext } from "@/context/theme.client";
-import { getMapsFunction } from "@/functions/mapComponent/MapFunctions";
-import DeckglMap from "@/components/maps/DeckglMap.lazy";
-import { createPointOutline } from "@/components/maps/MapOutlineHelpers";
-import { useDuckDB } from "@/context/duckdb.client";
+import { ScatterplotLayer } from "@deck.gl/layers"
+import { getStopColor, WHEELCHAIR_STATUS } from "@/components/style"
+import { useThemeContext } from "@/context/theme.client"
+import { getMapsFunction } from "@/functions/mapComponent/MapFunctions"
+import DeckglMap from "@/components/maps/DeckglMap.lazy"
+import { createPointOutline } from "@/components/maps/MapOutlineHelpers"
+import { useDuckDB } from "@/context/duckdb.client"
 
 function MapSection({
   MapLayers,
@@ -20,86 +20,83 @@ function MapSection({
   setBoundBox,
   BoundBox,
 }) {
-  const { theme } = useThemeContext();
-  const { conn } = useDuckDB();
-  const [HoverInfo, setHoverInfo] = useState(null);
-  const lastAutoZoomedStopId = useRef(null);
+  const { theme } = useThemeContext()
+  const { conn } = useDuckDB()
+  const [HoverInfo, setHoverInfo] = useState(null)
+  const lastAutoZoomedStopId = useRef(null)
 
-  const handleClick = useCallback((event) => {
-    if (!setClickInfo) return;
+  const handleClick = useCallback(
+    (event) => {
+      if (!setClickInfo) return
 
-    if (event.object) {
-
-      setClickInfo(event);
-    } else {
-
-      setClickInfo(undefined);
-    }
-  }, [setClickInfo]);
+      if (event.object) {
+        setClickInfo(event)
+      } else {
+        setClickInfo(undefined)
+      }
+    },
+    [setClickInfo],
+  )
 
   useEffect(() => {
-    if (!conn) return;
-    if (!Data || Data.length === 0) return;
-    if (viewState && BoundBox) return;
-    if (!setViewState || !setBoundBox) return;
-    let cancelled = false;
+    if (!conn) return
+    if (!Data || Data.length === 0) return
+    if (viewState && BoundBox) return
+    if (!setViewState || !setBoundBox) return
+    let cancelled = false
 
-    const mapPoints = Data.filter(
-      (row) => row.stop_lon !== null && row.stop_lat !== null
-    );
+    const mapPoints = Data.filter((row) => row.stop_lon !== null && row.stop_lat !== null)
 
-    if (mapPoints.length === 0) return;
+    if (mapPoints.length === 0) return
 
     getMapsFunction(conn, {
       data: mapPoints,
     }).then(({ BoundBox: mapBoundBox, ViewState }) => {
-      if (cancelled || !ViewState) return;
+      if (cancelled || !ViewState) return
 
-      setViewState(ViewState);
-      setBoundBox(mapBoundBox);
-    });
-    return () => { cancelled = true; };
-  }, [conn, Data, viewState, BoundBox, setViewState, setBoundBox]);
+      setViewState(ViewState)
+      setBoundBox(mapBoundBox)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [conn, Data, viewState, BoundBox, setViewState, setBoundBox])
 
   useEffect(() => {
-    if (!ClickInfo || !setViewState) return;
+    if (!ClickInfo || !setViewState) return
 
-    const clickData = ClickInfo?.object || ClickInfo;
+    const clickData = ClickInfo?.object || ClickInfo
 
     if (clickData?.stop_lon && clickData?.stop_lat && clickData?.stop_id) {
-      
       if (lastAutoZoomedStopId.current === clickData.stop_id) {
-        return;
+        return
       }
 
-      const isMapClick = ClickInfo?.layer?.id === "station-table-view";
+      const isMapClick = ClickInfo?.layer?.id === "station-table-view"
 
       if (!isMapClick) {
-        
         setViewState((prev) => ({
           ...prev,
           longitude: clickData.stop_lon,
           latitude: clickData.stop_lat,
           zoom: 17,
-        }));
-        lastAutoZoomedStopId.current = clickData.stop_id;
+        }))
+        lastAutoZoomedStopId.current = clickData.stop_id
       }
     }
-  }, [ClickInfo, setViewState]);
+  }, [ClickInfo, setViewState])
 
   useEffect(() => {
     if (!Data || Data.length === 0) {
-      setMapLayers([]);
-      return;
+      setMapLayers([])
+      return
     }
 
-    const mapPoints = Data.filter(
-      (row) => row.stop_lon !== null && row.stop_lat !== null
-    );
+    const mapPoints = Data.filter((row) => row.stop_lon !== null && row.stop_lat !== null)
 
     if (mapPoints.length === 0) {
-      setMapLayers([]);
-      return;
+      setMapLayers([])
+      return
     }
 
     const baseLayer = new ScatterplotLayer({
@@ -107,9 +104,9 @@ function MapSection({
       data: mapPoints,
       getFillColor: (row) => {
         if (DataColor === "wheelchair_status") {
-          return WHEELCHAIR_STATUS[row.wheelchair_status]?.color || [128, 128, 128];
+          return WHEELCHAIR_STATUS[row.wheelchair_status]?.color || [128, 128, 128]
         }
-        return getStopColor(row.location_type_name, theme);
+        return getStopColor(row.location_type_name, theme)
       },
       pickable: true,
       getLineWidth: 0.025,
@@ -117,22 +114,25 @@ function MapSection({
       radiusUnits: "pixels",
       radiusMinPixels: 4,
       getPosition: (row) => [Number(row.stop_lon), Number(row.stop_lat)],
-    });
+    })
 
-    const layers = [baseLayer];
+    const layers = [baseLayer]
 
-    const clickData = ClickInfo?.object || ClickInfo;
-    const hoverData = HoverInfo?.object || HoverInfo;
+    const clickData = ClickInfo?.object || ClickInfo
+    const hoverData = HoverInfo?.object || HoverInfo
 
-    if (HoverInfo?.layer?.id === "station-table-view" && hoverData &&
-        (!clickData || hoverData.stop_id !== clickData.stop_id)) {
+    if (
+      HoverInfo?.layer?.id === "station-table-view" &&
+      hoverData &&
+      (!clickData || hoverData.stop_id !== clickData.stop_id)
+    ) {
       const hoverOutline = createPointOutline({
         id: "hover-part-point",
         data: [hoverData],
         theme,
-        state: 'hover',
-      });
-      layers.push(hoverOutline);
+        state: "hover",
+      })
+      layers.push(hoverOutline)
     }
 
     if (clickData && clickData.stop_id) {
@@ -140,15 +140,15 @@ function MapSection({
         id: "selected-part-point",
         data: [clickData],
         theme,
-        state: 'selected',
-      });
-      layers.push(selectedOutline);
+        state: "selected",
+      })
+      layers.push(selectedOutline)
     }
 
-    setMapLayers(layers);
-  }, [Data, DataColor, ClickInfo, HoverInfo, theme]);
+    setMapLayers(layers)
+  }, [Data, DataColor, ClickInfo, HoverInfo, theme])
 
-  if (!viewState || !BoundBox) return null;
+  if (!viewState || !BoundBox) return null
 
   return (
     <DeckglMap
@@ -162,6 +162,6 @@ function MapSection({
       setClickInfo={handleClick}
       setHoverInfo={setHoverInfo}
     />
-  );
+  )
 }
-export default MapSection;
+export default MapSection

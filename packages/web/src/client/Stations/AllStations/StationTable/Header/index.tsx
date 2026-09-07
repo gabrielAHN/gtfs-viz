@@ -1,39 +1,39 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { mutationDeleteStationFn } from "@/lib/duckdb/DataEditing/editingFn";
-import { useRouter } from "@tanstack/react-router";
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { mutationDeleteStationFn } from "@/lib/duckdb/DataEditing/editingFn"
+import { useRouter } from "@tanstack/react-router"
 
-import { Button } from "@/components/ui/button";
-import { BiPencil, BiTrash, BiRightArrow } from "react-icons/bi";
-import { useDuckDB } from "@/context/duckdb.client";
-import { createStationsTable, createStopsView } from "@/lib/extensions";
-import TableSelectionHeader from "@/components/table/TableSelectionHeader";
-import { RouteChipsForStop } from "@/components/routes/RouteChips";
+import { Button } from "@/components/ui/button"
+import { BiPencil, BiTrash, BiRightArrow } from "react-icons/bi"
+import { useDuckDB } from "@/context/duckdb.client"
+import { createStationsTable, createStopsView } from "@/lib/extensions"
+import TableSelectionHeader from "@/components/table/TableSelectionHeader"
+import { RouteChipsForStop } from "@/components/routes/RouteChips"
 
 function Header({ setOpen, ClickInfo, setClickInfo }) {
-  const duckDB = useDuckDB();
-  const conn = duckDB?.conn;
-  const hasStopTimes = duckDB?.hasStopTimes ?? false;
-  const router = useRouter();
+  const duckDB = useDuckDB()
+  const conn = duckDB?.conn
+  const hasStopTimes = duckDB?.hasStopTimes ?? false
+  const router = useRouter()
 
-  const queryClient = useQueryClient();
+  const queryClient = useQueryClient()
 
   const mutation = useMutation({
     mutationFn: async () => {
       await mutationDeleteStationFn({
         conn: conn,
         SelectStation: ClickInfo,
-      });
+      })
     },
     onSuccess: async () => {
-      await createStopsView(conn);
-      await createStationsTable(conn);
-      queryClient.invalidateQueries({ queryKey: ["createStationTable"] });
-      queryClient.invalidateQueries({ queryKey: ["fetchStationsData"] });
-      queryClient.invalidateQueries({ queryKey: ["fetchStopsIdData"] });
-      queryClient.invalidateQueries({ queryKey: ["fetchStopsNamesData"] });
-      setClickInfo(undefined);
+      await createStopsView(conn)
+      await createStationsTable(conn)
+      queryClient.invalidateQueries({ queryKey: ["createStationTable"] })
+      queryClient.invalidateQueries({ queryKey: ["fetchStationsData"] })
+      queryClient.invalidateQueries({ queryKey: ["fetchStopsIdData"] })
+      queryClient.invalidateQueries({ queryKey: ["fetchStopsNamesData"] })
+      setClickInfo(undefined)
     },
-  });
+  })
 
   return (
     <TableSelectionHeader
@@ -55,7 +55,7 @@ function Header({ setOpen, ClickInfo, setClickInfo }) {
           router.navigate({
             to: "/stations/info",
             search: { selectedStationId: ClickInfo.stop_id },
-          });
+          })
         }}
       >
         <BiRightArrow className="mr-2 h-4 w-4" />
@@ -83,7 +83,7 @@ function Header({ setOpen, ClickInfo, setClickInfo }) {
         </Button>
       </div>
     </TableSelectionHeader>
-  );
+  )
 }
 
-export default Header;
+export default Header

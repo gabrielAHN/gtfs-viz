@@ -1,7 +1,7 @@
-import { useMemo } from "react";
-import { Badge } from "@/components/ui/badge";
-import { useExportTable } from "../hooks/useExportTable";
-import EditeTables from "./TableComponent";
+import { useMemo } from "react"
+import { Badge } from "@/components/ui/badge"
+import { useExportTable } from "../hooks/useExportTable"
+import EditeTables from "./TableComponent"
 
 const CalendarDatesTable = ({ FileTypes, setFileTypes }: { FileTypes: any; setFileTypes: any }) => {
   const table = useExportTable({
@@ -11,7 +11,7 @@ const CalendarDatesTable = ({ FileTypes, setFileTypes }: { FileTypes: any; setFi
     itemIdKey: "row_id",
     setFileTypes,
     invalidateKeys: ["fetchServiceRouteServicesData"],
-  });
+  })
 
   const columns = useMemo(
     () => [
@@ -31,27 +31,40 @@ const CalendarDatesTable = ({ FileTypes, setFileTypes }: { FileTypes: any; setFi
         accessorKey: "status",
         header: "Change Type",
         cell: ({ row }: any) => {
-          const s = row.original.status;
-          if (s === "deleted") return <Badge variant="destructive">Deleted</Badge>;
-          if (s === "new") return <Badge variant="default">New</Badge>;
-          if (s === "edit" || s === "new edit") return <Badge variant="secondary">Modified</Badge>;
-          return <Badge variant="outline">Unknown</Badge>;
+          const s = row.original.status
+          if (s === "deleted") return <Badge variant="destructive">Deleted</Badge>
+          if (s === "new") return <Badge variant="default">New</Badge>
+          if (s === "edit" || s === "new edit") return <Badge variant="secondary">Modified</Badge>
+          return <Badge variant="outline">Unknown</Badge>
         },
       },
     ],
     [],
-  );
+  )
 
   return (
     <EditeTables
-      FileTypes={FileTypes} hasData={table.hasData} isLoading={table.isLoading} isError={table.isError} error={table.error}
-      tableData={table.tableData} clickInfo={table.clickInfo} setClickInfo={table.setClickInfo} columns={columns}
-      handleButtonClick={table.handleButtonClick} setIsExpanded={table.setIsExpanded} isExpanded={table.isExpanded}
-      mutation={table.mutation} originalDataMap={table.originalDataMap} fileTypeKey="calendar_dates" itemIdKey="row_id"
-      title="calendar_dates.txt" emptyTitle="calendar_dates.txt"
+      FileTypes={FileTypes}
+      hasData={table.hasData}
+      isLoading={table.isLoading}
+      isError={table.isError}
+      error={table.error}
+      tableData={table.tableData}
+      clickInfo={table.clickInfo}
+      setClickInfo={table.setClickInfo}
+      columns={columns}
+      handleButtonClick={table.handleButtonClick}
+      setIsExpanded={table.setIsExpanded}
+      isExpanded={table.isExpanded}
+      mutation={table.mutation}
+      originalDataMap={table.originalDataMap}
+      fileTypeKey="calendar_dates"
+      itemIdKey="row_id"
+      title="calendar_dates.txt"
+      emptyTitle="calendar_dates.txt"
       getOriginalDataKey={(item: any) => item?.row_id}
     />
-  );
-};
+  )
+}
 
-export default CalendarDatesTable;
+export default CalendarDatesTable

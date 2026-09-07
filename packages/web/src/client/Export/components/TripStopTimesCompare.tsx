@@ -1,19 +1,19 @@
-import { useQuery } from "@tanstack/react-query";
-import { useDuckDB } from "@/context/duckdb.client";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BiMap, BiTable } from "react-icons/bi";
-import { TripMap } from "@/client/Trips/components/Map";
-import { fetchServiceTripStopTimesData } from "@/lib/duckdb/DataFetching/fetchRouteData";
-import type { TripStopTime } from "@/lib/tripUtils";
-import { CompareView, type EditRow } from "./CompareView";
+import { useQuery } from "@tanstack/react-query"
+import { useDuckDB } from "@/context/duckdb.client"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { BiMap, BiTable } from "react-icons/bi"
+import { TripMap } from "@/client/Trips/components/Map"
+import { fetchServiceTripStopTimesData } from "@/lib/duckdb/DataFetching/fetchRouteData"
+import type { TripStopTime } from "@/lib/tripUtils"
+import { CompareView, type EditRow } from "./CompareView"
 
-const esc = (s: string) => s.replace(/'/g, "''");
+const esc = (s: string) => s.replace(/'/g, "''")
 
 type RerouteDetails = {
-  fromStopName?: string;
-  toStopName?: string;
-  routeName?: string;
-};
+  fromStopName?: string
+  toStopName?: string
+  routeName?: string
+}
 
 /**
  * Fetches one trip's edited stop_times (EditStopTimesTable) and its original stop_times (base
@@ -25,19 +25,19 @@ export default function TripStopTimesCompare({
   reroute,
   defaultView = "table",
 }: {
-  tripId: string;
-  reroute?: RerouteDetails;
-  defaultView?: "table" | "map";
+  tripId: string
+  reroute?: RerouteDetails
+  defaultView?: "table" | "map"
 }) {
-  const duckDB = useDuckDB();
-  const conn = duckDB?.conn;
-  const initialized = duckDB?.initialized ?? false;
-  const enabled = !!conn && initialized && !!tripId;
+  const duckDB = useDuckDB()
+  const conn = duckDB?.conn
+  const initialized = duckDB?.initialized ?? false
+  const enabled = !!conn && initialized && !!tripId
 
   const runRows = async (sql: string) => {
-    const result = await conn!.query(sql);
-    return result.toArray().map((r: any) => r.toJSON());
-  };
+    const result = await conn!.query(sql)
+    return result.toArray().map((r: any) => r.toJSON())
+  }
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [
@@ -49,46 +49,46 @@ export default function TripStopTimesCompare({
     ],
     enabled,
     queryFn: async () => {
-      const tid = `'${esc(tripId)}'`;
+      const tid = `'${esc(tripId)}'`
       const edited = (await runRows(
         `SELECT * FROM EditStopTimesTable WHERE trip_id = ${tid}`,
-      )) as EditRow[];
+      )) as EditRow[]
       const originalRows = await runRows(
         `SELECT rowid AS row_id, * FROM stop_times WHERE trip_id = ${tid} ORDER BY stop_sequence`,
-      );
-      const originalMap: Record<string, any> = {};
-      for (const r of originalRows) originalMap[String(r.row_id)] = r;
+      )
+      const originalMap: Record<string, any> = {}
+      for (const r of originalRows) originalMap[String(r.row_id)] = r
       const currentStops = reroute
         ? ((await fetchServiceTripStopTimesData(conn, tripId)) as TripStopTime[])
-        : [];
-      return { edited, originalMap, currentStops };
+        : []
+      return { edited, originalMap, currentStops }
     },
-  });
+  })
 
-  if (isLoading) return <div className="border rounded p-3 animate-pulse h-16" />;
+  if (isLoading) return <div className="border rounded p-3 animate-pulse h-16" />
   if (isError)
-    return <div className="text-red-500 text-xs p-2">Error: {(error as any)?.message}</div>;
-  if (!data) return null;
+    return <div className="text-red-500 text-xs p-2">Error: {(error as any)?.message}</div>
+  if (!data) return null
 
   const table = (
     <CompareView tripId={tripId} editedRows={data.edited} originalMap={data.originalMap} />
-  );
-  if (!reroute) return table;
+  )
+  if (!reroute) return table
 
   const stopMatches = (stop: TripStopTime, name?: string) =>
-    Boolean(name) && (stop.station_name === name || stop.stop_name === name);
-  const metadata = data.currentStops.find((stop) => stop.edit_type === "reroute");
-  const fromName = reroute.fromStopName || metadata?.edit_from_stop_name;
-  const toName = reroute.toStopName || metadata?.edit_to_stop_name;
-  const fromStopIdx = data.currentStops.findIndex((stop) => stopMatches(stop, fromName));
-  const toStopIdx = data.currentStops.findIndex((stop) => stopMatches(stop, toName));
+    Boolean(name) && (stop.station_name === name || stop.stop_name === name)
+  const metadata = data.currentStops.find((stop) => stop.edit_type === "reroute")
+  const fromName = reroute.fromStopName || metadata?.edit_from_stop_name
+  const toName = reroute.toStopName || metadata?.edit_to_stop_name
+  const fromStopIdx = data.currentStops.findIndex((stop) => stopMatches(stop, fromName))
+  const toStopIdx = data.currentStops.findIndex((stop) => stopMatches(stop, toName))
   const highlightedSegmentRange =
     fromStopIdx >= 0 && toStopIdx >= 0 && fromStopIdx !== toStopIdx
       ? {
           fromStopIdx: Math.min(fromStopIdx, toStopIdx),
           toStopIdx: Math.max(fromStopIdx, toStopIdx),
         }
-      : undefined;
+      : undefined
   const mapTrips = [
     {
       trip: {
@@ -97,7 +97,7 @@ export default function TripStopTimesCompare({
       },
       stopTimes: data.currentStops.map((stop) => ({ ...stop, edit_status: undefined })),
     },
-  ];
+  ]
 
   return (
     <Tabs defaultValue={defaultView} className="space-y-3">
@@ -137,5 +137,5 @@ export default function TripStopTimesCompare({
         />
       </TabsContent>
     </Tabs>
-  );
+  )
 }

@@ -1,19 +1,19 @@
 export type CliLaunchProfile = {
-  source: string;
-  sessionId: string;
-  apiBase: string;
-  view: string;
-  selectedStationId?: string;
-  selectedStopId?: string;
-  selectedRouteId?: string;
-  selectedNodeId?: string;
-  fromStopId?: string;
-  toStopId?: string;
-  stationFilter?: string;
-  stopFilter?: string;
-  routeFilter?: string;
-  mapFocus?: string;
-};
+  source: string
+  sessionId: string
+  apiBase: string
+  view: string
+  selectedStationId?: string
+  selectedStopId?: string
+  selectedRouteId?: string
+  selectedNodeId?: string
+  fromStopId?: string
+  toStopId?: string
+  stationFilter?: string
+  stopFilter?: string
+  routeFilter?: string
+  mapFocus?: string
+}
 
 type LaunchTarget = {
   to:
@@ -27,25 +27,25 @@ type LaunchTarget = {
     | "/routes/map"
     | "/routes/table"
     | "/stops/map"
-    | "/stops/table";
-  search: Record<string, unknown>;
-};
+    | "/stops/table"
+  search: Record<string, unknown>
+}
 
-const storageKey = "gtfs_viz_cli_launch_profile";
+const storageKey = "gtfs_viz_cli_launch_profile"
 
 const getWindow = () => {
-  if (typeof window === "undefined") return null;
-  return window;
-};
+  if (typeof window === "undefined") return null
+  return window
+}
 
 const readProfileFromSearch = (search: string): CliLaunchProfile | null => {
-  const params = new URLSearchParams(search);
-  const source = params.get("gtfsSource");
-  const sessionId = params.get("cliSession");
-  const apiBase = params.get("cliApi");
+  const params = new URLSearchParams(search)
+  const source = params.get("gtfsSource")
+  const sessionId = params.get("cliSession")
+  const apiBase = params.get("cliApi")
 
   if (!source || !sessionId || !apiBase) {
-    return null;
+    return null
   }
 
   return {
@@ -64,48 +64,48 @@ const readProfileFromSearch = (search: string): CliLaunchProfile | null => {
     stopFilter: params.get("cliStopFilter") || undefined,
     routeFilter: params.get("cliRouteFilter") || undefined,
     mapFocus: params.get("cliMapFocus") || undefined,
-  };
-};
+  }
+}
 
 export const readCliLaunchProfileFromUrl = () => {
-  const currentWindow = getWindow();
-  if (!currentWindow) return null;
+  const currentWindow = getWindow()
+  if (!currentWindow) return null
 
-  const profile = readProfileFromSearch(currentWindow.location.search);
+  const profile = readProfileFromSearch(currentWindow.location.search)
   if (profile) {
-    currentWindow.sessionStorage.setItem(storageKey, JSON.stringify(profile));
+    currentWindow.sessionStorage.setItem(storageKey, JSON.stringify(profile))
   }
-  return profile;
-};
+  return profile
+}
 
 export const getStoredCliLaunchProfile = () => {
-  const currentWindow = getWindow();
-  if (!currentWindow) return null;
+  const currentWindow = getWindow()
+  if (!currentWindow) return null
 
-  const profile = readProfileFromSearch(currentWindow.location.search);
+  const profile = readProfileFromSearch(currentWindow.location.search)
   if (profile) {
-    currentWindow.sessionStorage.setItem(storageKey, JSON.stringify(profile));
-    return profile;
+    currentWindow.sessionStorage.setItem(storageKey, JSON.stringify(profile))
+    return profile
   }
 
-  const stored = currentWindow.sessionStorage.getItem(storageKey);
-  if (!stored) return null;
+  const stored = currentWindow.sessionStorage.getItem(storageKey)
+  if (!stored) return null
 
   try {
-    return JSON.parse(stored) as CliLaunchProfile;
+    return JSON.parse(stored) as CliLaunchProfile
   } catch {
-    currentWindow.sessionStorage.removeItem(storageKey);
-    return null;
+    currentWindow.sessionStorage.removeItem(storageKey)
+    return null
   }
-};
+}
 
 export const buildCliApiUrl = (profile: CliLaunchProfile, path: string) => {
-  const currentWindow = getWindow();
-  const base = currentWindow?.location.origin || "http://127.0.0.1";
-  const apiBase = profile.apiBase.endsWith("/") ? profile.apiBase.slice(0, -1) : profile.apiBase;
-  const apiPath = path.startsWith("/") ? path : `/${path}`;
-  return new URL(`${apiBase}${apiPath}`, base).toString();
-};
+  const currentWindow = getWindow()
+  const base = currentWindow?.location.origin || "http://127.0.0.1"
+  const apiBase = profile.apiBase.endsWith("/") ? profile.apiBase.slice(0, -1) : profile.apiBase
+  const apiPath = path.startsWith("/") ? path : `/${path}`
+  return new URL(`${apiBase}${apiPath}`, base).toString()
+}
 
 export const postCliStatus = async (
   profile: CliLaunchProfile | null,
@@ -113,7 +113,7 @@ export const postCliStatus = async (
   message?: string,
   error?: string,
 ) => {
-  if (!profile) return;
+  if (!profile) return
   await fetch(buildCliApiUrl(profile, "/status"), {
     method: "POST",
     headers: {
@@ -125,10 +125,10 @@ export const postCliStatus = async (
       message,
       error,
     }),
-  }).catch(() => {});
-};
+  }).catch(() => {})
+}
 
-const escapeSql = (value: string) => value.replace(/'/g, "''");
+const escapeSql = (value: string) => value.replace(/'/g, "''")
 
 const resolveFilterSearch = async (
   conn: any,
@@ -142,13 +142,13 @@ const resolveFilterSearch = async (
       WHERE stop_id = '${escapeSql(value)}'
          OR stop_name = '${escapeSql(value)}'
       LIMIT 1
-    `);
-    const row = result.toArray()[0];
-    if (row?.stop_id === value) return { stopId: value };
-    if (row?.stop_name === value) return { stopName: value };
+    `)
+    const row = result.toArray()[0]
+    if (row?.stop_id === value) return { stopId: value }
+    if (row?.stop_name === value) return { stopName: value }
   } catch {}
-  return { stopId: value };
-};
+  return { stopId: value }
+}
 
 const resolveRouteFilterSearch = async (conn: any, value: string) => {
   try {
@@ -160,13 +160,13 @@ const resolveRouteFilterSearch = async (conn: any, value: string) => {
          OR route_short_name = '${escapeSql(value)}'
          OR route_long_name = '${escapeSql(value)}'
       LIMIT 1
-    `);
-    const row = result.toArray()[0];
-    if (row?.route_id === value) return { routeId: value };
-    if (row?.route_name === value) return { routeName: value };
+    `)
+    const row = result.toArray()[0]
+    if (row?.route_id === value) return { routeId: value }
+    if (row?.route_name === value) return { routeName: value }
   } catch {}
-  return { routeId: value };
-};
+  return { routeId: value }
+}
 
 const resolveSelectedId = async (
   conn: any,
@@ -174,7 +174,7 @@ const resolveSelectedId = async (
   value: string,
 ) => {
   try {
-    const escaped = escapeSql(value);
+    const escaped = escapeSql(value)
     const result = await conn.query(`
       SELECT stop_id
       FROM ${table}
@@ -196,16 +196,16 @@ const resolveSelectedId = async (
         stop_name,
         stop_id
       LIMIT 1
-    `);
-    const row = result.toArray()[0];
-    if (row?.stop_id) return row.stop_id;
+    `)
+    const row = result.toArray()[0]
+    if (row?.stop_id) return row.stop_id
   } catch {}
-  return value;
-};
+  return value
+}
 
 const resolveSelectedRouteId = async (conn: any, value: string) => {
   try {
-    const escaped = escapeSql(value);
+    const escaped = escapeSql(value)
     const result = await conn.query(`
       SELECT route_id
       FROM RoutesTable
@@ -231,29 +231,31 @@ const resolveSelectedRouteId = async (conn: any, value: string) => {
         route_name,
         route_id
       LIMIT 1
-    `);
-    const row = result.toArray()[0];
-    if (row?.route_id) return row.route_id;
+    `)
+    const row = result.toArray()[0]
+    if (row?.route_id) return row.route_id
   } catch {}
-  return value;
-};
+  return value
+}
 
 export const resolveCliLaunchTarget = async ({
   conn,
   profile,
   hasStations,
 }: {
-  conn: any;
-  profile: CliLaunchProfile | null;
-  hasStations: boolean;
+  conn: any
+  profile: CliLaunchProfile | null
+  hasStations: boolean
 }): Promise<LaunchTarget> => {
-  const hasRoutes = localStorage.getItem("gtfs_has_routes") === "true";
-  const hasShapes = localStorage.getItem("gtfs_has_shapes") === "true";
-  const requestedView = profile?.view || "auto";
+  const hasRoutes = sessionStorage.getItem("gtfs_has_routes") === "true"
+  const hasShapes = sessionStorage.getItem("gtfs_has_shapes") === "true"
+  const requestedView = profile?.view || "auto"
   const view =
     requestedView === "auto"
       ? profile?.selectedRouteId
-        ? hasShapes ? "routes/map" : "routes/table"
+        ? hasShapes
+          ? "routes/map"
+          : "routes/table"
         : hasRoutes && hasShapes
           ? "routes/map"
           : hasRoutes
@@ -261,10 +263,10 @@ export const resolveCliLaunchTarget = async ({
             : hasStations
               ? "stations/map"
               : "stops/map"
-      : requestedView;
+      : requestedView
 
-  const to = `/${view}` as LaunchTarget["to"];
-  const search: Record<string, unknown> = {};
+  const to = `/${view}` as LaunchTarget["to"]
+  const search: Record<string, unknown> = {}
 
   if (view.startsWith("stations/")) {
     if (profile?.selectedStationId) {
@@ -272,46 +274,43 @@ export const resolveCliLaunchTarget = async ({
         conn,
         "StationsTable",
         profile.selectedStationId,
-      );
+      )
     }
     if (profile?.stationFilter) {
-      Object.assign(
-        search,
-        await resolveFilterSearch(conn, "StationsTable", profile.stationFilter),
-      );
+      Object.assign(search, await resolveFilterSearch(conn, "StationsTable", profile.stationFilter))
     }
     if (view.startsWith("stations/pathways/") && profile?.selectedNodeId) {
-      search.selectedNodeId = profile.selectedNodeId;
+      search.selectedNodeId = profile.selectedNodeId
     }
     if (view.startsWith("stations/pathways/") && profile?.fromStopId) {
-      search.fromStop = profile.fromStopId;
+      search.fromStop = profile.fromStopId
     }
     if (view.startsWith("stations/pathways/") && profile?.toStopId) {
-      search.toStop = profile.toStopId;
+      search.toStop = profile.toStopId
     }
   }
 
   if (view.startsWith("stops/")) {
     if (profile?.selectedStopId) {
-      search.selectedStopId = await resolveSelectedId(conn, "StopsTable", profile.selectedStopId);
+      search.selectedStopId = await resolveSelectedId(conn, "StopsTable", profile.selectedStopId)
     }
     if (profile?.stopFilter) {
-      Object.assign(search, await resolveFilterSearch(conn, "StopsTable", profile.stopFilter));
+      Object.assign(search, await resolveFilterSearch(conn, "StopsTable", profile.stopFilter))
     }
   }
 
   if (view.startsWith("routes/")) {
     if (profile?.selectedRouteId) {
-      search.selectedRouteId = await resolveSelectedRouteId(conn, profile.selectedRouteId);
+      search.selectedRouteId = await resolveSelectedRouteId(conn, profile.selectedRouteId)
     }
     if (profile?.routeFilter) {
-      Object.assign(search, await resolveRouteFilterSearch(conn, profile.routeFilter));
+      Object.assign(search, await resolveRouteFilterSearch(conn, profile.routeFilter))
     }
   }
 
   if ((view.endsWith("/map") || view.includes("/map/")) && profile?.mapFocus) {
-    search.mapFocus = profile.mapFocus;
+    search.mapFocus = profile.mapFocus
   }
 
-  return { to, search };
-};
+  return { to, search }
+}

@@ -1,31 +1,31 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { mutationDeleteStationFn } from "@/lib/duckdb/DataEditing/editingFn";
-import { createStationsTable, createStopsView } from "@/lib/extensions";
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { mutationDeleteStationFn } from "@/lib/duckdb/DataEditing/editingFn"
+import { createStationsTable, createStopsView } from "@/lib/extensions"
 
-import { Button } from "@/components/ui/button";
-import { BiPencil, BiTrash } from "react-icons/bi";
-import { useDuckDB } from "@/context/duckdb.client";
-import TableSelectionHeader from "@/components/table/TableSelectionHeader";
+import { Button } from "@/components/ui/button"
+import { BiPencil, BiTrash } from "react-icons/bi"
+import { useDuckDB } from "@/context/duckdb.client"
+import TableSelectionHeader from "@/components/table/TableSelectionHeader"
 
 function Header({ setOpen, ClickInfo, setClickInfo }) {
-  const { conn } = useDuckDB();
-  const queryClient = useQueryClient();
+  const { conn } = useDuckDB()
+  const queryClient = useQueryClient()
 
   const mutation = useMutation({
     mutationFn: async () => {
       await mutationDeleteStationFn({
         conn: conn,
         SelectStation: ClickInfo,
-      });
+      })
     },
     onSuccess: async () => {
-      await createStopsView(conn);
-      await createStationsTable(conn);
-      queryClient.invalidateQueries({ queryKey: ["fetchStationData"] });
-      queryClient.invalidateQueries({ queryKey: ["fetchStationInfoData"] });
-      setClickInfo(undefined);
+      await createStopsView(conn)
+      await createStationsTable(conn)
+      queryClient.invalidateQueries({ queryKey: ["fetchStationData"] })
+      queryClient.invalidateQueries({ queryKey: ["fetchStationInfoData"] })
+      setClickInfo(undefined)
     },
-  });
+  })
 
   return (
     <TableSelectionHeader
@@ -62,7 +62,7 @@ function Header({ setOpen, ClickInfo, setClickInfo }) {
         </div>
       )}
     </TableSelectionHeader>
-  );
+  )
 }
 
-export default Header;
+export default Header

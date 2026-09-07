@@ -3,15 +3,15 @@ export const doesRowPassStopTypesFilters = ({
   StartStopTypesDropdown,
   EndStopTypesDropdown,
 }) => {
-  const startType = row.from_location_type_name || "Unknown";
-  const endType = row.to_location_type_name || "Unknown";
+  const startType = row.from_location_type_name || "Unknown"
+  const endType = row.to_location_type_name || "Unknown"
 
   if (
     Array.isArray(StartStopTypesDropdown) &&
     StartStopTypesDropdown.length > 0 &&
     !StartStopTypesDropdown.includes(startType)
   ) {
-    return false;
+    return false
   }
 
   if (
@@ -19,8 +19,8 @@ export const doesRowPassStopTypesFilters = ({
     EndStopTypesDropdown.length > 0 &&
     !EndStopTypesDropdown.includes(endType)
   ) {
-    return false;
+    return false
   }
 
-  return true;
-};
+  return true
+}

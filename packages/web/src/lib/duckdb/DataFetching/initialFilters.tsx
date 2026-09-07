@@ -1,30 +1,25 @@
-export const doesRowPassInitialFilters = ({
-  row,
-  StartDropdown,
-  EndDropdown,
-  EmptyConnect,
-}) => {
-  const { start_stop, end_stop, shortest_time } = row;
+export const doesRowPassInitialFilters = ({ row, StartDropdown, EndDropdown, EmptyConnect }) => {
+  const { start_stop, end_stop, shortest_time } = row
 
   if (!StartDropdown && !EndDropdown) {
     if (EmptyConnect && (shortest_time === null || shortest_time === undefined)) {
-      return false;
+      return false
     }
 
-    return true;
+    return true
   }
 
   if (StartDropdown && start_stop !== StartDropdown) {
-    return false;
+    return false
   }
 
   if (EndDropdown && end_stop !== EndDropdown) {
-    return false;
+    return false
   }
 
   if (EmptyConnect && (shortest_time === null || shortest_time === undefined)) {
-    return false;
+    return false
   }
 
-  return true;
-};
+  return true
+}

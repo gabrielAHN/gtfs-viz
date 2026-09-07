@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -6,9 +6,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Sparkles, MessageSquare, Github } from "lucide-react";
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Sparkles, MessageSquare, Github } from "lucide-react"
 
 const upcomingFeatures = [
   {
@@ -23,18 +23,18 @@ const upcomingFeatures = [
       "Unified analysis toolbox for route, trip, and schedule analysis with cross-entity comparisons, performance metrics, and exportable reports",
     category: "Analysis",
   },
-];
+]
 
 export default function UpcomingFeatures() {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false)
 
   const handleDiscussions = () => {
     window.open(
       "https://github.com/gabrielAHN/gtfs-viz/discussions",
       "_blank",
       "noopener,noreferrer",
-    );
-  };
+    )
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -51,8 +51,8 @@ export default function UpcomingFeatures() {
             Upcoming Features
           </DialogTitle>
           <DialogDescription>
-            Features planned for future releases. Help us prioritize by voting
-            and discussing in our GitHub repository!
+            Features planned for future releases. Help us prioritize by voting and discussing in our
+            GitHub repository!
           </DialogDescription>
         </DialogHeader>
 
@@ -62,9 +62,7 @@ export default function UpcomingFeatures() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <h3 className="font-semibold text-lg">{feature.title}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {feature.description}
-                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">{feature.description}</p>
                 </div>
                 <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full ml-2">
                   {feature.category}
@@ -76,15 +74,10 @@ export default function UpcomingFeatures() {
 
         <div className="mt-6 pt-4 border-t space-y-3">
           <p className="text-sm text-muted-foreground text-center">
-            Have ideas for new features? Join the discussion and help shape the
-            future of GTFS Viz!
+            Have ideas for new features? Join the discussion and help shape the future of GTFS Viz!
           </p>
           <div className="flex gap-2 justify-center">
-            <Button
-              variant="default"
-              onClick={handleDiscussions}
-              className="gap-2"
-            >
+            <Button variant="default" onClick={handleDiscussions} className="gap-2">
               <MessageSquare className="h-4 w-4" />
               Share Your Ideas
             </Button>
@@ -106,5 +99,5 @@ export default function UpcomingFeatures() {
         </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

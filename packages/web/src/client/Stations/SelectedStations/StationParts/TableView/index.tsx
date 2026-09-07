@@ -1,22 +1,21 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react"
 
-import Header from "./Header";
-import TableComponent from '@/components/table'
+import Header from "./Header"
+import TableComponent from "@/components/table"
 
 function TableView({ data, setOpen, ClickInfo, setClickInfo }) {
-  
-  const [localClickInfo, setLocalClickInfo] = useState(ClickInfo);
+  const [localClickInfo, setLocalClickInfo] = useState(ClickInfo)
 
   useEffect(() => {
-    setLocalClickInfo(ClickInfo);
-  }, [ClickInfo]);
+    setLocalClickInfo(ClickInfo)
+  }, [ClickInfo])
 
   const handleSetClickInfo = (value: any) => {
-    setLocalClickInfo(value);
+    setLocalClickInfo(value)
     if (setClickInfo) {
-      setClickInfo(value);
+      setClickInfo(value)
     }
-  };
+  }
 
   const columns = useMemo(
     () => [
@@ -45,20 +44,19 @@ function TableView({ data, setOpen, ClickInfo, setClickInfo }) {
         header: "Wheelchair",
       },
     ],
-    [ClickInfo, setClickInfo]
-  );
+    [ClickInfo, setClickInfo],
+  )
 
   return (
-    <TableComponent data={data} columns={columns}
-      ClickInfo={localClickInfo} setClickInfo={handleSetClickInfo}
+    <TableComponent
+      data={data}
+      columns={columns}
+      ClickInfo={localClickInfo}
+      setClickInfo={handleSetClickInfo}
     >
-      <Header
-        ClickInfo={localClickInfo}
-        setClickInfo={handleSetClickInfo}
-        setOpen={setOpen}
-      />
+      <Header ClickInfo={localClickInfo} setClickInfo={handleSetClickInfo} setOpen={setOpen} />
     </TableComponent>
-  );
+  )
 }
 
-export default TableView;
+export default TableView

@@ -1,50 +1,44 @@
 type PathTraversalCost = {
-  hasCompleteTraversalTime: boolean;
-  totalTraversalTime: number;
-  hopCount: number;
-};
+  hasCompleteTraversalTime: boolean
+  totalTraversalTime: number
+  hopCount: number
+}
 
 type PathTraversalEdge = {
-  toNodeId: string;
-  connection: any;
-  connectionId: string;
-};
+  toNodeId: string
+  connection: any
+  connectionId: string
+}
 
 type PathwayRouteStopOption = {
-  label: string;
-  value: string;
-  cost: PathTraversalCost | null;
-};
+  label: string
+  value: string
+  cost: PathTraversalCost | null
+}
 
 export type PathwayRouteFilterResult = {
-  availableFromStops: { label: string; value: string }[];
-  availableToStops: { label: string; value: string }[];
-  filteredConnections: any[];
-  filteredConnectionIds: string[];
-};
+  availableFromStops: { label: string; value: string }[]
+  availableToStops: { label: string; value: string }[]
+  filteredConnections: any[]
+  filteredConnectionIds: string[]
+}
 
 const createInitialPathTraversalCost = (): PathTraversalCost => ({
   hasCompleteTraversalTime: true,
   totalTraversalTime: 0,
   hopCount: 0,
-});
+})
 
 const getNextPathTraversalCost = (
   currentCost: PathTraversalCost,
   connection: any,
 ): PathTraversalCost => {
-  const rawTraversalTime = connection?.traversal_time;
+  const rawTraversalTime = connection?.traversal_time
   const hasExplicitTraversalTime =
-    rawTraversalTime !== null &&
-    rawTraversalTime !== undefined &&
-    rawTraversalTime !== "";
-  const traversalTime = hasExplicitTraversalTime
-    ? Number(rawTraversalTime)
-    : Number.NaN;
-  const hasTraversalTime =
-    Number.isFinite(traversalTime) && traversalTime >= 0;
-  const hasCompleteTraversalTime =
-    currentCost.hasCompleteTraversalTime && hasTraversalTime;
+    rawTraversalTime !== null && rawTraversalTime !== undefined && rawTraversalTime !== ""
+  const traversalTime = hasExplicitTraversalTime ? Number(rawTraversalTime) : Number.NaN
+  const hasTraversalTime = Number.isFinite(traversalTime) && traversalTime >= 0
+  const hasCompleteTraversalTime = currentCost.hasCompleteTraversalTime && hasTraversalTime
 
   return {
     hasCompleteTraversalTime,
@@ -52,82 +46,75 @@ const getNextPathTraversalCost = (
       ? currentCost.totalTraversalTime + traversalTime
       : 0,
     hopCount: currentCost.hopCount + 1,
-  };
-};
+  }
+}
 
-const comparePathTraversalCosts = (
-  left: PathTraversalCost,
-  right: PathTraversalCost,
-) => {
+const comparePathTraversalCosts = (left: PathTraversalCost, right: PathTraversalCost) => {
   if (left.hasCompleteTraversalTime !== right.hasCompleteTraversalTime) {
-    return left.hasCompleteTraversalTime ? -1 : 1;
+    return left.hasCompleteTraversalTime ? -1 : 1
   }
 
   if (left.hasCompleteTraversalTime) {
     if (left.totalTraversalTime !== right.totalTraversalTime) {
-      return left.totalTraversalTime - right.totalTraversalTime;
+      return left.totalTraversalTime - right.totalTraversalTime
     }
   }
 
   if (left.hopCount !== right.hopCount) {
-    return left.hopCount - right.hopCount;
+    return left.hopCount - right.hopCount
   }
 
-  return 0;
-};
+  return 0
+}
 
 const getConnectionId = (connection: any) =>
   connection?.pathway_id !== null && connection?.pathway_id !== undefined
     ? String(connection.pathway_id)
-    : null;
+    : null
 
 export const isBidirectionalConnection = (connection: any) =>
-  connection?.direction_type === "bidirectional" ||
-  Number(connection?.is_bidirectional) === 1;
+  connection?.direction_type === "bidirectional" || Number(connection?.is_bidirectional) === 1
 
-const getOrCreateSet = <T,>(map: Map<string, Set<T>>, key: string) => {
-  let current = map.get(key);
+const getOrCreateSet = <T>(map: Map<string, Set<T>>, key: string) => {
+  let current = map.get(key)
   if (!current) {
-    current = new Set<T>();
-    map.set(key, current);
+    current = new Set<T>()
+    map.set(key, current)
   }
-  return current;
-};
+  return current
+}
 
-const getOrCreateList = <T,>(map: Map<string, T[]>, key: string) => {
-  let current = map.get(key);
+const getOrCreateList = <T>(map: Map<string, T[]>, key: string) => {
+  let current = map.get(key)
   if (!current) {
-    current = [];
-    map.set(key, current);
+    current = []
+    map.set(key, current)
   }
-  return current;
-};
+  return current
+}
 
 const computeShortestPathTree = (
   startId: string | undefined,
   adjacencyByNodeId: Map<string, PathTraversalEdge[]>,
 ) => {
-  const costByNodeId = new Map<string, PathTraversalCost>();
-  const previousByNodeId = new Map<
-    string,
-    { fromNodeId: string; connectionId: string }
-  >();
+  const costByNodeId = new Map<string, PathTraversalCost>()
+  const previousByNodeId = new Map<string, { fromNodeId: string; connectionId: string }>()
 
   if (!startId) {
-    return { costByNodeId, previousByNodeId };
+    return { costByNodeId, previousByNodeId }
   }
 
-  costByNodeId.set(startId, createInitialPathTraversalCost());
-  const pendingNodeIds = new Set<string>([startId]);
+  costByNodeId.set(startId, createInitialPathTraversalCost())
+  const pendingNodeIds = new Set<string>([startId])
 
   while (pendingNodeIds.size > 0) {
-    let currentNodeId: string | null = null;
-    let currentNodeCost: PathTraversalCost | null = null;
+    let currentNodeId: string | null = null
+    let currentNodeCost: PathTraversalCost | null = null
 
     pendingNodeIds.forEach((nodeId) => {
-      const candidateCost = costByNodeId.get(nodeId);
+      const candidateCost = costByNodeId.get(nodeId)
       if (!candidateCost) {
-        return;
+        return
       }
 
       if (
@@ -135,40 +122,34 @@ const computeShortestPathTree = (
         !currentNodeCost ||
         comparePathTraversalCosts(candidateCost, currentNodeCost) < 0
       ) {
-        currentNodeId = nodeId;
-        currentNodeCost = candidateCost;
+        currentNodeId = nodeId
+        currentNodeCost = candidateCost
       }
-    });
+    })
 
     if (!currentNodeId || !currentNodeCost) {
-      break;
+      break
     }
 
-    pendingNodeIds.delete(currentNodeId);
+    pendingNodeIds.delete(currentNodeId)
 
-    (adjacencyByNodeId.get(currentNodeId) ?? []).forEach((edge) => {
-      const nextCost = getNextPathTraversalCost(
-        currentNodeCost!,
-        edge.connection,
-      );
-      const existingCost = costByNodeId.get(edge.toNodeId);
+    ;(adjacencyByNodeId.get(currentNodeId) ?? []).forEach((edge) => {
+      const nextCost = getNextPathTraversalCost(currentNodeCost!, edge.connection)
+      const existingCost = costByNodeId.get(edge.toNodeId)
 
-      if (
-        !existingCost ||
-        comparePathTraversalCosts(nextCost, existingCost) < 0
-      ) {
-        costByNodeId.set(edge.toNodeId, nextCost);
+      if (!existingCost || comparePathTraversalCosts(nextCost, existingCost) < 0) {
+        costByNodeId.set(edge.toNodeId, nextCost)
         previousByNodeId.set(edge.toNodeId, {
           fromNodeId: currentNodeId!,
           connectionId: edge.connectionId,
-        });
-        pendingNodeIds.add(edge.toNodeId);
+        })
+        pendingNodeIds.add(edge.toNodeId)
       }
-    });
+    })
   }
 
-  return { costByNodeId, previousByNodeId };
-};
+  return { costByNodeId, previousByNodeId }
+}
 
 const getShortestPathResult = (
   startId: string | undefined,
@@ -176,78 +157,75 @@ const getShortestPathResult = (
   adjacencyByNodeId: Map<string, PathTraversalEdge[]>,
 ) => {
   if (!startId || !targetId) {
-    return null;
+    return null
   }
 
-  const { costByNodeId, previousByNodeId } = computeShortestPathTree(
-    startId,
-    adjacencyByNodeId,
-  );
-  const targetCost = costByNodeId.get(targetId);
+  const { costByNodeId, previousByNodeId } = computeShortestPathTree(startId, adjacencyByNodeId)
+  const targetCost = costByNodeId.get(targetId)
 
   if (!targetCost) {
-    return null;
+    return null
   }
 
-  const connectionIds = new Set<string>();
-  let currentNodeId = targetId;
+  const connectionIds = new Set<string>()
+  let currentNodeId = targetId
 
   while (currentNodeId !== startId) {
-    const previousStep = previousByNodeId.get(currentNodeId);
+    const previousStep = previousByNodeId.get(currentNodeId)
     if (!previousStep) {
-      return null;
+      return null
     }
 
-    connectionIds.add(previousStep.connectionId);
-    currentNodeId = previousStep.fromNodeId;
+    connectionIds.add(previousStep.connectionId)
+    currentNodeId = previousStep.fromNodeId
   }
 
   return {
     cost: targetCost,
     connectionIds,
-  };
-};
+  }
+}
 
 const collectReachableNodeIds = (
   startId: string | undefined,
   adjacency: Map<string, Set<string>>,
 ) => {
-  const visited = new Set<string>();
+  const visited = new Set<string>()
 
   if (!startId) {
-    return visited;
+    return visited
   }
 
-  const queue = [startId];
-  visited.add(startId);
+  const queue = [startId]
+  visited.add(startId)
 
   while (queue.length > 0) {
-    const currentId = queue.shift();
+    const currentId = queue.shift()
     if (!currentId) {
-      continue;
+      continue
     }
 
     adjacency.get(currentId)?.forEach((nextId) => {
       if (visited.has(nextId)) {
-        return;
+        return
       }
 
-      visited.add(nextId);
-      queue.push(nextId);
-    });
+      visited.add(nextId)
+      queue.push(nextId)
+    })
   }
 
-  return visited;
-};
+  return visited
+}
 
 const buildOptionList = ({
   ids,
   costByNodeId,
   excludedId,
 }: {
-  ids: Set<string>;
-  costByNodeId?: Map<string, PathTraversalCost>;
-  excludedId?: string;
+  ids: Set<string>
+  costByNodeId?: Map<string, PathTraversalCost>
+  excludedId?: string
 }) =>
   Array.from(ids)
     .filter((id) => id !== excludedId)
@@ -259,17 +237,17 @@ const buildOptionList = ({
     }))
     .sort((left, right) => {
       if (left.cost && right.cost) {
-        const costCompare = comparePathTraversalCosts(left.cost, right.cost);
+        const costCompare = comparePathTraversalCosts(left.cost, right.cost)
         if (costCompare !== 0) {
-          return costCompare;
+          return costCompare
         }
       } else if (left.cost || right.cost) {
-        return left.cost ? -1 : 1;
+        return left.cost ? -1 : 1
       }
 
-      return left.label.localeCompare(right.label);
+      return left.label.localeCompare(right.label)
     })
-    .map(({ label, value }) => ({ label, value }));
+    .map(({ label, value }) => ({ label, value }))
 
 export const getPathwayRouteFilterData = ({
   stops,
@@ -277,10 +255,10 @@ export const getPathwayRouteFilterData = ({
   fromStopId,
   toStopId,
 }: {
-  stops: any[];
-  connections: any[];
-  fromStopId?: string;
-  toStopId?: string;
+  stops: any[]
+  connections: any[]
+  fromStopId?: string
+  toStopId?: string
 }): PathwayRouteFilterResult => {
   const validStops = Array.isArray(stops)
     ? stops.filter(
@@ -289,21 +267,21 @@ export const getPathwayRouteFilterData = ({
           stop?.status !== "deleted" &&
           stop?.location_type_name !== "Station",
       )
-    : [];
-  const stopById = new Map(validStops.map((stop) => [String(stop.stop_id), stop]));
+    : []
+  const stopById = new Map(validStops.map((stop) => [String(stop.stop_id), stop]))
 
-  const validConnections: any[] = [];
-  const outgoingNodeIdsByNode = new Map<string, Set<string>>();
-  const incomingNodeIdsByNode = new Map<string, Set<string>>();
-  const traversalEdgesByFromNode = new Map<string, PathTraversalEdge[]>();
-  const traversalEdgesByToNode = new Map<string, PathTraversalEdge[]>();
-  const fromIds = new Set<string>();
-  const toIds = new Set<string>();
+  const validConnections: any[] = []
+  const outgoingNodeIdsByNode = new Map<string, Set<string>>()
+  const incomingNodeIdsByNode = new Map<string, Set<string>>()
+  const traversalEdgesByFromNode = new Map<string, PathTraversalEdge[]>()
+  const traversalEdgesByToNode = new Map<string, PathTraversalEdge[]>()
+  const fromIds = new Set<string>()
+  const toIds = new Set<string>()
 
-  (Array.isArray(connections) ? connections : []).forEach((connection) => {
-    const fromId = String(connection?.from_stop_id ?? "");
-    const toId = String(connection?.to_stop_id ?? "");
-    const connectionId = getConnectionId(connection);
+  ;(Array.isArray(connections) ? connections : []).forEach((connection) => {
+    const fromId = String(connection?.from_stop_id ?? "")
+    const toId = String(connection?.to_stop_id ?? "")
+    const connectionId = getConnectionId(connection)
 
     if (
       !fromId ||
@@ -314,95 +292,85 @@ export const getPathwayRouteFilterData = ({
       !stopById.has(toId) ||
       !connectionId
     ) {
-      return;
+      return
     }
 
-    validConnections.push(connection);
-    fromIds.add(fromId);
-    toIds.add(toId);
-    getOrCreateSet(outgoingNodeIdsByNode, fromId).add(toId);
-    getOrCreateSet(incomingNodeIdsByNode, toId).add(fromId);
+    validConnections.push(connection)
+    fromIds.add(fromId)
+    toIds.add(toId)
+    getOrCreateSet(outgoingNodeIdsByNode, fromId).add(toId)
+    getOrCreateSet(incomingNodeIdsByNode, toId).add(fromId)
     getOrCreateList(traversalEdgesByFromNode, fromId).push({
       toNodeId: toId,
       connection,
       connectionId,
-    });
+    })
     getOrCreateList(traversalEdgesByToNode, toId).push({
       toNodeId: fromId,
       connection,
       connectionId,
-    });
+    })
 
     if (isBidirectionalConnection(connection)) {
-      fromIds.add(toId);
-      toIds.add(fromId);
-      getOrCreateSet(outgoingNodeIdsByNode, toId).add(fromId);
-      getOrCreateSet(incomingNodeIdsByNode, fromId).add(toId);
+      fromIds.add(toId)
+      toIds.add(fromId)
+      getOrCreateSet(outgoingNodeIdsByNode, toId).add(fromId)
+      getOrCreateSet(incomingNodeIdsByNode, fromId).add(toId)
       getOrCreateList(traversalEdgesByFromNode, toId).push({
         toNodeId: fromId,
         connection,
         connectionId,
-      });
+      })
       getOrCreateList(traversalEdgesByToNode, fromId).push({
         toNodeId: toId,
         connection,
         connectionId,
-      });
+      })
     }
-  });
+  })
 
   const toTargetShortestPathTree = toStopId
     ? computeShortestPathTree(toStopId, traversalEdgesByToNode)
-    : null;
+    : null
   const fromSourceShortestPathTree = fromStopId
     ? computeShortestPathTree(fromStopId, traversalEdgesByFromNode)
-    : null;
+    : null
 
   const availableFromStops = buildOptionList({
     ids: fromIds,
     costByNodeId: toTargetShortestPathTree?.costByNodeId,
     excludedId: toStopId,
-  });
+  })
   const availableToStops = buildOptionList({
     ids: toIds,
     costByNodeId: fromSourceShortestPathTree?.costByNodeId,
     excludedId: fromStopId,
-  });
+  })
 
-  let filteredConnections = validConnections;
+  let filteredConnections = validConnections
 
   if (fromStopId || toStopId) {
     if (fromStopId && toStopId) {
-      const bestPathResult = getShortestPathResult(
-        fromStopId,
-        toStopId,
-        traversalEdgesByFromNode,
-      );
+      const bestPathResult = getShortestPathResult(fromStopId, toStopId, traversalEdgesByFromNode)
       filteredConnections = bestPathResult
         ? validConnections.filter((connection) =>
             bestPathResult.connectionIds.has(getConnectionId(connection) ?? ""),
           )
-        : [];
+        : []
     } else if (fromStopId) {
-      const reachableNodeIds = collectReachableNodeIds(
-        fromStopId,
-        outgoingNodeIdsByNode,
-      );
+      const reachableNodeIds = collectReachableNodeIds(fromStopId, outgoingNodeIdsByNode)
       filteredConnections = validConnections.filter((connection) => {
-        const fromId = String(connection?.from_stop_id ?? "");
-        const toId = String(connection?.to_stop_id ?? "");
-        return reachableNodeIds.has(fromId) && reachableNodeIds.has(toId);
-      });
+        const fromId = String(connection?.from_stop_id ?? "")
+        const toId = String(connection?.to_stop_id ?? "")
+        return reachableNodeIds.has(fromId) && reachableNodeIds.has(toId)
+      })
     } else if (toStopId) {
-      const reachableNodeIds = collectReachableNodeIds(
-        toStopId,
-        incomingNodeIdsByNode,
-      );
+      const reachableNodeIds = collectReachableNodeIds(toStopId, incomingNodeIdsByNode)
       filteredConnections = validConnections.filter((connection) => {
-        const fromId = String(connection?.from_stop_id ?? "");
-        const toId = String(connection?.to_stop_id ?? "");
-        return reachableNodeIds.has(fromId) && reachableNodeIds.has(toId);
-      });
+        const fromId = String(connection?.from_stop_id ?? "")
+        const toId = String(connection?.to_stop_id ?? "")
+        return reachableNodeIds.has(fromId) && reachableNodeIds.has(toId)
+      })
     }
   }
 
@@ -413,5 +381,5 @@ export const getPathwayRouteFilterData = ({
     filteredConnectionIds: filteredConnections
       .map((connection) => getConnectionId(connection))
       .filter((connectionId): connectionId is string => Boolean(connectionId)),
-  };
-};
+  }
+}

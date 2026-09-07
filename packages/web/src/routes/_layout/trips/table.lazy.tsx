@@ -1,52 +1,49 @@
-import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useDuckDB } from "@/context/duckdb.client";
-import { Skeleton } from "@/components/ui/skeleton";
-import PageFooter from "@/components/PageFooter";
-import AllTrips from "@/client/Trips/AllTrips";
-import {
-  fetchAllTripsData,
-  fetchTripsTimeBounds,
-} from "@/lib/duckdb/DataFetching/fetchRouteData";
+import { createLazyFileRoute, useNavigate } from "@tanstack/react-router"
+import { useQuery } from "@tanstack/react-query"
+import { useDuckDB } from "@/context/duckdb.client"
+import { Skeleton } from "@/components/ui/skeleton"
+import PageFooter from "@/components/PageFooter"
+import AllTrips from "@/client/Trips/AllTrips"
+import { fetchAllTripsData, fetchTripsTimeBounds } from "@/lib/duckdb/DataFetching/fetchRouteData"
 
 export const Route = createLazyFileRoute("/_layout/trips/table")({
   component: TripsTablePage,
-});
+})
 
 function TripsTablePage() {
-  const search = Route.useSearch();
-  const navigate = useNavigate();
-  const duckDB = useDuckDB();
-  const conn = duckDB?.conn;
-  const initialized = duckDB?.initialized ?? false;
-  const hasStopTimes = duckDB?.hasStopTimes ?? false;
+  const search = Route.useSearch()
+  const navigate = useNavigate()
+  const duckDB = useDuckDB()
+  const conn = duckDB?.conn
+  const initialized = duckDB?.initialized ?? false
+  const hasStopTimes = duckDB?.hasStopTimes ?? false
 
   const { data: allTrips = [], isLoading: tripsLoading } = useQuery({
     queryKey: ["fetchAllTripsData"],
     queryFn: async () => fetchAllTripsData(conn),
     enabled: !!conn && initialized,
     staleTime: 30_000,
-  });
+  })
 
   const { data: timeBounds, isLoading: boundsLoading } = useQuery({
     queryKey: ["fetchTripsTimeBounds"],
     queryFn: async () => fetchTripsTimeBounds(conn),
     enabled: !!conn && initialized && hasStopTimes,
     staleTime: Infinity,
-  });
+  })
 
-  const isLoading = tripsLoading || (hasStopTimes && boundsLoading);
+  const isLoading = tripsLoading || (hasStopTimes && boundsLoading)
   const tripTimeBounds: [number, number] = timeBounds
     ? [timeBounds.minTime, timeBounds.maxTime]
-    : [0, 86400];
+    : [0, 86400]
 
   const updateSearch = (next: Partial<Record<string, unknown>>) => {
     navigate({
       to: "/trips/table",
       search: (prev) => ({ ...prev, ...next }),
       resetScroll: false,
-    });
-  };
+    })
+  }
 
   return (
     <div className="p-4">
@@ -54,7 +51,9 @@ function TripsTablePage() {
         {isLoading ? (
           <div className="space-y-4 mt-2">
             {/* Filter inputs — responsive grid */}
-            <div className={`grid grid-cols-1 sm:grid-cols-2 ${hasStopTimes ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-2 mb-1`}>
+            <div
+              className={`grid grid-cols-1 sm:grid-cols-2 ${hasStopTimes ? "lg:grid-cols-4" : "lg:grid-cols-3"} gap-2 mb-1`}
+            >
               <Skeleton className="h-10 w-full rounded-md" />
               <Skeleton className="h-10 w-full rounded-md" />
               <Skeleton className="h-10 w-full rounded-md" />
@@ -93,5 +92,5 @@ function TripsTablePage() {
         <PageFooter />
       </div>
     </div>
-  );
+  )
 }

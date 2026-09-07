@@ -1,34 +1,39 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import MapContainer from "@/components/maps/MapContainer";
-import MapLegend from "@/components/maps/MapLegend";
-import MapClickPopup from "@/components/maps/MapClickPopup";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Link } from "@tanstack/react-router";
-import { BiPencil, BiReset, BiRightArrow, BiTrash } from "react-icons/bi";
-import { EditIndicator } from "@/components/ui/EditIndicator";
-import MapSection from "./Components/MapSection";
-import { getRouteTypeColor, getRouteTypeLegendItems } from "@/client/Routes/routeTypeColors";
-import { useDuckDB } from "@/context/duckdb.client";
-import { fetchRouteMapBounds, fetchFitZoom } from "@/lib/duckdb/DataFetching/fetchRouteData";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import MapContainer from "@/components/maps/MapContainer"
+import MapLegend from "@/components/maps/MapLegend"
+import MapClickPopup from "@/components/maps/MapClickPopup"
+import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Link } from "@tanstack/react-router"
+import { BiPencil, BiReset, BiRightArrow, BiTrash } from "react-icons/bi"
+import { EditIndicator } from "@/components/ui/EditIndicator"
+import MapSection from "./Components/MapSection"
+import { getRouteTypeColor, getRouteTypeLegendItems } from "@/client/Routes/routeTypeColors"
+import { useDuckDB } from "@/context/duckdb.client"
+import { fetchRouteMapBounds, fetchFitZoom } from "@/lib/duckdb/DataFetching/fetchRouteData"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 
 function RoutesMap({
   routes,
-  shapeRows,
+  shapeChunks,
   stopRows,
   routeIds,
+  cleanup,
+  setCleanup,
   ClickInfo,
   setClickInfo,
   externalViewState,
+  onInteraction,
   onEdit,
   onDelete,
   isDeleting,
 }: any) {
-  const duckDB = useDuckDB();
-  const conn = duckDB?.conn;
-  const hasStopTimes = duckDB?.hasStopTimes ?? false;
-  const route = ClickInfo;
+  const duckDB = useDuckDB()
+  const conn = duckDB?.conn
+  const hasStopTimes = duckDB?.hasStopTimes ?? false
+  const route = ClickInfo
 
   // Fetch bounds from SQL — no large array processing in JS
   const { data: allRoutesFit } = useQuery({
@@ -36,110 +41,140 @@ function RoutesMap({
     queryFn: () => fetchRouteMapBounds(conn, routeIds),
     enabled: !!conn && routeIds.length > 0,
     staleTime: Infinity,
-  });
+  })
 
   const { data: selectedRouteFit } = useQuery({
     queryKey: ["fetchRouteMapBounds", route?.route_id ? [String(route.route_id)] : []],
     queryFn: () => fetchRouteMapBounds(conn, [String(route.route_id)]),
     enabled: !!conn && !!route?.route_id,
     staleTime: Infinity,
-  });
+  })
 
-  const initialView = externalViewState || allRoutesFit?.viewState;
-  const initialBounds = allRoutesFit?.boundBox;
+  const initialView = externalViewState || allRoutesFit?.viewState
+  const initialBounds = allRoutesFit?.boundBox
 
-  const [viewState, setViewState] = useState<any>(initialView);
-  const [BoundBox, setBoundBox] = useState<any>(initialBounds);
-  const appliedFitRef = useRef<string>("");
+  const [viewState, setViewState] = useState<any>(initialView)
+  const [BoundBox, setBoundBox] = useState<any>(initialBounds)
+  const appliedFitRef = useRef<string>("")
 
   // Fit view when bounds arrive or route IDs change
   useEffect(() => {
     if (externalViewState) {
-      setViewState(externalViewState);
-      return;
+      setViewState(externalViewState)
+      return
     }
-    if (!allRoutesFit) return;
-    const key = routeIds.join(",");
-    if (appliedFitRef.current === key && viewState) return;
-    appliedFitRef.current = key;
-    setViewState({ ...allRoutesFit.viewState, transitionDuration: 0 });
-    setBoundBox(allRoutesFit.boundBox);
-  }, [allRoutesFit, externalViewState, routeIds]);
+    if (!allRoutesFit) return
+    const key = routeIds.join(",")
+    if (appliedFitRef.current === key && viewState) return
+    appliedFitRef.current = key
+    setViewState({ ...allRoutesFit.viewState, transitionDuration: 0 })
+    setBoundBox(allRoutesFit.boundBox)
+  }, [allRoutesFit, externalViewState, routeIds])
 
-  const mapReady = !!viewState;
+  const mapReady = !!viewState
 
-  const legendItems = useMemo(() => getRouteTypeLegendItems(routes), [routes]);
+  const legendItems = useMemo(() => getRouteTypeLegendItems(routes), [routes])
 
   // Zoom to route via DuckDB macro, with shapeRows min/max + fit_zoom for new routes
-  const zoomToRoute = useCallback(async (routeId: string) => {
-    if (!conn) return;
-    // Try macro first (existing routes with shapes/stops in DB)
-    const macroBounds = await fetchRouteMapBounds(conn, [routeId]).catch(() => null);
-    if (macroBounds) {
-      setViewState((prev: any) => ({ ...prev, ...macroBounds.viewState, transitionDuration: 300 }));
-      setBoundBox(macroBounds.boundBox);
-      return;
-    }
-    // New routes: get min/max from shapeRows, zoom via DuckDB fit_zoom
-    let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
-    let count = 0;
-    for (const r of (Array.isArray(shapeRows) ? shapeRows : [])) {
-      if (String(r.route_id) !== routeId || r.shape_pt_lat == null || r.shape_pt_lon == null) continue;
-      const lat = Number(r.shape_pt_lat), lon = Number(r.shape_pt_lon);
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-      if (lon < minLon) minLon = lon;
-      if (lon > maxLon) maxLon = lon;
-      if (lat < minLat) minLat = lat;
-      if (lat > maxLat) maxLat = lat;
-      count++;
-    }
-    if (count === 0) return;
-    try {
-      const zoom = await fetchFitZoom(conn, minLon, maxLon, minLat, maxLat);
-      setViewState((prev: any) => ({
-        ...prev,
-        longitude: (minLon + maxLon) / 2,
-        latitude: (minLat + maxLat) / 2,
-        zoom,
-        transitionDuration: 300,
-      }));
-      setBoundBox([[minLon, minLat], [maxLon, maxLat]]);
-    } catch {}
-  }, [conn, shapeRows]);
+  const zoomToRoute = useCallback(
+    async (routeId: string) => {
+      if (!conn) return
+      // Try macro first (existing routes with shapes/stops in DB)
+      const macroBounds = await fetchRouteMapBounds(conn, [routeId]).catch(() => null)
+      if (macroBounds) {
+        setViewState((prev: any) => ({
+          ...prev,
+          ...macroBounds.viewState,
+          transitionDuration: 300,
+        }))
+        setBoundBox(macroBounds.boundBox)
+        return
+      }
+      let minLon = Infinity,
+        maxLon = -Infinity,
+        minLat = Infinity,
+        maxLat = -Infinity
+      let count = 0
+      for (const chunk of Array.isArray(shapeChunks) ? shapeChunks : []) {
+        for (const rec of Array.isArray(chunk) ? chunk : []) {
+          if (String(rec?.route_id) !== routeId || !rec?.lons || !rec?.lats) continue
+          const m = Math.min(rec.lons.length, rec.lats.length)
+          for (let i = 0; i < m; i++) {
+            const lat = rec.lats[i],
+              lon = rec.lons[i]
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue
+            if (lon < minLon) minLon = lon
+            if (lon > maxLon) maxLon = lon
+            if (lat < minLat) minLat = lat
+            if (lat > maxLat) maxLat = lat
+            count++
+          }
+        }
+      }
+      if (count === 0) return
+      try {
+        const zoom = await fetchFitZoom(conn, minLon, maxLon, minLat, maxLat)
+        setViewState((prev: any) => ({
+          ...prev,
+          longitude: (minLon + maxLon) / 2,
+          latitude: (minLat + maxLat) / 2,
+          zoom,
+          transitionDuration: 300,
+        }))
+        setBoundBox([
+          [minLon, minLat],
+          [maxLon, maxLat],
+        ])
+      } catch {}
+    },
+    [conn, shapeChunks],
+  )
 
   // Auto-zoom on selection
-  const lastZoomedRouteRef = useRef<string>("");
+  const lastZoomedRouteRef = useRef<string>("")
   useEffect(() => {
-    if (!route?.route_id || !conn) return;
-    const id = String(route.route_id);
-    if (lastZoomedRouteRef.current === id) return;
-    lastZoomedRouteRef.current = id;
-    zoomToRoute(id);
-  }, [route?.route_id, conn, zoomToRoute]);
+    if (!route?.route_id || !conn) return
+    const id = String(route.route_id)
+    if (lastZoomedRouteRef.current === id) return
+    lastZoomedRouteRef.current = id
+    zoomToRoute(id)
+  }, [route?.route_id, conn, zoomToRoute])
 
   useEffect(() => {
-    if (!route) lastZoomedRouteRef.current = "";
-  }, [route]);
+    if (!route) lastZoomedRouteRef.current = ""
+  }, [route])
 
   const handleGoToRoute = useCallback(() => {
-    if (!route?.route_id) return;
-    zoomToRoute(String(route.route_id));
-  }, [route?.route_id, zoomToRoute]);
+    if (!route?.route_id) return
+    zoomToRoute(String(route.route_id))
+  }, [route?.route_id, zoomToRoute])
 
   if (!routes || routes.length === 0) {
     return (
       <div className="relative h-[74vh] w-full border rounded overflow-hidden flex items-center justify-center">
         <div className="text-sm text-muted-foreground">No route data available.</div>
       </div>
-    );
+    )
   }
 
   return (
     <MapContainer
       instructionText="Click a route to view details"
-      showLegend={legendItems.length > 0}
+      showLegend={legendItems.length > 0 || typeof setCleanup === "function"}
       legendContent={
-        <MapLegend title="Routes" items={legendItems} collapsible={true} defaultExpanded={true} />
+        <MapLegend title="Routes" items={legendItems} collapsible={true} defaultExpanded={true}>
+          {typeof setCleanup === "function" && (
+            <div className="mb-1.5 flex items-center justify-between gap-2 border-b pb-1.5">
+              <Label
+                htmlFor="route-cleanup-toggle"
+                className="cursor-pointer text-xs text-muted-foreground"
+              >
+                Separate Route(s)
+              </Label>
+              <Switch id="route-cleanup-toggle" checked={cleanup} onCheckedChange={setCleanup} />
+            </div>
+          )}
+        </MapLegend>
       }
       clickPopup={
         route ? (
@@ -149,7 +184,10 @@ function RoutesMap({
                 <EditIndicator status={route.status} className="h-5 w-5" />
                 <span
                   className="h-3 w-8 rounded-sm border shrink-0"
-                  style={{ backgroundColor: route.route_color_hex || getRouteTypeColor(route.route_type_name) }}
+                  style={{
+                    backgroundColor:
+                      route.route_color_hex || getRouteTypeColor(route.route_type_name),
+                  }}
                 />
                 <span className="truncate">{route.route_name || route.route_id}</span>
               </div>
@@ -238,7 +276,7 @@ function RoutesMap({
       {mapReady ? (
         <MapSection
           routes={routes}
-          shapeRows={shapeRows}
+          shapeChunks={shapeChunks}
           stopRows={stopRows}
           ClickInfo={ClickInfo}
           setClickInfo={setClickInfo}
@@ -246,6 +284,7 @@ function RoutesMap({
           setViewState={setViewState}
           BoundBox={BoundBox}
           setBoundBox={setBoundBox}
+          onInteraction={onInteraction}
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center">
@@ -255,7 +294,7 @@ function RoutesMap({
         </div>
       )}
     </MapContainer>
-  );
+  )
 }
 
-export default RoutesMap;
+export default RoutesMap

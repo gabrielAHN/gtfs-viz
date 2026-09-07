@@ -9,11 +9,7 @@ const logger = createLogger()
 const originalWarning = logger.warn
 const manualChunkGroups = {
   "react-vendor": ["react", "react-dom"],
-  "tanstack-vendor": [
-    "@tanstack/react-router",
-    "@tanstack/react-query",
-    "@tanstack/react-table",
-  ],
+  "tanstack-vendor": ["@tanstack/react-router", "@tanstack/react-query", "@tanstack/react-table"],
   "deck-vendor": [
     "deck.gl",
     "@deck.gl/core",
@@ -38,11 +34,7 @@ const manualChunkGroups = {
 } as const
 
 logger.warn = (msg, options) => {
-  if (
-    typeof msg === "string" &&
-    msg.includes("duckdb") &&
-    msg.includes("Sourcemap")
-  ) {
+  if (typeof msg === "string" && msg.includes("duckdb") && msg.includes("Sourcemap")) {
     return
   }
   originalWarning(msg, options)
@@ -78,6 +70,12 @@ const resolveManualChunk = (id: string) => {
 
 export default defineConfig({
   customLogger: logger,
+  fmt: {
+    semi: false,
+    printWidth: 100,
+    trailingComma: "all",
+    ignorePatterns: ["dist/**", "src/routeTree.gen.ts"],
+  },
   lint: {
     ignorePatterns: ["dist/**", "src/routeTree.gen.ts", "src/src/routeTree.gen.ts"],
   },
@@ -130,8 +128,7 @@ export default defineConfig({
       },
       onwarn(warning, warn) {
         if (
-          (warning.code === "SOURCEMAP_ERROR" ||
-            warning.code === "SOURCEMAP_BROKEN") &&
+          (warning.code === "SOURCEMAP_ERROR" || warning.code === "SOURCEMAP_BROKEN") &&
           warning.message?.includes("duckdb")
         ) {
           return

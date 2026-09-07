@@ -1,36 +1,35 @@
-import { useState } from "react";
-import { useDuckDB } from "@/context/duckdb.client";
-import { useQuery } from "@tanstack/react-query";
-import { Skeleton } from "@/components/ui/skeleton";
-import { BiInfoCircle, BiMap, BiGridAlt } from "react-icons/bi";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { fetchCheckStationInfo } from "@/lib/duckdb/DataFetching/fetchStationInfoData";
-import { EditIndicator } from "@/components/ui/EditIndicator";
+import { useState } from "react"
+import { useDuckDB } from "@/context/duckdb.client"
+import { useQuery } from "@tanstack/react-query"
+import { Skeleton } from "@/components/ui/skeleton"
+import { BiInfoCircle, BiMap, BiGridAlt } from "react-icons/bi"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { fetchCheckStationInfo } from "@/lib/duckdb/DataFetching/fetchStationInfoData"
+import { EditIndicator } from "@/components/ui/EditIndicator"
 
-import StationInfo from "./StationInfo";
-import StationParts from "./StationParts";
-import StationPathways from "./StationPathways";
+import StationInfo from "./StationInfo"
+import StationParts from "./StationParts"
+import StationPathways from "./StationPathways"
 
 interface SelectedStationsProps {
-  stationId: string;
+  stationId: string
 }
 
 function SelectedStations({ stationId }: SelectedStationsProps) {
-  const [tabValue, setTabValue] = useState("StationInfo");
-  const { conn, initialized } = useDuckDB();
+  const [tabValue, setTabValue] = useState("StationInfo")
+  const { conn, initialized } = useDuckDB()
   const { data, error, isLoading, isFetching } = useQuery({
     queryKey: ["fetchStationInfoData", stationId],
     queryFn: async () => {
-
       return fetchCheckStationInfo({
         conn,
         table: "StopsView",
         stop_id: stationId,
-      });
+      })
     },
     enabled: !!conn && !!stationId && initialized,
     retry: false,
-  });
+  })
 
   if (isLoading || isFetching) {
     return (
@@ -39,26 +38,26 @@ function SelectedStations({ stationId }: SelectedStationsProps) {
         <br />
         <Skeleton className="h-30" />
       </>
-    );
+    )
   }
 
   if (error) {
-    return <div>Error loading station information.</div>;
+    return <div>Error loading station information.</div>
   }
 
   if (!data) {
-    return <div>No station information available.</div>;
+    return <div>No station information available.</div>
   }
 
   const ToggleTabs = [
     { value: "StationInfo", label: "Info", icon: <BiInfoCircle /> },
     { value: "StationParts", label: "Parts", icon: <BiGridAlt /> },
     { value: "StationPathways", label: "Pathways", icon: <BiMap /> },
-  ];
+  ]
 
   const TabChange = (e) => {
-    setTabValue(e);
-  };
+    setTabValue(e)
+  }
 
   return (
     <div>
@@ -86,7 +85,7 @@ function SelectedStations({ stationId }: SelectedStationsProps) {
         </TabsContent>
       </Tabs>
     </div>
-  );
+  )
 }
 
-export default SelectedStations;
+export default SelectedStations

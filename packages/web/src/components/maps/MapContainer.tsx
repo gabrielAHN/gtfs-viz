@@ -1,12 +1,12 @@
-import { ReactNode } from "react";
+import { ReactNode } from "react"
 
 interface MapContainerProps {
-  children: ReactNode;
-  instructionText?: string;
-  showLegend?: boolean;
-  legendContent?: ReactNode;
-  clickPopup?: ReactNode;
-  popupPosition?: "left" | "bottom-right";
+  children: ReactNode
+  instructionText?: string
+  showLegend?: boolean
+  legendContent?: ReactNode
+  clickPopup?: ReactNode
+  popupPosition?: "left" | "bottom-right"
 }
 
 function MapContainer({
@@ -20,15 +20,11 @@ function MapContainer({
   return (
     <div className="flex flex-col h-full w-full">
       {clickPopup && popupPosition === "left" && (
-        <div className="w-full sm:hidden p-2 flex-shrink-0">
-          {clickPopup}
-        </div>
+        <div className="w-full sm:hidden p-2 flex-shrink-0">{clickPopup}</div>
       )}
 
       <div className="relative flex-1 min-h-0">
-        <div className="h-full w-full border rounded overflow-hidden">
-          {children}
-        </div>
+        <div className="h-full w-full border rounded overflow-hidden">{children}</div>
 
         {instructionText && (
           <div className="absolute top-2 left-2 z-10 text-xs text-muted-foreground bg-background/80 backdrop-blur-sm px-2 py-1 rounded pointer-events-none">
@@ -49,7 +45,9 @@ function MapContainer({
         )}
 
         {showLegend && legendContent && (
-          <div className={`absolute z-20 ${clickPopup && popupPosition === "bottom-right" ? "top-2 right-2" : "bottom-2 right-2"}`}>
+          <div
+            className={`absolute z-20 ${clickPopup && popupPosition === "bottom-right" ? "top-2 right-2" : "bottom-2 right-2"}`}
+          >
             {legendContent}
           </div>
         )}
@@ -61,7 +59,7 @@ function MapContainer({
         </div>
       )}
     </div>
-  );
+  )
 }
 
-export default MapContainer;
+export default MapContainer

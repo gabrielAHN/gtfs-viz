@@ -332,8 +332,8 @@ FROM (
          st.arrival_time, st.departure_time, st.stop_headsign,
          st.pickup_type, st.drop_off_type, st.shape_dist_traveled, '' AS status
   FROM stop_times st
-  WHERE NOT EXISTS (SELECT 1 FROM EditStopTimesTable edt WHERE edt.row_id = CAST(st.row_id AS TEXT) AND edt.status = 'deleted')
-    AND NOT EXISTS (SELECT 1 FROM EditStopTimesTable edt WHERE edt.row_id = CAST(st.row_id AS TEXT) AND edt.status = 'edit')
+  WHERE NOT EXISTS (SELECT 1 FROM EditStopTimesTable edt WHERE TRY_CAST(edt.row_id AS BIGINT) = st.row_id AND edt.status = 'deleted')
+    AND NOT EXISTS (SELECT 1 FROM EditStopTimesTable edt WHERE TRY_CAST(edt.row_id AS BIGINT) = st.row_id AND edt.status = 'edit')
     AND NOT EXISTS (SELECT 1 FROM EditStopTimesTable edt WHERE edt.trip_id = st.trip_id AND edt.status = 'new edit')
 ) combined;
 
@@ -1203,6 +1203,724 @@ CREATE OR REPLACE MACRO get_station_routes(p_station_id) AS TABLE (
   LEFT JOIN stops s1 ON s1.stop_id = ar.start_stop
   LEFT JOIN stops s2 ON s2.stop_id = ar.end_stop
   ORDER BY ar.start_stop, ar.end_stop
+);
+
+CREATE OR REPLACE MACRO route_band_offset_deg(band_index, band_count, spacing_meters) AS (
+  CASE
+    WHEN band_count <= 1 THEN 0.0
+    ELSE (spacing_meters * (band_index - (band_count - 1) / 2.0)) / 111320.0
+  END
+);
+
+CREATE OR REPLACE MACRO get_route_corridors(p_route_ids, snap_precision := 4) AS TABLE (
+  WITH pts AS (
+    SELECT route_id, route_type, shape_id, shape_pt_sequence, shape_pt_lat, shape_pt_lon
+    FROM RouteShapesView
+    WHERE route_id IN (SELECT unnest(p_route_ids))
+  ),
+  segs AS (
+    SELECT route_id, route_type, shape_id,
+           shape_pt_lat AS lat1, shape_pt_lon AS lon1,
+           LEAD(shape_pt_lat) OVER w AS lat2,
+           LEAD(shape_pt_lon) OVER w AS lon2
+    FROM pts
+    WINDOW w AS (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence)
+  ),
+  corridor AS (
+    SELECT route_id, route_type,
+           ROUND(lat1, snap_precision) AS a_lat, ROUND(lon1, snap_precision) AS a_lon,
+           ROUND(lat2, snap_precision) AS b_lat, ROUND(lon2, snap_precision) AS b_lon,
+           CASE WHEN ROUND(lat1, snap_precision) < ROUND(lat2, snap_precision)
+                  OR (ROUND(lat1, snap_precision) = ROUND(lat2, snap_precision)
+                      AND ROUND(lon1, snap_precision) <= ROUND(lon2, snap_precision))
+             THEN CAST(ROUND(lat1, snap_precision) AS VARCHAR) || ',' || CAST(ROUND(lon1, snap_precision) AS VARCHAR) || '|' ||
+                  CAST(ROUND(lat2, snap_precision) AS VARCHAR) || ',' || CAST(ROUND(lon2, snap_precision) AS VARCHAR)
+             ELSE CAST(ROUND(lat2, snap_precision) AS VARCHAR) || ',' || CAST(ROUND(lon2, snap_precision) AS VARCHAR) || '|' ||
+                  CAST(ROUND(lat1, snap_precision) AS VARCHAR) || ',' || CAST(ROUND(lon1, snap_precision) AS VARCHAR)
+           END AS corridor_key
+    FROM segs
+    WHERE lat2 IS NOT NULL AND lon2 IS NOT NULL
+  ),
+  corridor_routes AS (
+    SELECT DISTINCT corridor_key, route_id, route_type FROM corridor
+  ),
+  banded AS (
+    SELECT corridor_key, route_id,
+           CAST(ROW_NUMBER() OVER (PARTITION BY corridor_key ORDER BY route_type, route_id) - 1 AS INTEGER) AS band_index,
+           CAST(COUNT(*) OVER (PARTITION BY corridor_key) AS INTEGER) AS band_count
+    FROM corridor_routes
+  )
+  SELECT b.corridor_key, b.route_id, b.band_index, b.band_count
+  FROM banded b
+  WHERE b.band_count > 1
+  ORDER BY b.corridor_key, b.band_index
+);
+
+CREATE TABLE IF NOT EXISTS RouteShapeLanesTable (
+  route_id VARCHAR,
+  shape_id VARCHAR,
+  shape_pt_sequence DOUBLE,
+  lat DOUBLE,
+  lon DOUBLE,
+  coslat DOUBLE,
+  ux DOUBLE,
+  uy DOUBLE,
+  band_index BIGINT,
+  band_count BIGINT,
+  shift_s DOUBLE,
+  slot_s DOUBLE,
+  plat DOUBLE,
+  plon DOUBLE,
+  nlat DOUBLE,
+  nlon DOUBLE
+);
+
+CREATE OR REPLACE MACRO prepare_route_shape_lanes(
+  p_route_ids, spacing_meters := 16.0, snap_precision := 4, simplify_meters := 0.5,
+  reach_meters := 18.0, p_kind := 'route'
+) AS TABLE (
+  WITH cand AS (
+    SELECT CASE WHEN p_kind = 'trip' THEN t.trip_id ELSE t.route_id END AS route_id,
+           t.shape_id, COUNT(*) AS tn
+    FROM TripsView t
+    WHERE t.shape_id IS NOT NULL AND t.shape_id != ''
+      AND (CASE WHEN p_kind = 'trip' THEN t.trip_id ELSE t.route_id END)
+            IN (SELECT unnest(p_route_ids))
+    GROUP BY 1, 2
+  ),
+  shape_len AS (
+    SELECT shape_id, COUNT(*) AS n
+    FROM shapes
+    WHERE shape_pt_lat IS NOT NULL AND shape_pt_lon IS NOT NULL
+      AND shape_id IN (SELECT shape_id FROM cand)
+    GROUP BY shape_id
+  ),
+  scored AS (
+    SELECT c.route_id, c.shape_id, c.tn, sl.n,
+           MAX(sl.n) OVER (PARTITION BY c.route_id) AS mx
+    FROM cand c JOIN shape_len sl USING (shape_id)
+  ),
+  rep AS (
+    SELECT route_id, shape_id FROM (
+      SELECT *, DENSE_RANK() OVER (PARTITION BY route_id ORDER BY n DESC, tn DESC, shape_id) AS rk
+      FROM scored WHERE n >= 0.8 * mx
+    ) WHERE rk = 1
+  ),
+  simplified AS (
+    SELECT r.route_id, r.shape_id,
+           ST_Simplify(
+             ST_RemoveRepeatedPoints(
+               ST_MakeLine(list(ST_Point(s.shape_pt_lon, s.shape_pt_lat)
+                                ORDER BY s.shape_pt_sequence))
+             ),
+             simplify_meters / 111320.0
+           ) AS geom
+    FROM rep r
+    JOIN shapes s ON s.shape_id = r.shape_id
+    WHERE s.shape_pt_lat IS NOT NULL AND s.shape_pt_lon IS NOT NULL
+    GROUP BY r.route_id, r.shape_id
+    HAVING COUNT(*) >= 2
+  ),
+  exploded AS (
+    SELECT route_id, shape_id,
+           UNNEST(ST_Dump(ST_Points(geom))) AS d
+    FROM simplified
+  ),
+  clean AS (
+    SELECT e.route_id, COALESCE(rv.route_type, rv2.route_type) AS route_type, e.shape_id,
+           e.d.path[1] AS shape_pt_sequence,
+           ST_Y(e.d.geom) AS lat, ST_X(e.d.geom) AS lon
+    FROM exploded e
+    LEFT JOIN RoutesView rv ON p_kind = 'route' AND rv.route_id = e.route_id
+    LEFT JOIN (SELECT t.trip_id, MIN(r2.route_type) AS route_type
+               FROM TripsView t JOIN RoutesView r2 USING (route_id) GROUP BY t.trip_id) rv2
+      ON p_kind = 'trip' AND rv2.trip_id = e.route_id
+  ),
+  despiked AS (
+    SELECT route_id, route_type, shape_id, shape_pt_sequence, lat, lon
+    FROM (
+      SELECT *,
+             CASE WHEN plat IS NULL OR nlat IS NULL THEN 0.0 ELSE
+               DEGREES(ATAN2(
+                 ((lon - plon) * cl) * (nlat - lat) - (lat - plat) * ((nlon - lon) * cl),
+                 ((lon - plon) * cl) * ((nlon - lon) * cl) + (lat - plat) * (nlat - lat)))
+             END AS leg_turn,
+             CASE WHEN plat IS NULL THEN 1e9 ELSE
+               SQRT(POWER((lon - plon) * cl * 111320.0, 2) + POWER((lat - plat) * 111320.0, 2))
+             END AS leg_in_m,
+             CASE WHEN nlat IS NULL THEN 1e9 ELSE
+               SQRT(POWER((nlon - lon) * cl * 111320.0, 2) + POWER((nlat - lat) * 111320.0, 2))
+             END AS leg_out_m
+      FROM (
+        SELECT *, COS(RADIANS(lat)) AS cl,
+               LAG(lat)  OVER w AS plat, LAG(lon)  OVER w AS plon,
+               LEAD(lat) OVER w AS nlat, LEAD(lon) OVER w AS nlon
+        FROM clean
+        WINDOW w AS (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence)
+      )
+    )
+    WHERE NOT (ABS(leg_turn) >= 150.0 AND LEAST(leg_in_m, leg_out_m) <= 15.0)
+  ),
+  denoised AS (
+    SELECT route_id, route_type, shape_id, shape_pt_sequence,
+           CASE WHEN dev_m < 1.5 THEN alat ELSE lat END AS lat,
+           CASE WHEN dev_m < 1.5 THEN alon ELSE lon END AS lon
+    FROM (
+      SELECT *,
+             SQRT(POWER((alon - lon) * COS(RADIANS(lat)), 2) + POWER(alat - lat, 2)) * 111320.0 AS dev_m
+      FROM (
+        SELECT route_id, route_type, shape_id, shape_pt_sequence, lat, lon,
+               AVG(lat) OVER w AS alat, AVG(lon) OVER w AS alon
+        FROM despiked
+        WINDOW w AS (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence
+                     ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
+      )
+    )
+  ),
+  dense AS (
+    SELECT d.route_id, d.route_type, d.shape_id,
+           d.shape_pt_sequence + CAST(g.j AS DOUBLE) / d.k AS shape_pt_sequence,
+           d.lat + (d.nlat - d.lat) * (CAST(g.j AS DOUBLE) / d.k) AS lat,
+           d.lon + (d.nlon - d.lon) * (CAST(g.j AS DOUBLE) / d.k) AS lon
+    FROM (
+      SELECT *, GREATEST(1, LEAST(120, CAST(CEIL(
+               SQRT(POWER((nlon - lon) * COS(RADIANS(lat)) * 111320.0, 2)
+                  + POWER((nlat - lat) * 111320.0, 2)) / 20.0) AS INTEGER))) AS k
+      FROM (
+        SELECT route_id, route_type, shape_id,
+               CAST(shape_pt_sequence AS DOUBLE) AS shape_pt_sequence, lat, lon,
+               LEAD(lat) OVER w AS nlat, LEAD(lon) OVER w AS nlon
+        FROM denoised WINDOW w AS (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence)
+      ) WHERE nlat IS NOT NULL
+    ) d
+    JOIN (SELECT UNNEST(range(0, 120)) AS j) g ON g.j < d.k
+    UNION ALL
+    SELECT route_id, route_type, shape_id, CAST(shape_pt_sequence AS DOUBLE), lat, lon
+    FROM (SELECT *, LEAD(lat) OVER w AS nlat
+          FROM denoised WINDOW w AS (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence))
+    WHERE nlat IS NULL
+  ),
+  neigh AS (
+    SELECT *, LEAD(lat) OVER w AS nlat, LEAD(lon) OVER w AS nlon,
+              LAG(lat)  OVER w AS plat, LAG(lon)  OVER w AS plon
+    FROM dense WINDOW w AS (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence)
+  ),
+  dir AS (
+    SELECT *, COS(RADIANS(lat)) AS coslat,
+           (COALESCE(nlon, lon) - COALESCE(plon, lon)) * COS(RADIANS(lat)) AS de,
+           (COALESCE(nlat, lat) - COALESCE(plat, lat)) AS dn
+    FROM neigh
+  ),
+  vtx AS MATERIALIZED (
+    SELECT route_id, route_type, shape_id, shape_pt_sequence, lat, lon, coslat,
+           ROW_NUMBER() OVER () AS vid,
+           ROW_NUMBER() OVER (PARTITION BY route_id, shape_id
+                              ORDER BY shape_pt_sequence) AS vidx,
+           CASE WHEN SQRT(de*de + dn*dn) > 0 THEN de / SQRT(de*de + dn*dn) ELSE 0.0 END AS ux,
+           CASE WHEN SQRT(de*de + dn*dn) > 0 THEN dn / SQRT(de*de + dn*dn) ELSE 0.0 END AS uy,
+           CAST(FLOOR(lat / (reach_meters / 111320.0)) AS BIGINT) AS gy,
+           CAST(FLOOR((lon * coslat) / (reach_meters / 111320.0)) AS BIGINT) AS gx
+    FROM dir
+  ),
+  probe AS MATERIALIZED (
+    SELECT a.vid, a.gy + oy.dy AS pgy, a.gx + ox.dx AS pgx
+    FROM vtx a
+    CROSS JOIN (SELECT UNNEST([-1, 0, 1]) AS dy) oy
+    CROSS JOIN (SELECT UNNEST([-1, 0, 1]) AS dx) ox
+  ),
+  nbr AS (
+    SELECT a.route_id, a.shape_id, a.shape_pt_sequence, a.vidx, b.route_id AS nbr_route,
+           b.shape_id AS nbr_shape, b.shape_pt_sequence AS nbr_seq,
+           CASE WHEN -a.uy + 0.37 * a.ux > 0 THEN 1.0 ELSE -1.0 END AS cx,
+           ((b.lon - a.lon) * a.coslat * 111320.0) * a.ux + ((b.lat - a.lat) * 111320.0) * a.uy AS along,
+           -((b.lon - a.lon) * a.coslat * 111320.0) * a.uy + ((b.lat - a.lat) * 111320.0) * a.ux AS perp,
+           a.ux * b.ux + a.uy * b.uy AS hdg
+    FROM probe p
+    JOIN vtx b
+      ON b.gy = p.pgy
+     AND b.gx = p.pgx
+    JOIN vtx a
+      ON a.vid = p.vid
+     AND b.route_id <> a.route_id
+  ),
+  strands AS (
+    SELECT route_id, shape_id, shape_pt_sequence, vidx, nbr_route, nbr_shape, nbr_seq, perp, hdg, cx
+    FROM (
+      SELECT *, ROW_NUMBER() OVER (PARTITION BY route_id, shape_id, shape_pt_sequence, nbr_route
+                                   ORDER BY ABS(along)) AS rn
+      FROM nbr
+      WHERE ABS(along) <= 50.0 AND ABS(perp) <= reach_meters AND ABS(hdg) >= 0.82
+    ) WHERE rn = 1
+  ),
+  strands_s AS MATERIALIZED (
+    SELECT *, AVG(perp) OVER (PARTITION BY route_id, shape_id, nbr_route
+                              ORDER BY shape_pt_sequence
+                              ROWS BETWEEN 15 PRECEDING AND 15 FOLLOWING) AS perp_s,
+           vidx - ROW_NUMBER() OVER (PARTITION BY route_id, shape_id, nbr_route
+                                     ORDER BY vidx) AS run_id
+    FROM strands
+  ),
+  pair_med AS (
+    SELECT route_id, shape_id, nbr_route, run_id, MEDIAN(perp_s) AS med_perp
+    FROM strands_s
+    GROUP BY route_id, shape_id, nbr_route, run_id
+  ),
+  all_strands AS MATERIALIZED (
+    SELECT route_id, shape_id, shape_pt_sequence, route_id AS nbr_route, shape_id AS nbr_shape,
+           shape_pt_sequence AS nbr_seq, 0.0 AS perp, 0.0 AS perp_s, 1.0 AS hdg,
+           CASE WHEN -uy + 0.37 * ux > 0 THEN 1.0 ELSE -1.0 END AS cx,
+           CAST(NULL AS BIGINT) AS run_id
+    FROM vtx
+    UNION ALL
+    SELECT route_id, shape_id, shape_pt_sequence, nbr_route, nbr_shape, nbr_seq, perp, perp_s, hdg, cx, run_id FROM strands_s
+  ),
+  anchor AS (
+    SELECT route_id, shape_id, shape_pt_sequence,
+           arg_min(CASE WHEN hdg >= 0 THEN 1.0 ELSE -1.0 END, nbr_route) AS sgn
+    FROM all_strands
+    GROUP BY route_id, shape_id, shape_pt_sequence
+  ),
+  bundle0 AS MATERIALIZED (
+    SELECT s.route_id, s.shape_id, s.shape_pt_sequence,
+           CAST(COUNT(*) AS INTEGER) AS band_count,
+           CAST(COUNT(*) FILTER (WHERE s.nbr_route <> s.route_id AND
+                (COALESCE(p.med_perp, s.perp_s) * k.sgn < -8.0
+                 OR (ABS(COALESCE(p.med_perp, s.perp_s)) <= 8.0
+                     AND s.nbr_route < s.route_id)))
+                AS INTEGER) AS band_index,
+           MAX(k.sgn) AS sgn,
+           median(s.perp_s) AS shift_raw
+    FROM all_strands s
+    JOIN anchor k USING (route_id, shape_id, shape_pt_sequence)
+    LEFT JOIN pair_med p
+      ON p.route_id = s.route_id AND p.shape_id = s.shape_id
+     AND p.nbr_route = s.nbr_route AND p.run_id = s.run_id
+    GROUP BY s.route_id, s.shape_id, s.shape_pt_sequence
+  ),
+  ranked AS (
+    SELECT s.route_id, s.shape_id, s.shape_pt_sequence,
+           CAST(COUNT(*) FILTER (WHERE
+             (CASE WHEN n.sgn * (CASE WHEN s.hdg >= 0 THEN 1.0 ELSE -1.0 END) = r.sgn
+                   THEN n.band_index ELSE n.band_count - 1 - n.band_index END) < r.band_index
+             OR ((CASE WHEN n.sgn * (CASE WHEN s.hdg >= 0 THEN 1.0 ELSE -1.0 END) = r.sgn
+                        THEN n.band_index ELSE n.band_count - 1 - n.band_index END) = r.band_index
+                 AND s.nbr_route < s.route_id)) AS INTEGER) AS lane
+    FROM all_strands s
+    JOIN bundle0 r
+      ON r.route_id = s.route_id AND r.shape_id = s.shape_id AND r.shape_pt_sequence = s.shape_pt_sequence
+    JOIN bundle0 n
+      ON n.route_id = s.nbr_route AND n.shape_id = s.nbr_shape AND n.shape_pt_sequence = s.nbr_seq
+    WHERE s.nbr_route <> s.route_id
+    GROUP BY s.route_id, s.shape_id, s.shape_pt_sequence
+  ),
+  bundle AS (
+    SELECT b.route_id, b.shape_id, b.shape_pt_sequence, b.band_count,
+           COALESCE(k.lane, 0) AS band_index, b.sgn, b.shift_raw
+    FROM bundle0 b
+    LEFT JOIN ranked k USING (route_id, shape_id, shape_pt_sequence)
+  ),
+  laterals AS (
+    SELECT v.route_id, v.shape_id, v.shape_pt_sequence, v.lat, v.lon, v.coslat, v.ux, v.uy,
+           b.band_index, b.band_count,
+           AVG(b.shift_raw) OVER wsm AS shift_s,
+           AVG((b.band_index - (b.band_count - 1) / 2.0) * b.sgn) OVER wsm AS slot_s,
+           LAG(v.lat)  OVER w AS plat, LAG(v.lon)  OVER w AS plon,
+           LEAD(v.lat) OVER w AS nlat, LEAD(v.lon) OVER w AS nlon
+    FROM vtx v
+    JOIN bundle b USING (route_id, shape_id, shape_pt_sequence)
+    WINDOW w AS (PARTITION BY v.route_id, v.shape_id ORDER BY v.shape_pt_sequence),
+           wsm AS (PARTITION BY v.route_id, v.shape_id ORDER BY v.shape_pt_sequence
+                   ROWS BETWEEN 5 PRECEDING AND 5 FOLLOWING)
+  )
+  SELECT * FROM laterals
+);
+
+CREATE OR REPLACE MACRO finish_route_shape_bands(p_route_ids) AS TABLE (
+  WITH laterals AS (
+    SELECT * FROM RouteShapeLanesTable
+    WHERE route_id IN (SELECT unnest(p_route_ids))
+  ),
+  radius AS (
+    SELECT *,
+      CASE WHEN plat IS NULL OR nlat IS NULL THEN 1e9 ELSE
+        ( SQRT(POWER((lon - plon) * coslat * 111320.0, 2) + POWER((lat - plat) * 111320.0, 2))
+        * SQRT(POWER((nlon - lon) * coslat * 111320.0, 2) + POWER((nlat - lat) * 111320.0, 2))
+        * SQRT(POWER((nlon - plon) * coslat * 111320.0, 2) + POWER((nlat - plat) * 111320.0, 2)) )
+        / GREATEST(2.0 * ABS( ((lon - plon) * coslat * 111320.0) * ((nlat - plat) * 111320.0)
+                             - ((lat - plat) * 111320.0) * ((nlon - plon) * coslat * 111320.0) ), 1e-6)
+      END AS turn_r,
+      DEGREES(ATAN2(ux * LEAD(uy) OVER wd - uy * LEAD(ux) OVER wd,
+                    ux * LEAD(ux) OVER wd + uy * LEAD(uy) OVER wd)) AS dh,
+      CASE WHEN nlat IS NULL THEN 0.0 ELSE
+        SQRT(POWER((nlon - lon) * coslat * 111320.0, 2) + POWER((nlat - lat) * 111320.0, 2))
+      END AS seg_m
+    FROM laterals
+    WINDOW wd AS (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence)
+  ),
+  radius_w AS (
+    SELECT *,
+      MIN(turn_r) OVER (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence
+                        ROWS BETWEEN 3 PRECEDING AND 3 FOLLOWING) AS turn_rw,
+      SUM(seg_m) OVER (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence
+                       ROWS UNBOUNDED PRECEDING) AS cum_m,
+      SUM(seg_m) OVER (PARTITION BY route_id, shape_id) AS total_m,
+      CASE WHEN ABS(COALESCE(dh, 0.0)) >= 150.0 THEN 0.0 ELSE COALESCE(dh, 0.0) END AS dh_s
+    FROM radius
+  ),
+  gridv AS (
+    SELECT route_id, shape_id, shape_pt_sequence, lat, lon, coslat, cum_m,
+           CAST(FLOOR(lat * 111320.0 / 30.0) AS BIGINT) AS gy,
+           CAST(FLOOR(lon * coslat * 111320.0 / 30.0) AS BIGINT) AS gx
+    FROM radius_w
+  ),
+  probe AS (
+    SELECT g.*, g.gx + o.dx AS px, g.gy + o.dy AS py
+    FROM gridv g
+    CROSS JOIN (SELECT UNNEST([-1, 0, 1]) AS dx) ox
+    CROSS JOIN (SELECT UNNEST([-1, 0, 1]) AS dy) oy
+    CROSS JOIN LATERAL (SELECT ox.dx AS dx, oy.dy AS dy) o
+  ),
+  closure AS (
+    SELECT a.route_id, a.shape_id, a.shape_pt_sequence, MAX(b.cum_m) AS loop_to
+    FROM probe a
+    JOIN gridv b
+      ON b.route_id = a.route_id AND b.shape_id = a.shape_id
+     AND b.gx = a.px AND b.gy = a.py
+    WHERE b.cum_m - a.cum_m BETWEEN 80.0 AND 700.0
+      AND SQRT(POWER((b.lon - a.lon) * a.coslat * 111320.0, 2)
+             + POWER((b.lat - a.lat) * 111320.0, 2)) <= 30.0
+    GROUP BY 1, 2, 3
+  ),
+  radius_t AS (
+    SELECT *,
+      SUM(CASE WHEN cum_m <= 300.0 THEN dh_s END) OVER (PARTITION BY route_id, shape_id) AS turn_start,
+      SUM(CASE WHEN total_m - cum_m <= 300.0 THEN dh_s END) OVER (PARTITION BY route_id, shape_id) AS turn_end,
+      SUM(CASE WHEN total_m - cum_m <= 300.0 THEN ABS(dh_s) ELSE 0.0 END)
+        OVER (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence
+              ROWS UNBOUNDED PRECEDING) AS bend_end,
+      SUM(CASE WHEN cum_m <= 300.0 THEN ABS(dh_s) ELSE 0.0 END)
+        OVER (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence DESC
+              ROWS UNBOUNDED PRECEDING) AS bend_start,
+      SUM(dh_s) OVER (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence
+                      ROWS BETWEEN 10 PRECEDING AND 1 PRECEDING) AS turn_prev,
+      SUM(dh_s) OVER (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence
+                      ROWS BETWEEN CURRENT ROW AND 9 FOLLOWING) AS turn_next,
+      SUM(dh_s) OVER (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence
+                      ROWS BETWEEN 3 PRECEDING AND 3 FOLLOWING) AS turn_hairpin,
+      MAX(c.loop_to) OVER (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence
+                           ROWS UNBOUNDED PRECEDING) AS loop_end
+    FROM radius_w r
+    LEFT JOIN closure c USING (route_id, shape_id, shape_pt_sequence)
+  ),
+  flagged AS (
+    SELECT *,
+           CASE WHEN (cum_m <= 300.0 AND ABS(COALESCE(turn_start, 0.0)) >= 120.0
+                      AND bend_start >= 45.0)
+                  OR (total_m - cum_m <= 300.0 AND ABS(COALESCE(turn_end, 0.0)) >= 120.0
+                      AND bend_end >= 45.0)
+                  OR (SIGN(COALESCE(turn_prev, 0.0)) = SIGN(COALESCE(turn_next, 0.0))
+                      AND ABS(COALESCE(turn_prev, 0.0)) >= 80.0
+                      AND ABS(COALESCE(turn_next, 0.0)) >= 80.0
+                      AND ABS(COALESCE(turn_prev, 0.0) + COALESCE(turn_next, 0.0)) >= 240.0)
+                  OR ABS(COALESCE(turn_hairpin, 0.0)) >= 135.0
+                  OR (loop_end IS NOT NULL AND cum_m <= loop_end)
+                THEN 1 ELSE 0 END AS merge_here
+    FROM radius_t
+  ),
+  tapered AS (
+    SELECT *,
+           MAX(merge_here) OVER (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence
+                                 ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING) AS near1,
+           MAX(merge_here) OVER (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence
+                                 ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS near2,
+           MAX(merge_here) OVER (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence
+                                 ROWS BETWEEN 3 PRECEDING AND 3 FOLLOWING) AS near3
+    FROM flagged
+  ),
+  offc AS MATERIALIZED (
+    SELECT route_id, shape_id,
+           ROW_NUMBER() OVER w AS ord,
+           COUNT(*) OVER (PARTITION BY route_id, shape_id) AS npts,
+           lat + (ux * GREATEST(-0.8 * turn_r, LEAST(0.8 * turn_r, shift_s)))
+                 / 111320.0
+             AS y,
+           lon + (-uy * GREATEST(-0.8 * turn_r, LEAST(0.8 * turn_r, shift_s)))
+                 / (111320.0 * GREATEST(coslat, 1e-6))
+             AS x,
+           lat AS orig_lat, lon AS orig_lon,
+           band_index, band_count, slot_s,
+           CASE WHEN merge_here = 1 THEN 12.0
+                WHEN near1 = 1 THEN 28.0
+                WHEN near2 = 1 THEN 44.0
+                WHEN near3 = 1 THEN 56.0
+                ELSE 5000.0 END AS turn_rw
+    FROM tapered
+    WINDOW w AS (PARTITION BY route_id, shape_id ORDER BY shape_pt_sequence)
+  ),
+  simp AS (
+    SELECT route_id, shape_id,
+           UNNEST(ST_Dump(ST_Points(ST_Simplify(
+             ST_MakeLine(list(ST_Point(x, y) ORDER BY ord)), 1.0 / 111320.0)))) AS d
+    FROM offc
+    GROUP BY route_id, shape_id
+  ),
+  fin1 AS (
+    SELECT o.route_id, o.shape_id, o.ord, o.x, o.y, o.orig_lat, o.orig_lon,
+           o.band_index, o.band_count, o.slot_s, o.turn_rw
+    FROM (
+      SELECT *, LAG(slot_s) OVER w AS pslot, LEAD(slot_s) OVER w AS nslot,
+             LAG(turn_rw) OVER w AS pturn, LEAD(turn_rw) OVER w AS nturn
+      FROM offc
+      WINDOW w AS (PARTITION BY route_id, shape_id ORDER BY ord)
+    ) o
+    WHERE EXISTS (SELECT 1 FROM (SELECT route_id, shape_id, ST_X(d.geom) AS x, ST_Y(d.geom) AS y FROM simp) k
+                  WHERE k.route_id = o.route_id AND k.shape_id = o.shape_id AND k.x = o.x AND k.y = o.y)
+       OR ABS(o.slot_s - COALESCE(o.pslot, o.slot_s)) > 0.02
+       OR ABS(o.slot_s - COALESCE(o.nslot, o.slot_s)) > 0.02
+       OR o.turn_rw <> COALESCE(o.pturn, o.turn_rw)
+       OR o.turn_rw <> COALESCE(o.nturn, o.turn_rw)
+       OR o.ord % 10 = 1
+  ),
+  fin1d AS (
+    SELECT route_id, shape_id, ord, x, y, orig_lat, orig_lon,
+           band_index, band_count, slot_s, turn_rw
+    FROM (
+      SELECT *,
+        ((x - LAG(x) OVER w) * COS(RADIANS(y)) * 111320.0) AS ix,
+        ((y - LAG(y) OVER w) * 111320.0) AS iy,
+        ((LEAD(x) OVER w - x) * COS(RADIANS(y)) * 111320.0) AS ox,
+        ((LEAD(y) OVER w - y) * 111320.0) AS oy
+      FROM (
+        SELECT * FROM (
+          SELECT *, LAG(x) OVER w AS dx0, LAG(y) OVER w AS dy0
+          FROM fin1 WINDOW w AS (PARTITION BY route_id, shape_id ORDER BY ord)
+        )
+        WHERE dx0 IS NULL
+           OR SQRT(POWER((x - dx0) * COS(RADIANS(y)) * 111320.0, 2)
+                 + POWER((y - dy0) * 111320.0, 2)) >= 0.5
+      ) WINDOW w AS (PARTITION BY route_id, shape_id ORDER BY ord)
+    )
+    WHERE ix IS NULL OR ox IS NULL
+       OR LEAST(SQRT(ix*ix + iy*iy), SQRT(ox*ox + oy*oy)) >= 6.0
+       OR (ix*ox + iy*oy) >= -0.866 * SQRT(ix*ix + iy*iy) * SQRT(ox*ox + oy*oy)
+  ),
+  ck1 AS (
+    SELECT route_id, shape_id, orig_lat, orig_lon, band_index, band_count, slot_s, turn_rw, x, y,
+           ROW_NUMBER() OVER w AS ord,
+           LEAD(x) OVER w AS nx, LEAD(y) OVER w AS ny,
+           COUNT(*) OVER (PARTITION BY route_id, shape_id) AS n
+    FROM fin1d WINDOW w AS (PARTITION BY route_id, shape_id ORDER BY ord)
+  ),
+  ck1p AS (
+    SELECT route_id, shape_id, CAST(ord * 2 AS DOUBLE) AS ord, x, y,
+           orig_lat, orig_lon, band_index, band_count, slot_s, turn_rw
+    FROM ck1 WHERE ord = 1
+    UNION ALL
+    SELECT route_id, shape_id, CAST(ord * 2 AS DOUBLE) + g.j * 0.5,
+           x + (nx - x) * CASE WHEN g.j = 1 THEN qf ELSE 1.0 - qf END,
+           y + (ny - y) * CASE WHEN g.j = 1 THEN qf ELSE 1.0 - qf END,
+           orig_lat, orig_lon, band_index, band_count, slot_s, turn_rw
+    FROM (SELECT *, CASE WHEN d > 32.0 THEN 8.0 / d ELSE 0.25 END AS qf
+          FROM (SELECT *, SQRT(POWER((nx - x) * COS(RADIANS(y)) * 111320.0, 2)
+                                 + POWER((ny - y) * 111320.0, 2)) AS d
+                FROM ck1 WHERE nx IS NOT NULL)) s
+    JOIN (SELECT UNNEST(range(1, 3)) AS j) g ON TRUE
+    UNION ALL
+    SELECT route_id, shape_id, CAST(ord * 2 AS DOUBLE) + 1.0, x, y,
+           orig_lat, orig_lon, band_index, band_count, slot_s, turn_rw
+    FROM ck1 WHERE ord = n
+  ),
+  ck2 AS (
+    SELECT route_id, shape_id, orig_lat, orig_lon, band_index, band_count, slot_s, turn_rw, x, y,
+           ROW_NUMBER() OVER w AS ord,
+           LEAD(x) OVER w AS nx, LEAD(y) OVER w AS ny,
+           COUNT(*) OVER (PARTITION BY route_id, shape_id) AS n
+    FROM ck1p WINDOW w AS (PARTITION BY route_id, shape_id ORDER BY ord)
+  ),
+  ck2p AS (
+    SELECT route_id, shape_id, CAST(ord * 2 AS DOUBLE) AS ord, x, y,
+           orig_lat, orig_lon, band_index, band_count, slot_s, turn_rw
+    FROM ck2 WHERE ord = 1
+    UNION ALL
+    SELECT route_id, shape_id, CAST(ord * 2 AS DOUBLE) + g.j * 0.5,
+           x + (nx - x) * CASE WHEN g.j = 1 THEN qf ELSE 1.0 - qf END,
+           y + (ny - y) * CASE WHEN g.j = 1 THEN qf ELSE 1.0 - qf END,
+           orig_lat, orig_lon, band_index, band_count, slot_s, turn_rw
+    FROM (SELECT *, CASE WHEN d > 32.0 THEN 8.0 / d ELSE 0.25 END AS qf
+          FROM (SELECT *, SQRT(POWER((nx - x) * COS(RADIANS(y)) * 111320.0, 2)
+                                 + POWER((ny - y) * 111320.0, 2)) AS d
+                FROM ck2 WHERE nx IS NOT NULL)) s
+    JOIN (SELECT UNNEST(range(1, 3)) AS j) g ON TRUE
+    UNION ALL
+    SELECT route_id, shape_id, CAST(ord * 2 AS DOUBLE) + 1.0, x, y,
+           orig_lat, orig_lon, band_index, band_count, slot_s, turn_rw
+    FROM ck2 WHERE ord = n
+  ),
+  smoothed AS (
+    SELECT route_id, shape_id, ord AS shape_pt_sequence,
+           y AS shape_pt_lat, x AS shape_pt_lon,
+           orig_lat, orig_lon, band_index, band_count, slot_s, turn_rw
+    FROM ck2p
+  )
+  SELECT sm.route_id, rv.route_name, rv.route_color_hex, rv.route_text_color_hex, sm.shape_id,
+         sm.shape_pt_sequence, sm.shape_pt_lat, sm.shape_pt_lon,
+         sm.orig_lat, sm.orig_lon, sm.band_index, sm.band_count, sm.slot_s AS slot, sm.turn_rw AS turn_radius
+  FROM smoothed sm
+  LEFT JOIN RoutesView rv ON rv.route_id = sm.route_id
+);
+
+CREATE OR REPLACE MACRO prepare_route_shape_lanes_rail() AS TABLE (
+  SELECT * FROM prepare_route_shape_lanes(
+    (SELECT COALESCE(list(route_id), []) FROM RoutesView
+     WHERE route_type IN (0, 1, 2, 5, 7, 12)
+        OR route_type BETWEEN 100 AND 199
+        OR route_type BETWEEN 400 AND 405
+        OR route_type BETWEEN 900 AND 906),
+    spacing_meters := 16.0, snap_precision := 4, simplify_meters := 0.5,
+    reach_meters := 20.0)
+);
+CREATE OR REPLACE MACRO prepare_route_shape_lanes_bus() AS TABLE (
+  SELECT * FROM prepare_route_shape_lanes(
+    (SELECT COALESCE(list(route_id), []) FROM RoutesView
+     WHERE route_type IN (3, 11)
+        OR route_type BETWEEN 200 AND 299
+        OR route_type BETWEEN 700 AND 799
+        OR route_type = 800),
+    spacing_meters := 7.0, snap_precision := 4, simplify_meters := 4.0,
+    reach_meters := 20.0)
+);
+CREATE OR REPLACE MACRO prepare_route_shape_lanes_other() AS TABLE (
+  SELECT * FROM prepare_route_shape_lanes(
+    (SELECT COALESCE(list(route_id), []) FROM RoutesView
+     WHERE route_type IS NULL OR NOT (route_type IN (0, 1, 2, 3, 5, 7, 11, 12)
+        OR route_type BETWEEN 100 AND 199
+        OR route_type BETWEEN 200 AND 299
+        OR route_type BETWEEN 400 AND 405
+        OR route_type BETWEEN 700 AND 799
+        OR route_type = 800
+        OR route_type BETWEEN 900 AND 906)),
+    spacing_meters := 12.0, snap_precision := 4, simplify_meters := 2.0,
+    reach_meters := 18.0)
+);
+
+CREATE TABLE IF NOT EXISTS RouteShapeBandsTable (
+  route_id VARCHAR,
+  route_name VARCHAR,
+  route_color_hex VARCHAR,
+  route_text_color_hex VARCHAR,
+  shape_id VARCHAR,
+  shape_pt_sequence DOUBLE,
+  shape_pt_lat DOUBLE,
+  shape_pt_lon DOUBLE,
+  orig_lat DOUBLE,
+  orig_lon DOUBLE,
+  band_index INTEGER,
+  band_count INTEGER,
+  slot DOUBLE,
+  turn_radius DOUBLE
+);
+
+CREATE OR REPLACE MACRO refresh_route_shape_bands() AS TABLE (
+  SELECT * FROM finish_route_shape_bands(
+    (SELECT COALESCE(list(DISTINCT route_id), []) FROM RouteShapeLanesTable))
+);
+
+CREATE OR REPLACE MACRO get_station_line_bands(
+  p_ids, p_kind := 'route', spacing_meters := 30.0
+) AS TABLE (
+  WITH base AS (
+    SELECT 'route' AS entity_kind, rs.route_id AS entity_id, rs.route_id AS route_id,
+           rs.route_type, rs.station_id AS node_id, rs.stop_sequence AS seq
+    FROM RouteStopsView rs
+    WHERE p_kind = 'route' AND rs.route_id IN (SELECT unnest(p_ids))
+    UNION ALL
+    SELECT 'trip' AS entity_kind, stt.trip_id AS entity_id, t.route_id,
+           r.route_type,
+           COALESCE(NULLIF(sv.parent_station, ''), stt.stop_id) AS node_id,
+           stt.stop_sequence AS seq
+    FROM StopTimesView stt
+    JOIN TripsView t ON t.trip_id = stt.trip_id
+    LEFT JOIN RoutesView r ON r.route_id = t.route_id
+    LEFT JOIN StopsView sv ON sv.stop_id = stt.stop_id
+    WHERE p_kind = 'trip' AND stt.trip_id IN (SELECT unnest(p_ids))
+  ),
+  nodes AS (
+    SELECT b.entity_kind, b.entity_id, b.route_id, b.route_type, b.node_id,
+           MIN(b.seq) AS seq,
+           ANY_VALUE(st.stop_lat) AS lat, ANY_VALUE(st.stop_lon) AS lon
+    FROM base b
+    JOIN StopsView st ON st.stop_id = b.node_id
+    WHERE st.stop_lat IS NOT NULL AND st.stop_lon IS NOT NULL
+    GROUP BY b.entity_kind, b.entity_id, b.route_id, b.route_type, b.node_id
+  ),
+  ordered AS (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY entity_id ORDER BY seq, node_id) AS ord
+    FROM nodes
+  ),
+  segs AS (
+    SELECT entity_kind, entity_id, route_id, route_type, ord,
+           node_id AS from_node, lat AS lat1, lon AS lon1,
+           LEAD(node_id) OVER w AS to_node,
+           LEAD(lat) OVER w AS lat2, LEAD(lon) OVER w AS lon2
+    FROM ordered
+    WINDOW w AS (PARTITION BY entity_id ORDER BY ord)
+  ),
+  corridor AS (
+    SELECT *,
+           CASE WHEN from_node <= to_node
+             THEN from_node || '||' || to_node
+             ELSE to_node || '||' || from_node
+           END AS corridor_key
+    FROM segs
+    WHERE to_node IS NOT NULL
+  ),
+  corridor_entities AS (
+    SELECT DISTINCT corridor_key, entity_id, route_type FROM corridor
+  ),
+  band_order AS (
+    SELECT corridor_key, entity_id,
+           CAST(ROW_NUMBER() OVER (PARTITION BY corridor_key ORDER BY route_type, entity_id) - 1 AS INTEGER) AS band_index,
+           CAST(COUNT(*) OVER (PARTITION BY corridor_key) AS INTEGER) AS band_count
+    FROM corridor_entities
+  ),
+  offset_calc AS (
+    SELECT c.entity_kind, c.entity_id, c.route_id, c.ord,
+           c.lat1, c.lon1, c.lat2, c.lon2, b.band_index, b.band_count,
+           route_band_offset_deg(b.band_index, b.band_count, spacing_meters) AS off_deg,
+           COS(RADIANS((c.lat1 + c.lat2) / 2.0)) AS mx,
+           SQRT(POWER((c.lon2 - c.lon1) * COS(RADIANS((c.lat1 + c.lat2) / 2.0)), 2)
+                + POWER(c.lat2 - c.lat1, 2)) AS seg_len,
+           ((c.lon2 - c.lon1) * COS(RADIANS((c.lat1 + c.lat2) / 2.0))) AS dx,
+           (c.lat2 - c.lat1) AS dy
+    FROM corridor c
+    JOIN band_order b USING (corridor_key, entity_id)
+  ),
+  offset_delta AS (
+    SELECT *,
+           CASE WHEN seg_len = 0 THEN 0.0 ELSE (dx / seg_len) * off_deg END AS dlat,
+           CASE WHEN seg_len = 0 OR mx = 0 THEN 0.0 ELSE ((-dy / seg_len) * off_deg) / mx END AS dlon
+    FROM offset_calc
+  ),
+  out_pts AS (
+    SELECT entity_kind, entity_id, route_id, ord AS seq,
+           lat1 + dlat AS lat, lon1 + dlon AS lon, band_index, band_count
+    FROM offset_delta
+    UNION ALL
+    SELECT entity_kind, entity_id, route_id, ord + 1 AS seq,
+           lat2 + dlat AS lat, lon2 + dlon AS lon, band_index, band_count
+    FROM offset_delta od
+    WHERE od.ord = (SELECT MAX(o2.ord) FROM offset_delta o2 WHERE o2.entity_id = od.entity_id)
+  )
+  SELECT o.entity_kind, o.entity_id, o.route_id,
+         r.route_name, r.route_color_hex, r.route_text_color_hex, r.route_type_name,
+         o.entity_id AS shape_id,
+         o.lat AS shape_pt_lat, o.lon AS shape_pt_lon,
+         CAST(o.seq AS DOUBLE) AS shape_pt_sequence,
+         NULL::DOUBLE AS shape_dist_traveled,
+         o.band_index, o.band_count
+  FROM out_pts o
+  LEFT JOIN RoutesView r ON r.route_id = o.route_id
+  ORDER BY o.entity_id, o.seq
 );
 
 )SQL";

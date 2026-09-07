@@ -1,17 +1,17 @@
-import { useCallback } from "react";
-import type React from "react";
-import type { Node } from "@xyflow/react";
+import { useCallback } from "react"
+import type React from "react"
+import type { Node } from "@xyflow/react"
 
-import { deleteStop } from "@/lib/duckdb/DataEditing/editingFn";
-import { refreshPathwayFlow } from "@/lib/duckdb/DataEditing/refreshPathwayFlow";
-import { logger } from "@/lib/logger";
+import { deleteStop } from "@/lib/duckdb/DataEditing/editingFn"
+import { refreshPathwayFlow } from "@/lib/duckdb/DataEditing/refreshPathwayFlow"
+import { logger } from "@/lib/logger"
 
 import type {
   CustomNodeData,
   DetachedConnectionDraft,
   DetachedConnectionEndpointFocus,
-} from "../core/types";
-import { getDetachedConnectionDraftConnection } from "../core/shared";
+} from "../core/types"
+import { getDetachedConnectionDraftConnection } from "../core/shared"
 
 export function useNodeHandlers({
   conn,
@@ -40,80 +40,71 @@ export function useNodeHandlers({
   setQueuedOrphanConnections,
   setDetachedConnectionEndpointFocus,
 }: {
-  conn: any;
-  queryClient: any;
-  nodes: Node[];
-  pathwayData?: { connections: any[]; stops: any[] };
-  selectedNodeId?: string;
-  detachedConnectionDraftsByNodeId: Map<string, DetachedConnectionDraft>;
-  editingDetachedConnectionDraft: DetachedConnectionDraft | null;
-  detachedConnectionEndpointFocus: DetachedConnectionEndpointFocus;
-  openDetachedConnectionDraftForEditing: (
-    draft: DetachedConnectionDraft,
-  ) => void;
-  handleDetachedEndpointSelection: (
-    field: "from_stop_id" | "to_stop_id",
-    value?: string,
-  ) => void;
-  closeEdgePanel: () => void;
-  onSetClickInfo?: (info: any) => void;
-  onSelectedNodeIdChange?: (nodeId?: string) => void;
-  onSelectedPathwayIdChange?: (pathwayId?: string) => void;
-  setNodeFormOpenValue: (value: { formType: string | null; state: boolean }) => void;
-  setNodeFormClickInfo: (value: any) => void;
-  setSelectedEdge: (value: any) => void;
-  setSelectedNode: (value: any) => void;
-  setSelectedConnectionId: (value: string | null) => void;
-  setPotentialEdge: (value: any) => void;
-  setEditingPathwayConnection: (value: any) => void;
-  setEdgeFormError: (value: string | null) => void;
-  setSidebarOpen: (value: boolean) => void;
-  setQueuedOrphanConnections: React.Dispatch<React.SetStateAction<any[]>>;
+  conn: any
+  queryClient: any
+  nodes: Node[]
+  pathwayData?: { connections: any[]; stops: any[] }
+  selectedNodeId?: string
+  detachedConnectionDraftsByNodeId: Map<string, DetachedConnectionDraft>
+  editingDetachedConnectionDraft: DetachedConnectionDraft | null
+  detachedConnectionEndpointFocus: DetachedConnectionEndpointFocus
+  openDetachedConnectionDraftForEditing: (draft: DetachedConnectionDraft) => void
+  handleDetachedEndpointSelection: (field: "from_stop_id" | "to_stop_id", value?: string) => void
+  closeEdgePanel: () => void
+  onSetClickInfo?: (info: any) => void
+  onSelectedNodeIdChange?: (nodeId?: string) => void
+  onSelectedPathwayIdChange?: (pathwayId?: string) => void
+  setNodeFormOpenValue: (value: { formType: string | null; state: boolean }) => void
+  setNodeFormClickInfo: (value: any) => void
+  setSelectedEdge: (value: any) => void
+  setSelectedNode: (value: any) => void
+  setSelectedConnectionId: (value: string | null) => void
+  setPotentialEdge: (value: any) => void
+  setEditingPathwayConnection: (value: any) => void
+  setEdgeFormError: (value: string | null) => void
+  setSidebarOpen: (value: boolean) => void
+  setQueuedOrphanConnections: React.Dispatch<React.SetStateAction<any[]>>
   setDetachedConnectionEndpointFocus: (
     value:
       | DetachedConnectionEndpointFocus
-      | ((
-          current: DetachedConnectionEndpointFocus,
-        ) => DetachedConnectionEndpointFocus),
-  ) => void;
+      | ((current: DetachedConnectionEndpointFocus) => DetachedConnectionEndpointFocus),
+  ) => void
 }) {
   const closeNodeForm = useCallback(() => {
-    setNodeFormOpenValue({ formType: null, state: false });
-    setNodeFormClickInfo(undefined);
-  }, [setNodeFormClickInfo, setNodeFormOpenValue]);
+    setNodeFormOpenValue({ formType: null, state: false })
+    setNodeFormClickInfo(undefined)
+  }, [setNodeFormClickInfo, setNodeFormOpenValue])
 
   const openNodeForm = useCallback(
     (formType: "add" | "edit", nodeData?: any) => {
-      closeEdgePanel();
+      closeEdgePanel()
 
       if (formType === "add") {
-        setSelectedNode(null);
-        onSetClickInfo?.(undefined);
-        setNodeFormClickInfo(undefined);
+        setSelectedNode(null)
+        onSetClickInfo?.(undefined)
+        setNodeFormClickInfo(undefined)
       } else {
         if (!nodeData?.stop_id) {
-          return;
+          return
         }
 
         const freshNodeData =
           pathwayData?.stops?.find(
             (stop: any) => String(stop.stop_id) === String(nodeData.stop_id),
-          ) ?? nodeData;
-        const matchingNode = nodes.find(
-          (node) => node.id === String(freshNodeData.stop_id),
-        );
+          ) ?? nodeData
+        const matchingNode = nodes.find((node) => node.id === String(freshNodeData.stop_id))
 
         if (matchingNode) {
-          setSelectedNode(matchingNode);
+          setSelectedNode(matchingNode)
         } else {
-          setSelectedNode(null);
+          setSelectedNode(null)
         }
 
-        onSetClickInfo?.(freshNodeData);
-        setNodeFormClickInfo(freshNodeData);
+        onSetClickInfo?.(freshNodeData)
+        setNodeFormClickInfo(freshNodeData)
       }
 
-      setNodeFormOpenValue({ formType, state: true });
+      setNodeFormOpenValue({ formType, state: true })
     },
     [
       closeEdgePanel,
@@ -124,21 +115,19 @@ export function useNodeHandlers({
       setNodeFormOpenValue,
       setSelectedNode,
     ],
-  );
+  )
 
   const handleDeleteNode = useCallback(
     async (stopId: string) => {
       if (!conn) {
-        logger.error("No database connection");
-        return;
+        logger.error("No database connection")
+        return
       }
 
-      const nodeData = pathwayData?.stops?.find(
-        (stop: any) => String(stop.stop_id) === stopId,
-      );
+      const nodeData = pathwayData?.stops?.find((stop: any) => String(stop.stop_id) === stopId)
       if (!nodeData) {
-        logger.error("Node data not found");
-        return;
+        logger.error("Node data not found")
+        return
       }
 
       const affectedConnections =
@@ -147,21 +136,21 @@ export function useNodeHandlers({
             connection?.status !== "deleted" &&
             (String(connection.from_stop_id) === stopId ||
               String(connection.to_stop_id) === stopId),
-        ) ?? [];
-      const shouldOpenOrphanConnections = affectedConnections.length > 0;
+        ) ?? []
+      const shouldOpenOrphanConnections = affectedConnections.length > 0
 
       try {
-        setNodeFormOpenValue({ formType: null, state: false });
-        setNodeFormClickInfo(undefined);
-        setSelectedNode(null);
-        setSelectedEdge(null);
-        setSelectedConnectionId(null);
-        setPotentialEdge(null);
-        setEditingPathwayConnection(null);
-        setEdgeFormError(null);
-        onSetClickInfo?.(undefined);
+        setNodeFormOpenValue({ formType: null, state: false })
+        setNodeFormClickInfo(undefined)
+        setSelectedNode(null)
+        setSelectedEdge(null)
+        setSelectedConnectionId(null)
+        setPotentialEdge(null)
+        setEditingPathwayConnection(null)
+        setEdgeFormError(null)
+        onSetClickInfo?.(undefined)
 
-        await deleteStop({ conn, SelectStop: nodeData });
+        await deleteStop({ conn, SelectStop: nodeData })
 
         if (shouldOpenOrphanConnections) {
           setQueuedOrphanConnections((currentConnections) => {
@@ -170,28 +159,28 @@ export function useNodeHandlers({
                 String(connection.pathway_id),
                 connection,
               ]),
-            );
+            )
 
             affectedConnections.forEach((connection: any) => {
-              nextConnectionsById.set(String(connection.pathway_id), connection);
-            });
+              nextConnectionsById.set(String(connection.pathway_id), connection)
+            })
 
-            return Array.from(nextConnectionsById.values());
-          });
-          setSidebarOpen(true);
+            return Array.from(nextConnectionsById.values())
+          })
+          setSidebarOpen(true)
         }
 
         await refreshPathwayFlow({
           conn,
           queryClient,
           refreshStops: true,
-        });
+        })
 
         if (shouldOpenOrphanConnections) {
-          setSidebarOpen(true);
+          setSidebarOpen(true)
         }
       } catch (error) {
-        logger.error("Failed to delete node:", error);
+        logger.error("Failed to delete node:", error)
       }
     },
     [
@@ -213,73 +202,65 @@ export function useNodeHandlers({
       setSelectedNode,
       setSidebarOpen,
     ],
-  );
+  )
 
   const handleEditNode = useCallback(
     (stopId: string) => {
-      const nodeData = pathwayData?.stops?.find(
-        (stop: any) => String(stop.stop_id) === stopId,
-      );
+      const nodeData = pathwayData?.stops?.find((stop: any) => String(stop.stop_id) === stopId)
       if (nodeData) {
-        openNodeForm("edit", nodeData);
+        openNodeForm("edit", nodeData)
       }
     },
     [openNodeForm, pathwayData?.stops],
-  );
+  )
 
   const onNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
-      event.stopPropagation();
+      event.stopPropagation()
       if (Boolean((node.data as CustomNodeData | undefined)?.isDimmed)) {
-        return;
+        return
       }
 
-      const detachedDraft = detachedConnectionDraftsByNodeId.get(node.id);
+      const detachedDraft = detachedConnectionDraftsByNodeId.get(node.id)
 
       if (detachedDraft) {
-        setNodeFormOpenValue({ formType: null, state: false });
-        setNodeFormClickInfo(undefined);
-        setSelectedEdge(null);
-        setSelectedNode(null);
-        setSelectedConnectionId(null);
-        setPotentialEdge(null);
-        setSidebarOpen(false);
-        setEdgeFormError(null);
-        onSetClickInfo?.(getDetachedConnectionDraftConnection(detachedDraft));
-        openDetachedConnectionDraftForEditing(detachedDraft);
-        return;
+        setNodeFormOpenValue({ formType: null, state: false })
+        setNodeFormClickInfo(undefined)
+        setSelectedEdge(null)
+        setSelectedNode(null)
+        setSelectedConnectionId(null)
+        setPotentialEdge(null)
+        setSidebarOpen(false)
+        setEdgeFormError(null)
+        onSetClickInfo?.(getDetachedConnectionDraftConnection(detachedDraft))
+        openDetachedConnectionDraftForEditing(detachedDraft)
+        return
       }
 
       if (editingDetachedConnectionDraft) {
         const replacementField =
-          detachedConnectionEndpointFocus === "to"
-            ? "to_stop_id"
-            : "from_stop_id";
+          detachedConnectionEndpointFocus === "to" ? "to_stop_id" : "from_stop_id"
 
-        handleDetachedEndpointSelection(replacementField, node.id);
-        setSelectedEdge(null);
-        setSelectedNode(null);
-        setSelectedConnectionId(null);
-        setDetachedConnectionEndpointFocus(
-          replacementField === "from_stop_id" ? "to" : "from",
-        );
-        return;
+        handleDetachedEndpointSelection(replacementField, node.id)
+        setSelectedEdge(null)
+        setSelectedNode(null)
+        setSelectedConnectionId(null)
+        setDetachedConnectionEndpointFocus(replacementField === "from_stop_id" ? "to" : "from")
+        return
       }
 
-      setNodeFormOpenValue({ formType: null, state: false });
-      setNodeFormClickInfo(undefined);
-      setSelectedEdge(null);
-      setSelectedNode(node);
-      setSelectedConnectionId(null);
-      setPotentialEdge(null);
-      setEditingPathwayConnection(null);
-      setEdgeFormError(null);
-      setSidebarOpen(false);
+      setNodeFormOpenValue({ formType: null, state: false })
+      setNodeFormClickInfo(undefined)
+      setSelectedEdge(null)
+      setSelectedNode(node)
+      setSelectedConnectionId(null)
+      setPotentialEdge(null)
+      setEditingPathwayConnection(null)
+      setEdgeFormError(null)
+      setSidebarOpen(false)
       onSetClickInfo?.(
-        pathwayData?.stops?.find(
-          (stop: any) => String(stop.stop_id) === node.id,
-        ) ?? node.data,
-      );
+        pathwayData?.stops?.find((stop: any) => String(stop.stop_id) === node.id) ?? node.data,
+      )
     },
     [
       detachedConnectionDraftsByNodeId,
@@ -300,7 +281,7 @@ export function useNodeHandlers({
       setSelectedNode,
       setSidebarOpen,
     ],
-  );
+  )
 
   return {
     closeNodeForm,
@@ -308,5 +289,5 @@ export function useNodeHandlers({
     handleDeleteNode,
     handleEditNode,
     onNodeClick,
-  };
+  }
 }

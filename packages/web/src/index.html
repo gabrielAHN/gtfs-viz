@@ -3,16 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <link
-    rel="icon"
-    type="image/svg+xml"
-    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='80'%3E🚉%3C/text%3E%3C/svg%3E"
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='80'%3E🚉%3C/text%3E%3C/svg%3E"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GTFS Viz - Browser-based GTFS Visualization & Editing Tool</title>
-    <meta name="description" content="Visualize, analyze, and edit GTFS transit data entirely in your browser. Process large datasets with DuckDB WASM. Map stations, stops, and pathways with no backend required." />
+    <meta
+      name="description"
+      content="Visualize, analyze, and edit GTFS transit data entirely in your browser. Process large datasets with DuckDB WASM. Map stations, stops, and pathways with no backend required."
+    />
 
-    <meta property="og:title" content="GTFS Viz - Browser-based GTFS Visualization & Editing Tool" />
-    <meta property="og:description" content="Visualize, analyze, and edit GTFS transit data entirely in your browser. Process large datasets with DuckDB WASM. Map stations, stops, and pathways with no backend required." />
+    <meta
+      property="og:title"
+      content="GTFS Viz - Browser-based GTFS Visualization & Editing Tool"
+    />
+    <meta
+      property="og:description"
+      content="Visualize, analyze, and edit GTFS transit data entirely in your browser. Process large datasets with DuckDB WASM. Map stations, stops, and pathways with no backend required."
+    />
     <meta property="og:image" content="/og-preview.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="730" />
@@ -21,29 +30,41 @@
     <meta property="og:locale" content="en_US" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="GTFS Viz - Browser-based GTFS Visualization & Editing Tool" />
-    <meta name="twitter:description" content="Visualize, analyze, and edit GTFS transit data entirely in your browser. Process large datasets with DuckDB WASM. Map stations, stops, and pathways with no backend required." />
+    <meta
+      name="twitter:title"
+      content="GTFS Viz - Browser-based GTFS Visualization & Editing Tool"
+    />
+    <meta
+      name="twitter:description"
+      content="Visualize, analyze, and edit GTFS transit data entirely in your browser. Process large datasets with DuckDB WASM. Map stations, stops, and pathways with no backend required."
+    />
     <meta name="twitter:image" content="/og-preview.png" />
-    <meta name="twitter:image:alt" content="GTFS Viz application interface showing transit station map and pathway visualization" />
+    <meta
+      name="twitter:image:alt"
+      content="GTFS Viz application interface showing transit station map and pathway visualization"
+    />
 
     <meta name="author" content="Gabriel AHN" />
-    <meta name="keywords" content="GTFS, transit, visualization, maps, duckdb, webassembly, react, deck.gl, public transportation" />
+    <meta
+      name="keywords"
+      content="GTFS, transit, visualization, maps, duckdb, webassembly, react, deck.gl, public transportation"
+    />
     <link rel="canonical" href="https://github.com/gabrielAHN/gtfs-viz" />
     <script>
-      (function() {
+      ;(function () {
         try {
-          const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          const theme = systemPrefersDark ? 'dark' : 'light';
+          const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+          const theme = systemPrefersDark ? "dark" : "light"
 
-          if (theme === 'dark') {
-            document.documentElement.classList.add('dark');
+          if (theme === "dark") {
+            document.documentElement.classList.add("dark")
           } else {
-            document.documentElement.classList.remove('dark');
+            document.documentElement.classList.remove("dark")
           }
         } catch (e) {
-          console.error('Theme initialization error:', e);
+          console.error("Theme initialization error:", e)
         }
-      })();
+      })()
     </script>
   </head>
   <body>

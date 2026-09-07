@@ -1,28 +1,28 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useDuckDB } from "@/context/duckdb.client";
-import { Skeleton } from "@/components/ui/skeleton";
-import { TabHeader } from "@/components/ui/tab-header";
-import PageFooter from "@/components/PageFooter";
-import { BiCalendar, BiInfoCircle } from "react-icons/bi";
-import { fetchServiceRouteInfoData } from "@/lib/duckdb/DataFetching/fetchRouteData";
-import { getRouteTypeColor } from "@/client/Routes/routeTypeColors";
-import { EditIndicator } from "@/components/ui/EditIndicator";
+import { createFileRoute, Outlet } from "@tanstack/react-router"
+import { useQuery } from "@tanstack/react-query"
+import { useDuckDB } from "@/context/duckdb.client"
+import { Skeleton } from "@/components/ui/skeleton"
+import { TabHeader } from "@/components/ui/tab-header"
+import PageFooter from "@/components/PageFooter"
+import { BiCalendar, BiInfoCircle } from "react-icons/bi"
+import { fetchServiceRouteInfoData } from "@/lib/duckdb/DataFetching/fetchRouteData"
+import { getRouteTypeColor } from "@/client/Routes/routeTypeColors"
+import { EditIndicator } from "@/components/ui/EditIndicator"
 
 export const Route = createFileRoute("/_layout/routes/route/$routeId")({
   component: RouteLayout,
-});
+})
 
 function RouteLayout() {
-  const { routeId } = Route.useParams();
-  const { conn, initialized } = useDuckDB();
+  const { routeId } = Route.useParams()
+  const { conn, initialized } = useDuckDB()
 
   const { data, error, isLoading, isFetching } = useQuery({
     queryKey: ["fetchServiceRouteInfoData", routeId],
     queryFn: async () => fetchServiceRouteInfoData(conn, routeId),
     enabled: !!conn && !!routeId && initialized,
     retry: false,
-  });
+  })
 
   if (isLoading || isFetching) {
     return (
@@ -30,18 +30,18 @@ function RouteLayout() {
         <Skeleton className="mx-auto mb-6 h-12 w-2/3" />
         <Skeleton className="h-64 w-full" />
       </div>
-    );
+    )
   }
 
   if (error) {
-    return <div className="p-4">Error loading route information.</div>;
+    return <div className="p-4">Error loading route information.</div>
   }
 
   if (!data) {
-    return <div className="p-4">No route information available.</div>;
+    return <div className="p-4">No route information available.</div>
   }
 
-  const routeColor = getRouteTypeColor(data.route_type_name);
+  const routeColor = getRouteTypeColor(data.route_type_name)
   const ToggleTabs = [
     {
       value: "info",
@@ -55,7 +55,7 @@ function RouteLayout() {
       icon: <BiCalendar />,
       path: "/routes/service",
     },
-  ];
+  ]
 
   return (
     <div className="p-4">
@@ -73,5 +73,5 @@ function RouteLayout() {
       <Outlet context={{ routeData: data }} />
       <PageFooter />
     </div>
-  );
+  )
 }

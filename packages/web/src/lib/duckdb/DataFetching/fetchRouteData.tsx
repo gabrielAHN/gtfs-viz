@@ -1,51 +1,168 @@
-import { executeQuery, escapeSql } from "@/lib/duckdb/QueryHelper";
-import { insertTableRow, deleteEditRow, refreshMaterializedTable } from "@/lib/duckdb/DataEditing/insertData";
-import { logger } from "@/lib/logger";
-import { markPersistedStopTimeEdits } from "@/lib/tripUtils";
-import { getPathfindingFunctions } from "./pathways/hybridPathfinding";
+import { executeQuery, escapeSql } from "@/lib/duckdb/QueryHelper"
+import { GTFS_INIT_SQL } from "@gtfs-viz/duckdb-extension"
+import {
+  insertTableRow,
+  deleteEditRow,
+  refreshMaterializedTable,
+} from "@/lib/duckdb/DataEditing/insertData"
+import { logger } from "@/lib/logger"
+import { markPersistedStopTimeEdits } from "@/lib/tripUtils"
+import { getPathfindingFunctions } from "./pathways/hybridPathfinding"
 
 export const fetchRouteData = async (props) => {
-  const { conn, StationView } = props;
+  const { conn, StationView } = props
 
   try {
-    logger.log(`🔍 Fetching route data for station ${StationView.stop_id}`);
+    logger.log(`🔍 Fetching route data for station ${StationView.stop_id}`)
 
-    const functions = await getPathfindingFunctions(conn);
+    const functions = await getPathfindingFunctions(conn)
 
-    let query: string;
+    let query: string
     if (functions.method === "onager_direct") {
-      query = `SELECT * FROM get_station_routes_direct('${StationView.stop_id}')`;
-      logger.log(`  Using Onager direct mode (all-pairs Dijkstra)`);
+      query = `SELECT * FROM get_station_routes_direct('${StationView.stop_id}')`
+      logger.log(`  Using Onager direct mode (all-pairs Dijkstra)`)
     } else {
-      query = `SELECT * FROM get_station_routes('${StationView.stop_id}')`;
-      logger.log(`  Using recursive CTE mode (with cache)`);
+      query = `SELECT * FROM get_station_routes('${StationView.stop_id}')`
+      logger.log(`  Using recursive CTE mode (with cache)`)
     }
 
-    const results = await executeQuery(conn, query);
+    const results = await executeQuery(conn, query)
 
-    logger.log(`  ✅ Found ${results.length} routes for station ${StationView.stop_id}`);
+    logger.log(`  ✅ Found ${results.length} routes for station ${StationView.stop_id}`)
 
-    return results;
+    return results
   } catch (error) {
-    logger.error("Error executing RouteDataQuery:", error);
-    throw error;
+    logger.error("Error executing RouteDataQuery:", error)
+    throw error
   }
-};
-
+}
 
 const routeIdListSql = (routeIds: string[]) => {
-  return `[${routeIds.map((id) => `'${escapeSql(id)}'`).join(", ")}]`;
-};
+  return `[${routeIds.map((id) => `'${escapeSql(id)}'`).join(", ")}]`
+}
+
+const BANDS_TABLE_DDL = `CREATE TABLE IF NOT EXISTS RouteShapeBandsTable (
+  route_id VARCHAR, route_name VARCHAR, route_color_hex VARCHAR, route_text_color_hex VARCHAR,
+  shape_id VARCHAR, shape_pt_sequence DOUBLE, shape_pt_lat DOUBLE, shape_pt_lon DOUBLE,
+  orig_lat DOUBLE, orig_lon DOUBLE, band_index INTEGER, band_count INTEGER,
+  slot DOUBLE, turn_radius DOUBLE)`
+const LANES_TABLE_DDL = `CREATE TABLE IF NOT EXISTS RouteShapeLanesTable (
+  route_id VARCHAR, shape_id VARCHAR, shape_pt_sequence DOUBLE, lat DOUBLE, lon DOUBLE,
+  coslat DOUBLE, ux DOUBLE, uy DOUBLE, band_index BIGINT, band_count BIGINT,
+  shift_s DOUBLE, slot_s DOUBLE, plat DOUBLE, plon DOUBLE, nlat DOUBLE, nlon DOUBLE)`
+
+const ROUTE_MACRO_VERSION: string = (() => {
+  const re =
+    /MACRO (prepare_route_shape_lanes|finish_route_shape_bands|refresh_route_shape_bands)|TABLE IF NOT EXISTS RouteShape(Lanes|Bands)Table/
+  const text = GTFS_INIT_SQL.split(";")
+    .map((stmt) => stmt.trim())
+    .filter((stmt) => stmt.length > 0 && re.test(stmt))
+    .join(";")
+  let h = 5381
+  for (let i = 0; i < text.length; i++) h = ((h * 33) ^ text.charCodeAt(i)) >>> 0
+  return `v2-${h.toString(16)}-${text.length}`
+})()
+const MACRO_VERSION_TABLE_DDL =
+  "CREATE TABLE IF NOT EXISTS RouteShapeMacroVersion (version VARCHAR)"
+
+const resetCleanupTables = async (conn: any): Promise<void> => {
+  try {
+    await conn.query("DROP TABLE IF EXISTS RouteShapeBandsTable")
+    await conn.query("DROP TABLE IF EXISTS RouteShapeLanesTable")
+    await conn.query("DROP TABLE IF EXISTS RouteShapeMacroVersion")
+    await conn.query(BANDS_TABLE_DDL)
+    await conn.query(LANES_TABLE_DDL)
+    await conn.query(MACRO_VERSION_TABLE_DDL)
+    await conn.query(
+      `INSERT INTO RouteShapeMacroVersion VALUES ('${ROUTE_MACRO_VERSION.replace(/'/g, "")}')`,
+    )
+  } catch {}
+}
+
+export const bandedRouteIds = async (conn: any): Promise<Set<string>> => {
+  try {
+    let stored = ""
+    try {
+      const v = await executeQuery(conn, "SELECT version FROM RouteShapeMacroVersion LIMIT 1")
+      stored = String(v[0]?.version ?? "")
+    } catch {
+      stored = ""
+    }
+    if (stored !== ROUTE_MACRO_VERSION) {
+      await resetCleanupTables(conn)
+      return new Set()
+    }
+    const rows = await executeQuery(
+      conn,
+      "SELECT route_id, MIN(turn_radius) AS r FROM RouteShapeBandsTable GROUP BY route_id",
+    )
+    return new Set(rows.map((r: any) => String(r.route_id)))
+  } catch {
+    await resetCleanupTables(conn)
+    return new Set()
+  }
+}
+
+export const routeShapeLanesReady = async (conn: any): Promise<boolean> => {
+  try {
+    const rows = await executeQuery(conn, "SELECT COUNT(*) AS n FROM RouteShapeLanesTable")
+    return Number(rows[0]?.n ?? 0) > 0
+  } catch {
+    return false
+  }
+}
+
+export const prepareRouteShapeLanes = async (
+  conn: any,
+  onStep?: (done: number, total: number) => void,
+): Promise<boolean> => {
+  try {
+    try {
+      await conn.query("LOAD spatial;")
+    } catch {
+      await conn.query("INSTALL spatial; LOAD spatial;")
+    }
+    await conn.query(LANES_TABLE_DDL)
+    await conn.query(BANDS_TABLE_DDL)
+    await conn.query(MACRO_VERSION_TABLE_DDL)
+    await conn.query("DELETE FROM RouteShapeLanesTable")
+    await conn.query("DELETE FROM RouteShapeBandsTable")
+    await conn.query("DELETE FROM RouteShapeMacroVersion")
+    await conn.query(
+      `INSERT INTO RouteShapeMacroVersion VALUES ('${ROUTE_MACRO_VERSION.replace(/'/g, "")}')`,
+    )
+    const groups = [
+      "prepare_route_shape_lanes_rail",
+      "prepare_route_shape_lanes_bus",
+      "prepare_route_shape_lanes_other",
+    ]
+    for (let i = 0; i < groups.length; i++) {
+      await conn.query(`INSERT INTO RouteShapeLanesTable SELECT * FROM ${groups[i]}()`)
+      onStep?.(i + 1, groups.length)
+    }
+    return true
+  } catch (error) {
+    logger.warn("Route line cleanup unavailable, using raw shapes:", error)
+    return false
+  }
+}
+
+export const finishRouteShapeBands = async (conn: any, routeIds: string[]): Promise<void> => {
+  if (routeIds.length === 0) return
+  await conn.query(
+    `INSERT INTO RouteShapeBandsTable SELECT * FROM finish_route_shape_bands(${routeIdListSql(routeIds)})`,
+  )
+}
 
 export const fetchServiceRoutesData = async (conn: any) => {
-  return executeQuery(conn, "SELECT * FROM RoutesTable");
-};
+  return executeQuery(conn, "SELECT * FROM RoutesTable")
+}
 
 export const fetchServiceRouteInfoData = async (conn: any, routeId: string) => {
   return (
     await executeQuery(conn, `SELECT * FROM RoutesTable WHERE route_id = '${escapeSql(routeId)}'`)
-  )[0];
-};
+  )[0]
+}
 
 export const fetchServiceRouteTripsData = async (conn: any, routeId: string) => {
   return executeQuery(
@@ -57,8 +174,8 @@ export const fetchServiceRouteTripsData = async (conn: any, routeId: string) => 
       WHERE route_id = '${escapeSql(routeId)}'
       ORDER BY trip_id
     `,
-  );
-};
+  )
+}
 
 const ensureServiceTables = async (conn: any) => {
   await conn.query(`
@@ -67,16 +184,20 @@ const ensureServiceTables = async (conn: any) => {
       wednesday INTEGER, thursday INTEGER, friday INTEGER, saturday INTEGER,
       sunday INTEGER, start_date VARCHAR, end_date VARCHAR
     )
-  `);
+  `)
   await conn.query(`
     CREATE TABLE IF NOT EXISTS calendar_dates (
       row_id INTEGER, service_id VARCHAR, date VARCHAR, exception_type INTEGER
     )
-  `);
-};
+  `)
+}
 
 export const fetchServiceRouteServicesData = async (conn: any, routeId: string) => {
-  try { await ensureServiceTables(conn); } catch { /* tables may already exist */ }
+  try {
+    await ensureServiceTables(conn)
+  } catch {
+    /* tables may already exist */
+  }
   return executeQuery(
     conn,
     `
@@ -131,8 +252,8 @@ export const fetchServiceRouteServicesData = async (conn: any, routeId: string) 
       LEFT JOIN date_summary ds ON ds.service_id = rs.service_id
       ORDER BY rs.service_id
     `,
-  );
-};
+  )
+}
 
 export const fetchServiceRouteTripsForServiceData = async (
   conn: any,
@@ -176,11 +297,11 @@ export const fetchServiceRouteTripsForServiceData = async (
         AND t.service_id = '${escapeSql(serviceId)}'
       ORDER BY COALESCE(tt.first_departure_seconds, 2147483647), t.trip_id
     `,
-  );
-};
+  )
+}
 
 export const fetchServiceTripStopTimesData = async (conn: any, tripId: string) => {
-  const tid = escapeSql(tripId);
+  const tid = escapeSql(tripId)
   const currentStops = await executeQuery(
     conn,
     `
@@ -197,9 +318,13 @@ export const fetchServiceTripStopTimesData = async (conn: any, tripId: string) =
       WHERE st.trip_id = '${tid}'
       ORDER BY st.stop_sequence, st.arrival_time, st.departure_time, st.stop_id
     `,
-  );
-  if (!currentStops.some((stop) => stop.status === "new" || stop.status === "new edit" || stop.status === "edit")) {
-    return currentStops;
+  )
+  if (
+    !currentStops.some(
+      (stop) => stop.status === "new" || stop.status === "new edit" || stop.status === "edit",
+    )
+  ) {
+    return currentStops
   }
   const originalStops = await executeQuery(
     conn,
@@ -210,8 +335,8 @@ export const fetchServiceTripStopTimesData = async (conn: any, tripId: string) =
       WHERE trip_id = '${tid}'
       ORDER BY stop_sequence, arrival_time, departure_time, stop_id
     `,
-  );
-  let stopsWithMetadata = currentStops;
+  )
+  let stopsWithMetadata = currentStops
   try {
     const [rerouteMetadata] = await executeQuery(
       conn,
@@ -219,114 +344,149 @@ export const fetchServiceTripStopTimesData = async (conn: any, tripId: string) =
        FROM EditStopTimesTable
        WHERE trip_id = '${tid}' AND edit_type = 'reroute'
        LIMIT 1`,
-    );
+    )
     if (rerouteMetadata) {
-      stopsWithMetadata = currentStops.map((stop) => ({ ...stop, ...rerouteMetadata }));
+      stopsWithMetadata = currentStops.map((stop) => ({ ...stop, ...rerouteMetadata }))
     }
   } catch {
-    stopsWithMetadata = currentStops;
+    stopsWithMetadata = currentStops
   }
-  return markPersistedStopTimeEdits(stopsWithMetadata, originalStops);
-};
+  return markPersistedStopTimeEdits(stopsWithMetadata, originalStops)
+}
 
 export const fetchAllTripsData = async (conn: any) => {
-  return executeQuery(conn, "SELECT * FROM TripsTable");
-};
+  return executeQuery(conn, "SELECT * FROM TripsTable")
+}
 
-export const saveCalendarEdit = async (conn: any, data: {
-  service_id: string; monday: number; tuesday: number; wednesday: number; thursday: number;
-  friday: number; saturday: number; sunday: number; start_date: string; end_date: string;
-}, isNew: boolean) => {
-  const id = data.service_id.replace(/'/g, "''");
-  let status = "new";
+export const saveCalendarEdit = async (
+  conn: any,
+  data: {
+    service_id: string
+    monday: number
+    tuesday: number
+    wednesday: number
+    thursday: number
+    friday: number
+    saturday: number
+    sunday: number
+    start_date: string
+    end_date: string
+  },
+  isNew: boolean,
+) => {
+  const id = data.service_id.replace(/'/g, "''")
+  let status = "new"
   if (!isNew) {
     // Check if this was a previously added new service
-    const existing = await executeQuery(conn, `SELECT status FROM EditCalendarTable WHERE service_id = '${id}'`);
-    const prevStatus = existing.length > 0 ? String(existing[0].status) : null;
-    status = prevStatus === "new" ? "new edit" : "edit";
-    await conn.query(`DELETE FROM EditCalendarTable WHERE service_id = '${id}'`);
+    const existing = await executeQuery(
+      conn,
+      `SELECT status FROM EditCalendarTable WHERE service_id = '${id}'`,
+    )
+    const prevStatus = existing.length > 0 ? String(existing[0].status) : null
+    status = prevStatus === "new" ? "new edit" : "edit"
+    await conn.query(`DELETE FROM EditCalendarTable WHERE service_id = '${id}'`)
   }
-  const mon = Number(data.monday) || 0;
-  const tue = Number(data.tuesday) || 0;
-  const wed = Number(data.wednesday) || 0;
-  const thu = Number(data.thursday) || 0;
-  const fri = Number(data.friday) || 0;
-  const sat = Number(data.saturday) || 0;
-  const sun = Number(data.sunday) || 0;
+  const mon = Number(data.monday) || 0
+  const tue = Number(data.tuesday) || 0
+  const wed = Number(data.wednesday) || 0
+  const thu = Number(data.thursday) || 0
+  const fri = Number(data.friday) || 0
+  const sat = Number(data.saturday) || 0
+  const sun = Number(data.sunday) || 0
   await conn.query(`
     INSERT INTO EditCalendarTable (row_id, service_id, monday, tuesday, wednesday, thursday, friday, saturday, sunday, start_date, end_date, status)
     VALUES ('edit_${id}', '${id}', ${mon}, ${tue}, ${wed}, ${thu},
-            ${fri}, ${sat}, ${sun}, '${(data.start_date || '').replace(/'/g, "''")}', '${(data.end_date || '').replace(/'/g, "''")}', '${status}')
-  `);
-  await refreshMaterializedTable(conn, "CalendarTable");
-};
+            ${fri}, ${sat}, ${sun}, '${(data.start_date || "").replace(/'/g, "''")}', '${(data.end_date || "").replace(/'/g, "''")}', '${status}')
+  `)
+  await refreshMaterializedTable(conn, "CalendarTable")
+}
 
 export const deleteCalendar = async (conn: any, serviceId: string) => {
-  const id = serviceId.replace(/'/g, "''");
-  await conn.query(`DELETE FROM EditCalendarTable WHERE service_id = '${id}'`);
+  const id = serviceId.replace(/'/g, "''")
+  await conn.query(`DELETE FROM EditCalendarTable WHERE service_id = '${id}'`)
   await conn.query(`INSERT INTO EditCalendarTable (row_id, service_id, monday, tuesday, wednesday, thursday, friday, saturday, sunday, start_date, end_date, status)
-    VALUES ('del_${id}', '${id}', 0, 0, 0, 0, 0, 0, 0, '', '', 'deleted')`);
-  await refreshMaterializedTable(conn, "CalendarTable");
-};
+    VALUES ('del_${id}', '${id}', 0, 0, 0, 0, 0, 0, 0, '', '', 'deleted')`)
+  await refreshMaterializedTable(conn, "CalendarTable")
+}
 
-export const saveTripEdit = async (conn: any, data: {
-  trip_id: string; route_id: string; service_id: string; trip_headsign?: string;
-  direction_id?: number; shape_id?: string;
-}, isNew: boolean) => {
-  const tid = data.trip_id.replace(/'/g, "''");
-  let status = "new";
+export const saveTripEdit = async (
+  conn: any,
+  data: {
+    trip_id: string
+    route_id: string
+    service_id: string
+    trip_headsign?: string
+    direction_id?: number
+    shape_id?: string
+  },
+  isNew: boolean,
+) => {
+  const tid = data.trip_id.replace(/'/g, "''")
+  let status = "new"
   if (!isNew) {
-    const existing = await executeQuery(conn, `SELECT status FROM EditTripsTable WHERE trip_id = '${tid}'`);
-    const prevStatus = existing.length > 0 ? String(existing[0].status) : null;
-    status = prevStatus === "new" ? "new edit" : "edit";
-    await conn.query(`DELETE FROM EditTripsTable WHERE trip_id = '${tid}'`);
+    const existing = await executeQuery(
+      conn,
+      `SELECT status FROM EditTripsTable WHERE trip_id = '${tid}'`,
+    )
+    const prevStatus = existing.length > 0 ? String(existing[0].status) : null
+    status = prevStatus === "new" ? "new edit" : "edit"
+    await conn.query(`DELETE FROM EditTripsTable WHERE trip_id = '${tid}'`)
   }
   await conn.query(`
     INSERT INTO EditTripsTable (row_id, route_id, service_id, trip_id, trip_headsign, trip_short_name, direction_id, block_id, shape_id, wheelchair_accessible, bikes_allowed, status)
     VALUES ('edit_${tid}', '${data.route_id.replace(/'/g, "''")}', '${data.service_id.replace(/'/g, "''")}', '${tid}',
-            ${data.trip_headsign ? `'${data.trip_headsign.replace(/'/g, "''")}'` : 'NULL'},
-            NULL, ${data.direction_id != null ? Number(data.direction_id) : 'NULL'}, NULL, ${data.shape_id ? `'${data.shape_id.replace(/'/g, "''")}'` : 'NULL'},
+            ${data.trip_headsign ? `'${data.trip_headsign.replace(/'/g, "''")}'` : "NULL"},
+            NULL, ${data.direction_id != null ? Number(data.direction_id) : "NULL"}, NULL, ${data.shape_id ? `'${data.shape_id.replace(/'/g, "''")}'` : "NULL"},
             NULL, NULL, '${status}')
-  `);
-  await refreshMaterializedTable(conn, "TripsTable");
-};
+  `)
+  await refreshMaterializedTable(conn, "TripsTable")
+}
 
 export const deleteTrip = async (conn: any, tripId: string) => {
-  const tid = tripId.replace(/'/g, "''");
-  await conn.query(`DELETE FROM EditTripsTable WHERE trip_id = '${tid}'`);
+  const tid = tripId.replace(/'/g, "''")
+  await conn.query(`DELETE FROM EditTripsTable WHERE trip_id = '${tid}'`)
   await conn.query(`INSERT INTO EditTripsTable (row_id, route_id, service_id, trip_id, status)
-    VALUES ('del_${tid}', '', '', '${tid}', 'deleted')`);
-  await refreshMaterializedTable(conn, "TripsTable");
-};
+    VALUES ('del_${tid}', '', '', '${tid}', 'deleted')`)
+  await refreshMaterializedTable(conn, "TripsTable")
+}
 
 export const fetchTripsTimeBounds = async (conn: any) => {
-  const rows = await executeQuery(conn, "SELECT * FROM get_trips_time_bounds()");
-  const row = rows[0];
-  if (!row || row.min_time == null || row.max_time == null) return null;
-  return { minTime: Number(row.min_time), maxTime: Number(row.max_time) };
-};
+  const rows = await executeQuery(conn, "SELECT * FROM get_trips_time_bounds()")
+  const row = rows[0]
+  if (!row || row.min_time == null || row.max_time == null) return null
+  return { minTime: Number(row.min_time), maxTime: Number(row.max_time) }
+}
 
 export const saveStopTimesEdits = async (
   conn: any,
   tripId: string,
-  stops: Array<{ stop_sequence: number; stop_id?: string; arrival_time?: string; departure_time?: string; stop_headsign?: string; pickup_type?: number; drop_off_type?: number; shape_dist_traveled?: number }>,
+  stops: Array<{
+    stop_sequence: number
+    stop_id?: string
+    arrival_time?: string
+    departure_time?: string
+    stop_headsign?: string
+    pickup_type?: number
+    drop_off_type?: number
+    shape_dist_traveled?: number
+  }>,
   rerouteMetadata?: {
-    edit_source_trip_id: string;
-    edit_from_stop_name: string;
-    edit_to_stop_name: string;
+    edit_source_trip_id: string
+    edit_from_stop_name: string
+    edit_to_stop_name: string
   },
 ) => {
-  const tid = escapeSql(tripId);
-  let preservedRerouteMetadata: Record<string, any> | undefined;
-  let hasOtherPendingEdits = false;
+  const tid = escapeSql(tripId)
+  let preservedRerouteMetadata: Record<string, any> | undefined
+  let hasOtherPendingEdits = false
   if (rerouteMetadata) {
     const rows = await executeQuery(
       conn,
       `SELECT COUNT(*) AS count
        FROM EditStopTimesTable
        WHERE trip_id = '${tid}' AND (edit_type IS NULL OR edit_type <> 'reroute')`,
-    );
-    hasOtherPendingEdits = Number(rows[0]?.count ?? 0) > 0;
+    )
+    hasOtherPendingEdits = Number(rows[0]?.count ?? 0) > 0
   } else {
     try {
       const rows = await executeQuery(
@@ -335,44 +495,55 @@ export const saveStopTimesEdits = async (
          FROM EditStopTimesTable
          WHERE trip_id = '${tid}' AND edit_type = 'reroute'
          LIMIT 1`,
-      );
-      preservedRerouteMetadata = rows[0];
+      )
+      preservedRerouteMetadata = rows[0]
     } catch {
-      preservedRerouteMetadata = undefined;
+      preservedRerouteMetadata = undefined
     }
   }
   // Clear previous edits for this trip
-  await deleteEditRow({ conn, table: "EditStopTimesTable", column: "trip_id", formData: { trip_id: tripId } });
+  await deleteEditRow({
+    conn,
+    table: "EditStopTimesTable",
+    column: "trip_id",
+    formData: { trip_id: tripId },
+  })
 
   // Get original stop times to compare
-  const origRows = await executeQuery(conn, `SELECT row_id, stop_id, stop_sequence, arrival_time, departure_time FROM stop_times WHERE trip_id = '${escapeSql(tripId)}' ORDER BY stop_sequence`);
+  const origRows = await executeQuery(
+    conn,
+    `SELECT row_id, stop_id, stop_sequence, arrival_time, departure_time FROM stop_times WHERE trip_id = '${escapeSql(tripId)}' ORDER BY stop_sequence`,
+  )
 
   // Check if anything actually changed
-  let hasChanges = origRows.length !== stops.length;
+  let hasChanges = origRows.length !== stops.length
   if (!hasChanges) {
     for (let i = 0; i < stops.length; i++) {
-      const orig = origRows[i];
-      const cur = stops[i];
-      if (String(orig.stop_id || "") !== (cur.stop_id || "") ||
-          String(orig.arrival_time || "") !== (cur.arrival_time || "") ||
-          String(orig.departure_time || "") !== (cur.departure_time || "")) {
-        hasChanges = true;
-        break;
+      const orig = origRows[i]
+      const cur = stops[i]
+      if (
+        String(orig.stop_id || "") !== (cur.stop_id || "") ||
+        String(orig.arrival_time || "") !== (cur.arrival_time || "") ||
+        String(orig.departure_time || "") !== (cur.departure_time || "")
+      ) {
+        hasChanges = true
+        break
       }
     }
   }
-  if (!hasChanges) return;
+  if (!hasChanges) return
 
   // Determine per-stop status using multiset matching
-  const origIdCounts = new Map<string, number>();
-  for (const r of origRows) origIdCounts.set(String(r.stop_id || ""), (origIdCounts.get(String(r.stop_id || "")) || 0) + 1);
-  const usedCounts = new Map<string, number>();
+  const origIdCounts = new Map<string, number>()
+  for (const r of origRows)
+    origIdCounts.set(String(r.stop_id || ""), (origIdCounts.get(String(r.stop_id || "")) || 0) + 1)
+  const usedCounts = new Map<string, number>()
 
   for (const s of stops) {
-    const id = s.stop_id || "";
-    const used = usedCounts.get(id) || 0;
-    const isNew = used >= (origIdCounts.get(id) || 0);
-    usedCounts.set(id, used + 1);
+    const id = s.stop_id || ""
+    const used = usedCounts.get(id) || 0
+    const isNew = used >= (origIdCounts.get(id) || 0)
+    usedCounts.set(id, used + 1)
 
     await insertTableRow({
       conn,
@@ -390,22 +561,23 @@ export const saveStopTimesEdits = async (
         shape_dist_traveled: s.shape_dist_traveled ?? null,
         status: isNew ? "new" : "new edit",
       },
-    });
+    })
   }
 
   // Insert 'deleted' rows for removed original stops
-  const newIdCounts = new Map<string, number>();
-  for (const s of stops) newIdCounts.set(s.stop_id || "", (newIdCounts.get(s.stop_id || "") || 0) + 1);
-  const toDelete = new Map<string, number>();
+  const newIdCounts = new Map<string, number>()
+  for (const s of stops)
+    newIdCounts.set(s.stop_id || "", (newIdCounts.get(s.stop_id || "") || 0) + 1)
+  const toDelete = new Map<string, number>()
   for (const [id, origCount] of origIdCounts) {
-    const diff = origCount - (newIdCounts.get(id) || 0);
-    if (diff > 0) toDelete.set(id, diff);
+    const diff = origCount - (newIdCounts.get(id) || 0)
+    if (diff > 0) toDelete.set(id, diff)
   }
   for (const r of origRows) {
-    const id = String(r.stop_id || "");
-    const left = toDelete.get(id) || 0;
+    const id = String(r.stop_id || "")
+    const left = toDelete.get(id) || 0
     if (left > 0) {
-      toDelete.set(id, left - 1);
+      toDelete.set(id, left - 1)
       await insertTableRow({
         conn,
         table: "EditStopTimesTable",
@@ -418,21 +590,22 @@ export const saveStopTimesEdits = async (
           departure_time: String(r.departure_time || ""),
           status: "deleted",
         },
-      });
+      })
     }
   }
 
-  const appliedRerouteMetadata = rerouteMetadata ?? preservedRerouteMetadata;
+  const appliedRerouteMetadata = rerouteMetadata ?? preservedRerouteMetadata
   if (appliedRerouteMetadata) {
-    const metadataTarget = rerouteMetadata && !hasOtherPendingEdits
-      ? `trip_id = '${tid}'`
-      : `row_id = (
+    const metadataTarget =
+      rerouteMetadata && !hasOtherPendingEdits
+        ? `trip_id = '${tid}'`
+        : `row_id = (
           SELECT row_id
           FROM EditStopTimesTable
           WHERE trip_id = '${tid}' AND status IN ('new', 'edit', 'new edit')
           ORDER BY stop_sequence
           LIMIT 1
-        )`;
+        )`
     await conn.query(`
       UPDATE EditStopTimesTable
       SET edit_type = 'reroute',
@@ -440,55 +613,67 @@ export const saveStopTimesEdits = async (
           edit_from_stop_name = '${escapeSql(String(appliedRerouteMetadata.edit_from_stop_name || ""))}',
           edit_to_stop_name = '${escapeSql(String(appliedRerouteMetadata.edit_to_stop_name || ""))}'
       WHERE ${metadataTarget}
-    `);
+    `)
   }
 
   // Refresh materialized tables that depend on stop times
-  await refreshMaterializedTable(conn, "TripsTable");
-};
+  await refreshMaterializedTable(conn, "TripsTable")
+}
 
 export const fetchServiceRouteStationsData = async (conn: any, routeId: string) => {
-  return executeQuery(conn, `SELECT * FROM get_route_stations('${escapeSql(routeId)}')`);
-};
+  return executeQuery(conn, `SELECT * FROM get_route_stations('${escapeSql(routeId)}')`)
+}
 
 export const fetchServiceRouteStopsData = async (conn: any, routeIds: string[]) => {
-  if (routeIds.length === 0) return [];
+  if (routeIds.length === 0) return []
   if (routeIds.length > 25) {
     return executeQuery(
       conn,
       "SELECT * FROM RouteStopsTable ORDER BY route_id, stop_sequence, stop_name, stop_id",
-    );
+    )
   }
-  return executeQuery(
-    conn,
-    `SELECT * FROM get_route_stops_for_routes(${routeIdListSql(routeIds)})`,
-  );
-};
+  return executeQuery(conn, `SELECT * FROM get_route_stops_for_routes(${routeIdListSql(routeIds)})`)
+}
 
-export const fetchFitZoom = async (conn: any, minLon: number, maxLon: number, minLat: number, maxLat: number) => {
-  const result = await conn.query(`SELECT fit_zoom(${minLon}, ${maxLon}, ${minLat}, ${maxLat}) AS zoom`);
-  const row = result.toArray()[0];
-  return Number(row?.zoom ?? row?.toJSON?.()?.zoom ?? 10);
-};
+export const fetchFitZoom = async (
+  conn: any,
+  minLon: number,
+  maxLon: number,
+  minLat: number,
+  maxLat: number,
+) => {
+  const result = await conn.query(
+    `SELECT fit_zoom(${minLon}, ${maxLon}, ${minLat}, ${maxLat}) AS zoom`,
+  )
+  const row = result.toArray()[0]
+  return Number(row?.zoom ?? row?.toJSON?.()?.zoom ?? 10)
+}
 
 const boundsRowToFit = (rawRow: any) => {
-  const row = rawRow?.toJSON?.() ?? rawRow;
-  if (!row || row.min_lon == null) return null;
-  const minLon = Number(row.min_lon);
-  const maxLon = Number(row.max_lon);
-  const minLat = Number(row.min_lat);
-  const maxLat = Number(row.max_lat);
-  const centerLon = Number(row.center_lon);
-  const centerLat = Number(row.center_lat);
-  const zoom = Number(row.zoom);
+  const row = rawRow?.toJSON?.() ?? rawRow
+  if (!row || row.min_lon == null) return null
+  const minLon = Number(row.min_lon)
+  const maxLon = Number(row.max_lon)
+  const minLat = Number(row.min_lat)
+  const maxLat = Number(row.max_lat)
+  const centerLon = Number(row.center_lon)
+  const centerLat = Number(row.center_lat)
+  const zoom = Number(row.zoom)
   if (
-    !Number.isFinite(minLon) || !Number.isFinite(maxLon) ||
-    !Number.isFinite(minLat) || !Number.isFinite(maxLat) ||
-    !Number.isFinite(centerLon) || !Number.isFinite(centerLat) ||
+    !Number.isFinite(minLon) ||
+    !Number.isFinite(maxLon) ||
+    !Number.isFinite(minLat) ||
+    !Number.isFinite(maxLat) ||
+    !Number.isFinite(centerLon) ||
+    !Number.isFinite(centerLat) ||
     !Number.isFinite(zoom)
-  ) return null;
+  )
+    return null
   return {
-    boundBox: [[minLon, minLat], [maxLon, maxLat]] as [[number, number], [number, number]],
+    boundBox: [
+      [minLon, minLat],
+      [maxLon, maxLat],
+    ] as [[number, number], [number, number]],
     viewState: {
       longitude: centerLon,
       latitude: centerLat,
@@ -497,48 +682,98 @@ const boundsRowToFit = (rawRow: any) => {
       bearing: 0,
       transitionDuration: 0,
     },
-  };
-};
+  }
+}
 
 export const fetchStationsMapBounds = async (conn: any) => {
-  const rows = await executeQuery(conn, "SELECT * FROM get_stations_map_bounds()");
-  return boundsRowToFit(rows[0]);
-};
+  const rows = await executeQuery(conn, "SELECT * FROM get_stations_map_bounds()")
+  return boundsRowToFit(rows[0])
+}
 
 export const fetchStopsMapBounds = async (conn: any) => {
-  const rows = await executeQuery(conn, "SELECT * FROM get_stops_map_bounds()");
-  return boundsRowToFit(rows[0]);
-};
+  const rows = await executeQuery(conn, "SELECT * FROM get_stops_map_bounds()")
+  return boundsRowToFit(rows[0])
+}
 
 export const fetchRouteMapBounds = async (conn: any, routeIds: string[]) => {
-  if (routeIds.length === 0) return null;
+  if (routeIds.length === 0) return null
   if (routeIds.length > 200) {
-    const rows = await executeQuery(conn, "SELECT * FROM get_all_shapes_map_bounds()");
-    return boundsRowToFit(rows[0]);
+    const rows = await executeQuery(conn, "SELECT * FROM get_all_shapes_map_bounds()")
+    return boundsRowToFit(rows[0])
   }
   const rows = await executeQuery(
     conn,
     `SELECT * FROM get_route_map_bounds(${routeIdListSql(routeIds)})`,
-  );
-  return boundsRowToFit(rows[0]);
-};
+  )
+  return boundsRowToFit(rows[0])
+}
 
 export const fetchServiceRouteShapesData = async (
   conn: any,
   routeIds: string[],
-  options?: { routeTypes?: string[] },
+  options?: {
+    routeTypes?: string[]
+    offset?: boolean
+  },
 ) => {
-  if (routeIds.length === 0) return [];
+  if (routeIds.length === 0) return []
 
-  const isLargeSet = routeIds.length > 200;
-  const maxPointsPerShape = isLargeSet ? 30 : routeIds.length > 10 ? 80 : 240;
+  const isLargeSet = routeIds.length > 200
+  const maxPointsPerShape = isLargeSet
+    ? 300
+    : routeIds.length > 50
+      ? 400
+      : routeIds.length > 10
+        ? 600
+        : 900
+
+  if (options?.offset) {
+    const routeFilter = isLargeSet
+      ? options?.routeTypes && options.routeTypes.length > 0
+        ? `r.route_type_name IN (${options.routeTypes.map((t) => `'${escapeSql(t)}'`).join(", ")})`
+        : "TRUE"
+      : `b.route_id IN (SELECT unnest(${routeIdListSql(routeIds)}))`
+    const bandedQuery = (source: string) => `
+      WITH banded AS (
+        SELECT b.route_id, r.route_name, r.route_color_hex, r.route_text_color_hex,
+               r.route_type_name, b.shape_id, b.shape_pt_lat, b.shape_pt_lon,
+               b.shape_pt_sequence, NULL::DOUBLE AS shape_dist_traveled,
+               b.band_index, b.band_count, b.slot, b.turn_radius,
+               ROW_NUMBER() OVER (
+                 PARTITION BY b.route_id, b.shape_id ORDER BY b.shape_pt_sequence
+               ) AS point_index,
+               COUNT(*) OVER (PARTITION BY b.route_id, b.shape_id) AS point_count
+        FROM ${source} b
+        JOIN RoutesView r ON r.route_id = b.route_id
+        WHERE ${routeFilter}
+      )
+      SELECT route_id, route_name, route_color_hex, route_text_color_hex,
+             route_type_name, shape_id, shape_pt_lat, shape_pt_lon,
+             shape_pt_sequence, shape_dist_traveled, band_index, band_count, slot, turn_radius
+      FROM banded
+      ${
+        isLargeSet
+          ? `WHERE point_count <= ${maxPointsPerShape}
+         OR point_index = 1
+         OR point_index = point_count
+         OR ((point_index - 1) % GREATEST(1, CAST(CEIL(point_count / ${maxPointsPerShape}.0) AS INTEGER))) = 0`
+          : ""
+      }
+      ORDER BY route_id, shape_id, shape_pt_sequence
+    `
+    try {
+      const rows = await executeQuery(conn, bandedQuery("RouteShapeBandsTable"))
+      if (rows.length > 0) return rows
+    } catch {}
+  }
 
   // For large sets, skip route ID list and filter by route type in SQL
-  let routeShapesCte: string;
+  let routeShapesCte: string
   if (isLargeSet) {
-    const typeFilter = options?.routeTypes && options.routeTypes.length > 0
-      ? `AND r.route_type_name IN (${options.routeTypes.map((t) => `'${escapeSql(t)}'`).join(", ")})`
-      : "";
+    const typeFilter =
+      options?.routeTypes && options.routeTypes.length > 0
+        ? `AND r.route_type_name IN (${options.routeTypes.map((t) => `'${escapeSql(t)}'`).join(", ")})`
+        : ""
     routeShapesCte = `
       all_route_shapes AS (
         SELECT t.route_id, t.shape_id, COUNT(*) as pt_count,
@@ -554,18 +789,18 @@ export const fetchServiceRouteShapesData = async (
       ),
       route_shapes AS (
         SELECT route_id, shape_id FROM all_route_shapes WHERE rn = 1
-      )`;
+      )`
   } else {
     routeShapesCte = `
       requested_routes AS (
         SELECT unnest(${routeIdListSql(routeIds)}) AS route_id
       ),
       route_shapes AS (
-        SELECT DISTINCT t.route_id, t.shape_id
-        FROM TripsView t
-        JOIN requested_routes rr ON rr.route_id = t.route_id
-        WHERE t.shape_id IS NOT NULL AND t.shape_id != ''
-      )`;
+        SELECT DISTINCT tv.route_id, tv.shape_id
+        FROM TripsView tv
+        JOIN requested_routes rr ON rr.route_id = tv.route_id
+        WHERE tv.shape_id IS NOT NULL AND tv.shape_id != ''
+      )`
   }
 
   return executeQuery(
@@ -596,126 +831,426 @@ export const fetchServiceRouteShapesData = async (
          OR ((point_index - 1) % GREATEST(1, CAST(CEIL(point_count / ${maxPointsPerShape}.0) AS INTEGER))) = 0
       ORDER BY route_id, shape_id, shape_pt_sequence
     `,
-  );
-};
+  )
+}
+
+export type ShapePathRecord = {
+  route_id: string
+  shape_id: string
+  route_name?: string
+  route_color_hex?: string
+  route_text_color_hex?: string
+  route_type_name?: string
+  band_count: number | null
+  lons: Float64Array
+  lats: Float64Array
+  slots: Float64Array | null
+  turnRadii: Float64Array | null
+  bandCounts: Float64Array | null
+}
+
+const toFloat64 = (v: any): Float64Array => {
+  if (v instanceof Float64Array) return v
+  if (v && typeof v.toArray === "function") {
+    const a = v.toArray()
+    return a instanceof Float64Array ? a : Float64Array.from(a, Number)
+  }
+  return Float64Array.from(Array.isArray(v) ? v : [], Number)
+}
+
+export const fetchRouteShapePaths = async (
+  conn: any,
+  routeIds: string[],
+  options?: { offset?: boolean },
+): Promise<ShapePathRecord[]> => {
+  if (routeIds.length === 0) return []
+  const idList = routeIdListSql(routeIds)
+  const maxPointsPerShape = routeIds.length > 50 ? 400 : routeIds.length > 10 ? 600 : 900
+  const bandedSql = `
+    SELECT b.route_id, b.shape_id, r.route_name, r.route_color_hex, r.route_text_color_hex,
+           r.route_type_name, MAX(b.band_count) AS band_count,
+           list(b.shape_pt_lon ORDER BY b.shape_pt_sequence) AS lons,
+           list(b.shape_pt_lat ORDER BY b.shape_pt_sequence) AS lats,
+           list(COALESCE(b.slot, b.band_index - (b.band_count - 1) / 2.0)
+                ORDER BY b.shape_pt_sequence) AS slots,
+           list(COALESCE(b.turn_radius, 5000.0) ORDER BY b.shape_pt_sequence) AS turn_radii,
+           list(COALESCE(b.band_count, 1) ORDER BY b.shape_pt_sequence) AS band_counts
+    FROM RouteShapeBandsTable b
+    JOIN RoutesView r ON r.route_id = b.route_id
+    WHERE b.route_id IN (SELECT unnest(${idList}))
+      AND b.shape_pt_lat IS NOT NULL AND b.shape_pt_lon IS NOT NULL
+    GROUP BY 1, 2, 3, 4, 5, 6
+    ORDER BY 1, 2`
+  const rawSql = `
+    WITH requested_routes AS (SELECT unnest(${idList}) AS route_id),
+    route_shapes AS (
+      SELECT DISTINCT tv.route_id, tv.shape_id
+      FROM TripsView tv
+      JOIN requested_routes rr ON rr.route_id = tv.route_id
+      WHERE tv.shape_id IS NOT NULL AND tv.shape_id != ''
+    ),
+    shape_points AS (
+      SELECT rs.route_id, rs.shape_id, s.shape_pt_lat, s.shape_pt_lon, s.shape_pt_sequence,
+             ROW_NUMBER() OVER (
+               PARTITION BY rs.route_id, rs.shape_id ORDER BY s.shape_pt_sequence
+             ) AS point_index,
+             COUNT(*) OVER (PARTITION BY rs.route_id, rs.shape_id) AS point_count
+      FROM route_shapes rs
+      JOIN shapes s ON s.shape_id = rs.shape_id
+      WHERE s.shape_pt_lat IS NOT NULL AND s.shape_pt_lon IS NOT NULL
+    ),
+    kept AS (
+      SELECT * FROM shape_points
+      WHERE point_count <= ${maxPointsPerShape}
+         OR point_index = 1
+         OR point_index = point_count
+         OR ((point_index - 1) % GREATEST(1, CAST(CEIL(point_count / ${maxPointsPerShape}.0) AS INTEGER))) = 0
+    )
+    SELECT k.route_id, k.shape_id, r.route_name, r.route_color_hex, r.route_text_color_hex,
+           r.route_type_name,
+           list(k.shape_pt_lon ORDER BY k.shape_pt_sequence) AS lons,
+           list(k.shape_pt_lat ORDER BY k.shape_pt_sequence) AS lats
+    FROM kept k
+    JOIN RoutesView r ON r.route_id = k.route_id
+    GROUP BY 1, 2, 3, 4, 5, 6
+    ORDER BY 1, 2`
+
+  const read = async (sql: string, cleaned: boolean): Promise<ShapePathRecord[]> => {
+    const table = await conn.query(sql)
+    const n = Number(table?.numRows ?? 0)
+    if (n === 0) return []
+    const col = (name: string) => table.getChild(name)
+    const cRoute = col("route_id")
+    const cShape = col("shape_id")
+    const cName = col("route_name")
+    const cColor = col("route_color_hex")
+    const cText = col("route_text_color_hex")
+    const cType = col("route_type_name")
+    const cLons = col("lons")
+    const cLats = col("lats")
+    const cBand = cleaned ? col("band_count") : null
+    const cSlots = cleaned ? col("slots") : null
+    const cTurn = cleaned ? col("turn_radii") : null
+    const cCounts = cleaned ? col("band_counts") : null
+    const out: ShapePathRecord[] = []
+    for (let i = 0; i < n; i++) {
+      const lons = toFloat64(cLons?.get(i))
+      const lats = toFloat64(cLats?.get(i))
+      if (lons.length < 2 || lons.length !== lats.length) continue
+      const band = cBand?.get(i)
+      out.push({
+        route_id: String(cRoute?.get(i)),
+        shape_id: String(cShape?.get(i) ?? "shape"),
+        route_name: cName?.get(i) ?? undefined,
+        route_color_hex: cColor?.get(i) ?? undefined,
+        route_text_color_hex: cText?.get(i) ?? undefined,
+        route_type_name: cType?.get(i) ?? undefined,
+        band_count: cleaned && band != null ? Number(band) : null,
+        lons,
+        lats,
+        slots: cleaned ? toFloat64(cSlots?.get(i)) : null,
+        turnRadii: cleaned ? toFloat64(cTurn?.get(i)) : null,
+        bandCounts: cleaned ? toFloat64(cCounts?.get(i)) : null,
+      })
+    }
+    return out
+  }
+
+  if (options?.offset) {
+    try {
+      const recs = await read(bandedSql, true)
+      if (recs.length > 0) return recs
+    } catch {}
+  }
+  return read(rawSql, false)
+}
+
+export const shapeRowsToPaths = (rows: any[]): ShapePathRecord[] => {
+  type Pt = {
+    seq: number
+    lon: number
+    lat: number
+    slot: number | null
+    r: number | null
+    bc: number
+  }
+  const groups = new Map<string, { rec: any; pts: Pt[] }>()
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const lon = Number(row?.shape_pt_lon)
+    const lat = Number(row?.shape_pt_lat)
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue
+    const key = `${row.route_id}::${row.shape_id ?? "shape"}`
+    let g = groups.get(key)
+    if (!g) {
+      g = { rec: row, pts: [] }
+      groups.set(key, g)
+    }
+    const bandCount = Number(row.band_count) || 1
+    g.pts.push({
+      seq: Number(row.shape_pt_sequence ?? g.pts.length),
+      lon,
+      lat,
+      slot:
+        row.slot != null
+          ? Number(row.slot)
+          : row.band_index != null
+            ? Number(row.band_index) - (bandCount - 1) / 2
+            : null,
+      r: row.turn_radius != null ? Number(row.turn_radius) : null,
+      bc: bandCount,
+    })
+  }
+  const out: ShapePathRecord[] = []
+  for (const { rec, pts } of groups.values()) {
+    if (pts.length < 2) continue
+    pts.sort((a, b) => a.seq - b.seq)
+    const n = pts.length
+    const cleaned = rec.band_count != null
+    const lons = new Float64Array(n)
+    const lats = new Float64Array(n)
+    const slots = cleaned ? new Float64Array(n) : null
+    const turnRadii = cleaned ? new Float64Array(n) : null
+    const bandCounts = cleaned ? new Float64Array(n) : null
+    for (let i = 0; i < n; i++) {
+      lons[i] = pts[i].lon
+      lats[i] = pts[i].lat
+      if (slots) slots[i] = pts[i].slot ?? 0
+      if (turnRadii) turnRadii[i] = pts[i].r ?? 5000
+      if (bandCounts) bandCounts[i] = pts[i].bc
+    }
+    out.push({
+      route_id: String(rec.route_id),
+      shape_id: String(rec.shape_id ?? "shape"),
+      route_name: rec.route_name,
+      route_color_hex: rec.route_color_hex,
+      route_text_color_hex: rec.route_text_color_hex,
+      route_type_name: rec.route_type_name,
+      band_count: cleaned ? Number(rec.band_count) : null,
+      lons,
+      lats,
+      slots,
+      turnRadii,
+      bandCounts,
+    })
+  }
+  return out
+}
+
+export const fetchTripShapeBands = async (
+  conn: any,
+  tripIds: string[],
+): Promise<Record<string, ShapePathRecord>> => {
+  if (!tripIds || tripIds.length === 0) return {}
+  const prefixed = tripIds.map((id) => `trip:${id}`)
+  try {
+    try {
+      await conn.query("LOAD spatial;")
+    } catch {
+      await conn.query("INSTALL spatial; LOAD spatial;")
+    }
+    await conn.query(LANES_TABLE_DDL)
+    await conn.query("DELETE FROM RouteShapeLanesTable WHERE route_id LIKE 'trip:%'")
+    await conn.query(
+      `INSERT INTO RouteShapeLanesTable
+       SELECT 'trip:' || l.route_id, l.shape_id, l.shape_pt_sequence, l.lat, l.lon, l.coslat,
+              l.ux, l.uy, l.band_index, l.band_count, l.shift_s, l.slot_s, l.plat, l.plon, l.nlat, l.nlon
+       FROM prepare_route_shape_lanes(${routeIdListSql(tripIds)}, p_kind := 'trip',
+              spacing_meters := 7.0, simplify_meters := 0.5, reach_meters := 20.0) l`,
+    )
+    const rows = await executeQuery(
+      conn,
+      `SELECT route_id, shape_id, shape_pt_sequence, shape_pt_lat, shape_pt_lon,
+              band_index, band_count, slot, turn_radius
+       FROM finish_route_shape_bands(${routeIdListSql(prefixed)})
+       ORDER BY route_id, shape_id, shape_pt_sequence`,
+    )
+    const map: Record<string, ShapePathRecord> = {}
+    for (const rec of shapeRowsToPaths(rows)) {
+      map[String(rec.route_id).replace(/^trip:/, "")] = rec
+    }
+    return map
+  } catch (error) {
+    logger.warn("Trip compare cleanup unavailable, using stop-to-stop lines:", error)
+    return {}
+  } finally {
+    try {
+      await conn.query("DELETE FROM RouteShapeLanesTable WHERE route_id LIKE 'trip:%'")
+    } catch {}
+  }
+}
+
+export const fetchTripStationLineBands = async (
+  conn: any,
+  tripIds: string[],
+  spacingMeters = 30,
+): Promise<Record<string, [number, number][]>> => {
+  if (!tripIds || tripIds.length === 0) return {}
+  const rows = await executeQuery(
+    conn,
+    `
+      SELECT entity_id AS trip_id, shape_pt_lon, shape_pt_lat
+      FROM get_station_line_bands(
+             ${routeIdListSql(tripIds)},
+             p_kind := 'trip',
+             spacing_meters := ${Number(spacingMeters)}
+           )
+      ORDER BY entity_id, shape_pt_sequence
+    `,
+  )
+  const map: Record<string, [number, number][]> = {}
+  for (const r of rows) {
+    const id = String(r.trip_id)
+    const lon = Number(r.shape_pt_lon)
+    const lat = Number(r.shape_pt_lat)
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue
+    ;(map[id] ??= []).push([lon, lat])
+  }
+  return map
+}
 
 // ─── Edit status queries ──────────────────────────────────────────
 
 export const fetchEditedTripStatuses = async (conn: any) => {
-  const stRows = await executeQuery(conn, "SELECT trip_id, status FROM EditStopTimesTable");
-  const tRows = await executeQuery(conn, "SELECT trip_id, status FROM EditTripsTable");
-  const m = new Map<string, string>();
-  const tripStatuses = new Map<string, Set<string>>();
+  const stRows = await executeQuery(conn, "SELECT trip_id, status FROM EditStopTimesTable")
+  const tRows = await executeQuery(conn, "SELECT trip_id, status FROM EditTripsTable")
+  const m = new Map<string, string>()
+  const tripStatuses = new Map<string, Set<string>>()
   for (const r of stRows) {
-    const id = String(r.trip_id);
-    if (!tripStatuses.has(id)) tripStatuses.set(id, new Set());
-    tripStatuses.get(id)!.add(String(r.status));
+    const id = String(r.trip_id)
+    if (!tripStatuses.has(id)) tripStatuses.set(id, new Set())
+    tripStatuses.get(id)!.add(String(r.status))
   }
   for (const [id, statuses] of tripStatuses) {
-    if (statuses.has("new") && !statuses.has("new edit") && !statuses.has("edit")) m.set(id, "new");
-    else m.set(id, "edit");
+    if (statuses.has("new") && !statuses.has("new edit") && !statuses.has("edit")) m.set(id, "new")
+    else m.set(id, "edit")
   }
-  for (const r of tRows) m.set(String(r.trip_id), String(r.status));
-  return m;
-};
+  for (const r of tRows) m.set(String(r.trip_id), String(r.status))
+  return m
+}
 
 export const fetchEditedCalendarStatuses = async (conn: any) => {
-  const rows = await executeQuery(conn, "SELECT service_id, status FROM EditCalendarTable");
-  const m = new Map<string, string>();
-  for (const r of rows) m.set(String(r.service_id), String(r.status));
+  const rows = await executeQuery(conn, "SELECT service_id, status FROM EditCalendarTable")
+  const m = new Map<string, string>()
+  for (const r of rows) m.set(String(r.service_id), String(r.status))
   // A service with only exception-date (calendar_dates) edits still counts as edited.
-  let dateRows: any[] = [];
+  let dateRows: any[] = []
   try {
-    dateRows = await executeQuery(conn, "SELECT DISTINCT service_id FROM EditCalendarDatesTable");
+    dateRows = await executeQuery(conn, "SELECT DISTINCT service_id FROM EditCalendarDatesTable")
   } catch {
     /* table may not exist on older datasets */
   }
   for (const r of dateRows) {
-    if (!m.has(String(r.service_id))) m.set(String(r.service_id), "edit");
+    if (!m.has(String(r.service_id))) m.set(String(r.service_id), "edit")
   }
-  return m;
-};
+  return m
+}
 
 export const fetchEditedTripStatusesForRoute = async (conn: any) => {
-  const rows = await executeQuery(conn, "SELECT trip_id, status FROM EditTripsTable");
-  const stRows = await executeQuery(conn, "SELECT DISTINCT trip_id FROM EditStopTimesTable");
-  const m = new Map<string, string>();
-  for (const r of rows) m.set(String(r.trip_id), String(r.status));
-  for (const r of stRows) { if (!m.has(String(r.trip_id))) m.set(String(r.trip_id), "edit"); }
-  return m;
-};
+  const rows = await executeQuery(conn, "SELECT trip_id, status FROM EditTripsTable")
+  const stRows = await executeQuery(conn, "SELECT DISTINCT trip_id FROM EditStopTimesTable")
+  const m = new Map<string, string>()
+  for (const r of rows) m.set(String(r.trip_id), String(r.status))
+  for (const r of stRows) {
+    if (!m.has(String(r.trip_id))) m.set(String(r.trip_id), "edit")
+  }
+  return m
+}
 
 export const fetchStopsWithRouteFlag = async (conn: any, routeId: string) => {
-  const escapedId = routeId.replace(/'/g, "''");
-  return executeQuery(conn, `
+  const escapedId = routeId.replace(/'/g, "''")
+  return executeQuery(
+    conn,
+    `
     SELECT s.stop_id, s.stop_name, s.stop_lat, s.stop_lon, s.location_type_name, s.parent_station,
            CASE WHEN rs.stop_id IS NOT NULL THEN true ELSE false END AS on_route
     FROM StopsView s
     LEFT JOIN RouteStopsTable rs ON rs.stop_id = s.stop_id AND rs.route_id = '${escapedId}'
-  `);
-};
+  `,
+  )
+}
 
 export const fetchRouteStopsForShape = async (conn: any, routeId: string) => {
-  const escapedId = routeId.replace(/'/g, "''");
-  return executeQuery(conn, `
+  const escapedId = routeId.replace(/'/g, "''")
+  return executeQuery(
+    conn,
+    `
     SELECT DISTINCT s.stop_id, s.stop_name, CAST(s.stop_lat AS DOUBLE) AS stop_lat, CAST(s.stop_lon AS DOUBLE) AS stop_lon, s.location_type_name
     FROM RouteStopsView rs
     JOIN StopsView s ON s.stop_id = rs.stop_id
     WHERE rs.route_id = '${escapedId}' AND s.stop_lat IS NOT NULL AND s.stop_lon IS NOT NULL
-  `);
-};
+  `,
+  )
+}
 
 export const fetchTripMapBounds = async (conn: any, tripId: string) => {
-  const rows = await executeQuery(conn, `SELECT * FROM get_trip_map_bounds('${tripId.replace(/'/g, "''")}')`);
-  return boundsRowToFit(rows[0]);
-};
+  const rows = await executeQuery(
+    conn,
+    `SELECT * FROM get_trip_map_bounds('${tripId.replace(/'/g, "''")}')`,
+  )
+  return boundsRowToFit(rows[0])
+}
 
 export const checkTripIdExists = async (conn: any, tripId: string) => {
-  if (!tripId.trim()) return false;
-  const rows = await executeQuery(conn, `SELECT 1 FROM TripsView WHERE trip_id = '${tripId.replace(/'/g, "''")}' LIMIT 1`);
-  return rows.length > 0;
-};
+  if (!tripId.trim()) return false
+  const rows = await executeQuery(
+    conn,
+    `SELECT 1 FROM TripsView WHERE trip_id = '${tripId.replace(/'/g, "''")}' LIMIT 1`,
+  )
+  return rows.length > 0
+}
 
 export const fetchTripsForService = async (conn: any, serviceId: string) => {
-  const esc = serviceId.replace(/'/g, "''");
-  return executeQuery(conn, `SELECT trip_id, route_id, service_id FROM TripsView WHERE service_id = '${esc}'`);
-};
+  const esc = serviceId.replace(/'/g, "''")
+  return executeQuery(
+    conn,
+    `SELECT trip_id, route_id, service_id FROM TripsView WHERE service_id = '${esc}'`,
+  )
+}
 
 export const deleteServiceCascade = async (conn: any, serviceId: string, routeId: string) => {
-  const esc = serviceId.replace(/'/g, "''");
-  const tripsForService = await executeQuery(conn, `SELECT trip_id, route_id, service_id FROM TripsView WHERE service_id = '${esc}'`);
+  const esc = serviceId.replace(/'/g, "''")
+  const tripsForService = await executeQuery(
+    conn,
+    `SELECT trip_id, route_id, service_id FROM TripsView WHERE service_id = '${esc}'`,
+  )
   for (const t of tripsForService) {
-    const tid = String(t.trip_id).replace(/'/g, "''");
-    const rid = String(t.route_id || routeId).replace(/'/g, "''");
-    const sid = String(t.service_id || serviceId).replace(/'/g, "''");
+    const tid = String(t.trip_id).replace(/'/g, "''")
+    const rid = String(t.route_id || routeId).replace(/'/g, "''")
+    const sid = String(t.service_id || serviceId).replace(/'/g, "''")
     // Mark stop times as deleted
-    await conn.query(`DELETE FROM EditStopTimesTable WHERE trip_id = '${tid}'`);
+    await conn.query(`DELETE FROM EditStopTimesTable WHERE trip_id = '${tid}'`)
     try {
       await conn.query(`
         INSERT INTO EditStopTimesTable (row_id, trip_id, stop_sequence, stop_id, arrival_time, departure_time, status)
         SELECT 'del_' || CAST(row_id AS VARCHAR), trip_id, stop_sequence, stop_id, arrival_time, departure_time, 'deleted'
         FROM stop_times WHERE trip_id = '${tid}'
-      `);
-    } catch { /* stop_times may not exist */ }
+      `)
+    } catch {
+      /* stop_times may not exist */
+    }
     // Mark trip as deleted
-    await conn.query(`DELETE FROM EditTripsTable WHERE trip_id = '${tid}'`);
-    await conn.query(`INSERT INTO EditTripsTable (row_id, route_id, service_id, trip_id, status) VALUES ('del_${tid}', '${rid}', '${sid}', '${tid}', 'deleted')`);
+    await conn.query(`DELETE FROM EditTripsTable WHERE trip_id = '${tid}'`)
+    await conn.query(
+      `INSERT INTO EditTripsTable (row_id, route_id, service_id, trip_id, status) VALUES ('del_${tid}', '${rid}', '${sid}', '${tid}', 'deleted')`,
+    )
   }
-  await deleteCalendar(conn, serviceId);
-  await refreshMaterializedTable(conn, "TripsTable");
-};
+  await deleteCalendar(conn, serviceId)
+  await refreshMaterializedTable(conn, "TripsTable")
+}
 
 export const deleteTripCascade = async (conn: any, tripId: string) => {
-  const tid = tripId.replace(/'/g, "''");
+  const tid = tripId.replace(/'/g, "''")
   // Remove any existing edit rows for this trip's stop times
-  await conn.query(`DELETE FROM EditStopTimesTable WHERE trip_id = '${tid}'`);
+  await conn.query(`DELETE FROM EditStopTimesTable WHERE trip_id = '${tid}'`)
   // Insert "deleted" markers for all original stop times
   try {
     await conn.query(`
       INSERT INTO EditStopTimesTable (row_id, trip_id, stop_sequence, stop_id, arrival_time, departure_time, status)
       SELECT 'del_' || CAST(row_id AS VARCHAR), trip_id, stop_sequence, stop_id, arrival_time, departure_time, 'deleted'
       FROM stop_times WHERE trip_id = '${tid}'
-    `);
-  } catch { /* stop_times table may not exist */ }
-  await deleteTrip(conn, tripId);
-};
+    `)
+  } catch {
+    /* stop_times table may not exist */
+  }
+  await deleteTrip(conn, tripId)
+}

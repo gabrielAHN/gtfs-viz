@@ -1,12 +1,11 @@
-import { executeQuery } from '../QueryHelper'
-import { logger } from "@/lib/logger";
+import { executeQuery } from "../QueryHelper"
+import { logger } from "@/lib/logger"
 
 export const validateTableData = async (props) => {
-    const { conn, table, column, value } = props;
+  const { conn, table, column, value } = props
 
-    try {
-
-        const query = `
+  try {
+    const query = `
         SELECT stop_id FROM (
             -- Check EditStopTable for non-deleted entries
             SELECT stop_id
@@ -31,24 +30,24 @@ export const validateTableData = async (props) => {
                   AND EditStopTable.status IN ('edit', 'new edit')
               )
         ) combined
-        LIMIT 1`;
+        LIMIT 1`
 
-        const result = await executeQuery(conn, query);
-        
-        return result.length === 0 || `Stop ID "${value}" already exists`;
-    } catch (error) {
-        logger.error('Error validating stop ID:', error);
-        
-        try {
-            const fallbackQuery = `
+    const result = await executeQuery(conn, query)
+
+    return result.length === 0 || `Stop ID "${value}" already exists`
+  } catch (error) {
+    logger.error("Error validating stop ID:", error)
+
+    try {
+      const fallbackQuery = `
             SELECT ${column}
              FROM ${table}
-            WHERE stop_id = '${value}'`;
-            const fallbackResult = await executeQuery(conn, fallbackQuery);
-            return fallbackResult.length === 0 || `Stop ID "${value}" already exists`;
-        } catch (fallbackError) {
-            logger.error('Error with fallback validation:', fallbackError);
-            throw fallbackError;
-        }
+            WHERE stop_id = '${value}'`
+      const fallbackResult = await executeQuery(conn, fallbackQuery)
+      return fallbackResult.length === 0 || `Stop ID "${value}" already exists`
+    } catch (fallbackError) {
+      logger.error("Error with fallback validation:", fallbackError)
+      throw fallbackError
     }
+  }
 }
