@@ -9,6 +9,7 @@ export type SqlExecutor = (sql: string) => Promise<void>;
 
 export type InstallInitOptions = {
   skipIndexes?: string[];
+  onProgress?: (done: number, total: number, stmt: string) => void;
 };
 
 function splitStatements(sql: string): string[] {
@@ -25,21 +26,51 @@ function splitStatements(sql: string): string[] {
     });
 }
 
+function firstCodeLine(stmt: string): string {
+  return (
+    stmt
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l.length > 0 && !l.startsWith("--")) ?? ""
+  );
+}
+
+function isMacroStatement(stmt: string): boolean {
+  return /^CREATE\s+(OR\s+REPLACE\s+)?(TEMP(ORARY)?\s+)?MACRO\b/i.test(firstCodeLine(stmt));
+}
+
+function isViewStatement(stmt: string): boolean {
+  return /^CREATE\s+(OR\s+REPLACE\s+)?(TEMP(ORARY)?\s+)?VIEW\b/i.test(firstCodeLine(stmt));
+}
+
 async function executeStatements(
   executor: SqlExecutor,
   sql: string,
   options: InstallInitOptions = {},
-): Promise<void> {
-  for (const stmt of splitStatements(sql)) {
+  progressBase = 0,
+  progressTotal?: number,
+): Promise<number> {
+  const stmts = splitStatements(sql);
+  const total = progressTotal ?? stmts.length;
+  let done = progressBase;
+  for (const stmt of stmts) {
+    done++;
     if (
       options.skipIndexes?.some((indexName) =>
         stmt.toLowerCase().includes(`index if not exists ${indexName.toLowerCase()}`),
       )
     ) {
+      options.onProgress?.(done, total, stmt);
       continue;
     }
     await executor(stmt);
+    options.onProgress?.(done, total, stmt);
   }
+  return done;
+}
+
+export function countInitStatements(): number {
+  return splitStatements(GTFS_INIT_SQL).length + splitStatements(GTFS_REROUTE_SQL).length;
 }
 
 /** Returns the full install SQL (macros + init + reroute helpers combined). */
@@ -57,14 +88,30 @@ export async function installInit(
   executor: SqlExecutor,
   options: InstallInitOptions = {},
 ): Promise<void> {
-  await executeStatements(executor, GTFS_INIT_SQL, options);
-  await executeStatements(executor, GTFS_REROUTE_SQL, options);
+  const total = countInitStatements();
+  const done = await executeStatements(executor, GTFS_INIT_SQL, options, 0, total);
+  await executeStatements(executor, GTFS_REROUTE_SQL, options, done, total);
 }
 
 /** Full install: macros + views + tables + indexes. */
 export async function installExtension(executor: SqlExecutor): Promise<void> {
   await installMacros(executor);
   await installInit(executor);
+}
+
+export async function reinstallMacros(executor: SqlExecutor): Promise<void> {
+  const combined = `${GTFS_LOAD_SQL}\n${GTFS_INIT_SQL}\n${GTFS_REROUTE_SQL}`;
+  const stmts = splitStatements(combined);
+  const ordered = [
+    ...stmts.filter(isViewStatement),
+    ...stmts.filter(isMacroStatement),
+  ];
+  for (const stmt of ordered) {
+    try {
+      await executor(stmt);
+    } catch {
+    }
+  }
 }
 
 /** Recreate StopsView after stop edits. */

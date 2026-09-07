@@ -2,6 +2,7 @@ export {
   installExtension,
   installMacros,
   installInit,
+  reinstallMacros,
   getInstallSql,
   recreateStopsView,
   recreatePathwaysView,
@@ -13,6 +14,7 @@ export type { SqlExecutor } from "./installer.js";
 
 export {
   importGtfs,
+  type ImportProgress,
   buildImportSql,
   importStopsSql,
   importPathwaysSql,
