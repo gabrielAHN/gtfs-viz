@@ -55,3 +55,7 @@ packages/web/public/extensions/sample-data/*.zip
 /duckdb/
 /extension-ci-tools/
 /build/
+
+# Python bytecode
+__pycache__/
+*.pyc
