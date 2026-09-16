@@ -1,5 +1,3 @@
-
-
 export const CREATE_EDIT_STOP_TABLE = `
 CREATE OR REPLACE TABLE EditStopTable (
     row_id TEXT NOT NULL,
@@ -14,7 +12,7 @@ CREATE OR REPLACE TABLE EditStopTable (
     status TEXT,
     new_stop_name TEXT,
     new_location_type TEXT
-)`;
+)`
 
 export const CREATE_STOPS_VIEW = `
 CREATE OR REPLACE VIEW StopsView AS
@@ -68,7 +66,7 @@ FROM (
     WHERE edt.row_id = st.row_id
       AND edt.status = 'edit'
   )
-) combined`;
+) combined`
 
 export const CREATE_STATION_VIEW_MACROS = `
 CREATE OR REPLACE MACRO get_stops_view_data() AS TABLE (
@@ -242,11 +240,11 @@ CREATE OR REPLACE MACRO get_stations_table_data() AS TABLE (
     ON pc.station_id = s.stop_id
   LEFT JOIN pathway_node_connection_counts pnc
     ON pnc.station_id = s.stop_id
-)`;
+)`
 
-export const CREATE_STOPS_TABLE = `CREATE OR REPLACE TABLE StopsTable AS SELECT * FROM get_stops_table_data()`;
+export const CREATE_STOPS_TABLE = `CREATE OR REPLACE TABLE StopsTable AS SELECT * FROM get_stops_table_data()`
 
-export const CREATE_STATIONS_TABLE = `CREATE OR REPLACE TABLE StationsTable AS SELECT * FROM get_stations_table_data()`;
+export const CREATE_STATIONS_TABLE = `CREATE OR REPLACE TABLE StationsTable AS SELECT * FROM get_stations_table_data()`
 
 export const INITIALIZE_PATHWAY_NETWORK = `
 CREATE OR REPLACE VIEW pathway_network AS
@@ -290,11 +288,11 @@ SELECT
   END AS angle
 FROM PathwaysView p
 JOIN StopsView s1 ON p.from_stop_id = s1.stop_id
-JOIN StopsView s2 ON p.to_stop_id = s2.stop_id`;
+JOIN StopsView s2 ON p.to_stop_id = s2.stop_id`
 
 export const CREATE_PATHWAY_INDEXES = `
 CREATE INDEX IF NOT EXISTS idx_pathways_from_stop ON pathways(from_stop_id);
 CREATE INDEX IF NOT EXISTS idx_pathways_to_stop ON pathways(to_stop_id);
 CREATE INDEX IF NOT EXISTS idx_pathways_bidirectional ON pathways(is_bidirectional);
 CREATE INDEX IF NOT EXISTS idx_stops_parent_station ON stops(parent_station);
-CREATE INDEX IF NOT EXISTS idx_stops_location_type ON stops(location_type)`;
+CREATE INDEX IF NOT EXISTS idx_stops_location_type ON stops(location_type)`

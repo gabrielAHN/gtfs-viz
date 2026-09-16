@@ -4,7 +4,7 @@ description: Import GTFS transit feeds, query station/stop/pathway/route/trip/ca
 license: MIT
 metadata:
   author: gabrielahn
-  version: "1.5.2"
+  version: "1.5.3"
   repository: gabrielAHN/gtfs-viz
 ---
 
@@ -188,6 +188,19 @@ gtfs-viz shapes --data                            # List shapes with point count
 gtfs-viz shapes --route R1 --data                 # Shapes for a route
 gtfs-viz shapes shape-123 --data                  # Points for a shape
 ```
+
+## Route Line Bands
+
+```bash
+gtfs-viz route-bands                              # Build parallel route-line bands (Separate Route(s))
+gtfs-viz route-bands --data                       # Print band_rows, routes, widest_bundle
+gtfs-viz route-bands --status --data              # Report existing band counts without rebuilding
+```
+
+Builds `RouteShapeBandsTable` from the GTFS `shapes` alone: routes sharing a
+corridor are converged onto one centreline and given lateral lanes so the
+dashboard's Separate Route(s) view draws them as parallel bands. Use this rather
+than `query` to run the corridor macros — they need a writable spatial session.
 
 ## Station Routes & Pathfinding
 

@@ -1,10 +1,9 @@
+import { lazy, Suspense, ComponentProps } from "react"
+import { Skeleton } from "@/components/ui/skeleton"
 
-import { lazy, Suspense, ComponentProps } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
+const DeckglMapLazy = lazy(() => import("./DeckglMap"))
 
-const DeckglMapLazy = lazy(() => import('./DeckglMap'));
-
-type DeckglMapProps = ComponentProps<typeof DeckglMapLazy>;
+type DeckglMapProps = ComponentProps<typeof DeckglMapLazy>
 
 export default function DeckglMap(props: DeckglMapProps) {
   return (
@@ -20,5 +19,5 @@ export default function DeckglMap(props: DeckglMapProps) {
     >
       <DeckglMapLazy {...props} />
     </Suspense>
-  );
+  )
 }

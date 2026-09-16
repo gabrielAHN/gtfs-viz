@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type ReactNode } from "react"
 import {
   BaseEdge,
   Edge,
@@ -11,10 +11,10 @@ import {
   NodeTypes,
   Position,
   getBezierPath,
-} from "@xyflow/react";
-import { Edit, Plus } from "lucide-react";
+} from "@xyflow/react"
+import { Edit, Plus } from "lucide-react"
 
-import { EditIndicator } from "@/components/ui/EditIndicator";
+import { EditIndicator } from "@/components/ui/EditIndicator"
 
 import type {
   CustomNodeData,
@@ -27,24 +27,17 @@ import type {
   PathTraversalEdge,
   PathwayEdgeData,
   ViewMode,
-} from "./types";
+} from "./types"
 
-export const DETACHED_CONNECTION_MIME =
-  "application/gtfs-pathway-detached-connection";
+export const DETACHED_CONNECTION_MIME = "application/gtfs-pathway-detached-connection"
 
-export const getDetachedConnectionNodeId = (pathwayId: string) =>
-  `detached-connection-${pathwayId}`;
+export const getDetachedConnectionNodeId = (pathwayId: string) => `detached-connection-${pathwayId}`
 
-export const getDetachedConnectionDraftAttachedNodeIds = (
-  draft: DetachedConnectionDraft,
-) =>
-  [draft.fromStopId, draft.toStopId].filter((stopId): stopId is string =>
-    Boolean(stopId),
-  );
+export const getDetachedConnectionDraftAttachedNodeIds = (draft: DetachedConnectionDraft) =>
+  [draft.fromStopId, draft.toStopId].filter((stopId): stopId is string => Boolean(stopId))
 
-export const getDetachedConnectionDraftEndpointCount = (
-  draft: DetachedConnectionDraft,
-) => getDetachedConnectionDraftAttachedNodeIds(draft).length;
+export const getDetachedConnectionDraftEndpointCount = (draft: DetachedConnectionDraft) =>
+  getDetachedConnectionDraftAttachedNodeIds(draft).length
 
 export const getDetachedConnectionDraftEndpointField = (
   handleId?: string | null,
@@ -52,95 +45,90 @@ export const getDetachedConnectionDraftEndpointField = (
   switch (handleId) {
     case "left":
     case "top":
-      return "fromStopId";
+      return "fromStopId"
     case "right":
     case "bottom":
-      return "toStopId";
+      return "toStopId"
     default:
-      return null;
+      return null
   }
-};
+}
 
 export const getNextDetachedConnectionDraftEndpoints = ({
   draft,
   nextStopId,
   endpointField,
 }: {
-  draft: DetachedConnectionDraft;
-  nextStopId: string | null;
-  endpointField?: "fromStopId" | "toStopId" | null;
+  draft: DetachedConnectionDraft
+  nextStopId: string | null
+  endpointField?: "fromStopId" | "toStopId" | null
 }) => {
-  let fromStopId = draft.fromStopId;
-  let toStopId = draft.toStopId;
+  let fromStopId = draft.fromStopId
+  let toStopId = draft.toStopId
 
   if (endpointField === "fromStopId") {
-    fromStopId = nextStopId;
+    fromStopId = nextStopId
   } else if (endpointField === "toStopId") {
-    toStopId = nextStopId;
+    toStopId = nextStopId
   } else if (fromStopId == null) {
-    fromStopId = nextStopId;
+    fromStopId = nextStopId
   } else {
-    toStopId = nextStopId;
+    toStopId = nextStopId
   }
 
-  return { fromStopId, toStopId };
-};
+  return { fromStopId, toStopId }
+}
 
 export const isEditableKeyboardTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) {
-    return false;
+    return false
   }
 
   if (target.isContentEditable) {
-    return true;
+    return true
   }
 
   const editableAncestor = target.closest(
     'input, textarea, select, [contenteditable="true"], [role="textbox"]',
-  );
+  )
 
-  return Boolean(editableAncestor);
-};
+  return Boolean(editableAncestor)
+}
 
 export const getOrCreateSet = <T,>(map: Map<string, Set<T>>, key: string) => {
-  let current = map.get(key);
+  let current = map.get(key)
   if (!current) {
-    current = new Set<T>();
-    map.set(key, current);
+    current = new Set<T>()
+    map.set(key, current)
   }
-  return current;
-};
+  return current
+}
 
 export const getOrCreateList = <T,>(map: Map<string, T[]>, key: string) => {
-  let current = map.get(key);
+  let current = map.get(key)
   if (!current) {
-    current = [];
-    map.set(key, current);
+    current = []
+    map.set(key, current)
   }
-  return current;
-};
+  return current
+}
 
 export const createInitialPathTraversalCost = (): PathTraversalCost => ({
   hasCompleteTraversalTime: true,
   totalTraversalTime: 0,
   hopCount: 0,
-});
+})
 
 const getNextPathTraversalCost = (
   currentCost: PathTraversalCost,
   connection: any,
 ): PathTraversalCost => {
-  const rawTraversalTime = connection?.traversal_time;
+  const rawTraversalTime = connection?.traversal_time
   const hasExplicitTraversalTime =
-    rawTraversalTime !== null &&
-    rawTraversalTime !== undefined &&
-    rawTraversalTime !== "";
-  const traversalTime = hasExplicitTraversalTime
-    ? Number(rawTraversalTime)
-    : Number.NaN;
-  const hasTraversalTime = Number.isFinite(traversalTime) && traversalTime >= 0;
-  const hasCompleteTraversalTime =
-    currentCost.hasCompleteTraversalTime && hasTraversalTime;
+    rawTraversalTime !== null && rawTraversalTime !== undefined && rawTraversalTime !== ""
+  const traversalTime = hasExplicitTraversalTime ? Number(rawTraversalTime) : Number.NaN
+  const hasTraversalTime = Number.isFinite(traversalTime) && traversalTime >= 0
+  const hasCompleteTraversalTime = currentCost.hasCompleteTraversalTime && hasTraversalTime
 
   return {
     hasCompleteTraversalTime,
@@ -148,67 +136,61 @@ const getNextPathTraversalCost = (
       ? currentCost.totalTraversalTime + traversalTime
       : 0,
     hopCount: currentCost.hopCount + 1,
-  };
-};
+  }
+}
 
-export const comparePathTraversalCosts = (
-  left: PathTraversalCost,
-  right: PathTraversalCost,
-) => {
+export const comparePathTraversalCosts = (left: PathTraversalCost, right: PathTraversalCost) => {
   if (left.hasCompleteTraversalTime !== right.hasCompleteTraversalTime) {
-    return left.hasCompleteTraversalTime ? -1 : 1;
+    return left.hasCompleteTraversalTime ? -1 : 1
   }
 
   if (left.hasCompleteTraversalTime) {
     if (left.totalTraversalTime !== right.totalTraversalTime) {
-      return left.totalTraversalTime - right.totalTraversalTime;
+      return left.totalTraversalTime - right.totalTraversalTime
     }
   }
 
   if (left.hopCount !== right.hopCount) {
-    return left.hopCount - right.hopCount;
+    return left.hopCount - right.hopCount
   }
 
-  return 0;
-};
+  return 0
+}
 
 export const formatPathTraversalCost = (cost?: PathTraversalCost | null) => {
   if (!cost) {
-    return null;
+    return null
   }
 
   if (cost.hasCompleteTraversalTime) {
-    return `${cost.totalTraversalTime}s`;
+    return `${cost.totalTraversalTime}s`
   }
 
-  return `${cost.hopCount} hop${cost.hopCount === 1 ? "" : "s"}`;
-};
+  return `${cost.hopCount} hop${cost.hopCount === 1 ? "" : "s"}`
+}
 
 export const computeShortestPathTree = (
   startId: string | undefined,
   adjacencyByNodeId: Map<string, PathTraversalEdge[]>,
 ) => {
-  const costByNodeId = new Map<string, PathTraversalCost>();
-  const previousByNodeId = new Map<
-    string,
-    { fromNodeId: string; connectionId: string }
-  >();
+  const costByNodeId = new Map<string, PathTraversalCost>()
+  const previousByNodeId = new Map<string, { fromNodeId: string; connectionId: string }>()
 
   if (!startId) {
-    return { costByNodeId, previousByNodeId };
+    return { costByNodeId, previousByNodeId }
   }
 
-  costByNodeId.set(startId, createInitialPathTraversalCost());
-  const pendingNodeIds = new Set<string>([startId]);
+  costByNodeId.set(startId, createInitialPathTraversalCost())
+  const pendingNodeIds = new Set<string>([startId])
 
   while (pendingNodeIds.size > 0) {
-    let currentNodeId: string | null = null;
-    let currentNodeCost: PathTraversalCost | null = null;
+    let currentNodeId: string | null = null
+    let currentNodeCost: PathTraversalCost | null = null
 
     pendingNodeIds.forEach((nodeId) => {
-      const candidateCost = costByNodeId.get(nodeId);
+      const candidateCost = costByNodeId.get(nodeId)
       if (!candidateCost) {
-        return;
+        return
       }
 
       if (
@@ -216,40 +198,34 @@ export const computeShortestPathTree = (
         !currentNodeCost ||
         comparePathTraversalCosts(candidateCost, currentNodeCost) < 0
       ) {
-        currentNodeId = nodeId;
-        currentNodeCost = candidateCost;
+        currentNodeId = nodeId
+        currentNodeCost = candidateCost
       }
-    });
+    })
 
     if (!currentNodeId || !currentNodeCost) {
-      break;
+      break
     }
 
-    pendingNodeIds.delete(currentNodeId);
+    pendingNodeIds.delete(currentNodeId)
 
-    (adjacencyByNodeId.get(currentNodeId) ?? []).forEach((edge) => {
-      const nextCost = getNextPathTraversalCost(
-        currentNodeCost!,
-        edge.connection,
-      );
-      const existingCost = costByNodeId.get(edge.toNodeId);
+    ;(adjacencyByNodeId.get(currentNodeId) ?? []).forEach((edge) => {
+      const nextCost = getNextPathTraversalCost(currentNodeCost!, edge.connection)
+      const existingCost = costByNodeId.get(edge.toNodeId)
 
-      if (
-        !existingCost ||
-        comparePathTraversalCosts(nextCost, existingCost) < 0
-      ) {
-        costByNodeId.set(edge.toNodeId, nextCost);
+      if (!existingCost || comparePathTraversalCosts(nextCost, existingCost) < 0) {
+        costByNodeId.set(edge.toNodeId, nextCost)
         previousByNodeId.set(edge.toNodeId, {
           fromNodeId: currentNodeId!,
           connectionId: edge.connectionId,
-        });
-        pendingNodeIds.add(edge.toNodeId);
+        })
+        pendingNodeIds.add(edge.toNodeId)
       }
-    });
+    })
   }
 
-  return { costByNodeId, previousByNodeId };
-};
+  return { costByNodeId, previousByNodeId }
+}
 
 export const getShortestPathResult = (
   startId: string | undefined,
@@ -257,40 +233,37 @@ export const getShortestPathResult = (
   adjacencyByNodeId: Map<string, PathTraversalEdge[]>,
 ) => {
   if (!startId || !targetId) {
-    return null;
+    return null
   }
 
-  const { costByNodeId, previousByNodeId } = computeShortestPathTree(
-    startId,
-    adjacencyByNodeId,
-  );
-  const targetCost = costByNodeId.get(targetId);
+  const { costByNodeId, previousByNodeId } = computeShortestPathTree(startId, adjacencyByNodeId)
+  const targetCost = costByNodeId.get(targetId)
 
   if (!targetCost) {
-    return null;
+    return null
   }
 
-  const nodeIds = new Set<string>([targetId]);
-  const connectionIds = new Set<string>();
-  let currentNodeId = targetId;
+  const nodeIds = new Set<string>([targetId])
+  const connectionIds = new Set<string>()
+  let currentNodeId = targetId
 
   while (currentNodeId !== startId) {
-    const previousStep = previousByNodeId.get(currentNodeId);
+    const previousStep = previousByNodeId.get(currentNodeId)
     if (!previousStep) {
-      return null;
+      return null
     }
 
-    connectionIds.add(previousStep.connectionId);
-    nodeIds.add(previousStep.fromNodeId);
-    currentNodeId = previousStep.fromNodeId;
+    connectionIds.add(previousStep.connectionId)
+    nodeIds.add(previousStep.fromNodeId)
+    currentNodeId = previousStep.fromNodeId
   }
 
   return {
     cost: targetCost,
     nodeIds,
     connectionIds,
-  };
-};
+  }
+}
 
 export const collectShortestTreeConnectionIds = (
   previousByNodeId: Map<string, { fromNodeId: string; connectionId: string }>,
@@ -299,108 +272,104 @@ export const collectShortestTreeConnectionIds = (
     Array.from(previousByNodeId.values())
       .map((step) => step.connectionId)
       .filter(Boolean),
-  );
+  )
 
 export const collectReachableNodeIds = (
   startId: string | undefined,
   adjacency: Map<string, Set<string>>,
   includeStart = true,
 ) => {
-  const visited = new Set<string>();
+  const visited = new Set<string>()
 
   if (!startId) {
-    return visited;
+    return visited
   }
 
-  const queue = [startId];
-  visited.add(startId);
+  const queue = [startId]
+  visited.add(startId)
 
   while (queue.length > 0) {
-    const currentId = queue.shift();
+    const currentId = queue.shift()
     if (!currentId) {
-      continue;
+      continue
     }
 
     adjacency.get(currentId)?.forEach((nextId) => {
       if (visited.has(nextId)) {
-        return;
+        return
       }
 
-      visited.add(nextId);
-      queue.push(nextId);
-    });
+      visited.add(nextId)
+      queue.push(nextId)
+    })
   }
 
   if (!includeStart) {
-    visited.delete(startId);
+    visited.delete(startId)
   }
 
-  return visited;
-};
+  return visited
+}
 
 const isEntranceExitLocationType = (locationType?: string) =>
-  locationType === "Exit/Entrance" || locationType === "Entrance/Exit";
+  locationType === "Exit/Entrance" || locationType === "Entrance/Exit"
 
-const isPlatformLocationType = (locationType?: string) =>
-  locationType === "Platform";
+const isPlatformLocationType = (locationType?: string) => locationType === "Platform"
 
 const isDetachedConnectionLocationType = (locationType?: string) =>
-  locationType === "Detached Connection" ||
-  locationType === "Orphan Connection";
+  locationType === "Detached Connection" || locationType === "Orphan Connection"
 
 export const getAvailableHandleIds = (
   locationType?: string,
   viewMode: ViewMode = "column",
 ): FlowHandleId[] => {
   if (isDetachedConnectionLocationType(locationType)) {
-    return ["left", "right", "top", "bottom"];
+    return ["left", "right", "top", "bottom"]
   }
 
   if (viewMode !== "column") {
-    return ["left", "right", "top", "bottom"];
+    return ["left", "right", "top", "bottom"]
   }
 
   if (isEntranceExitLocationType(locationType)) {
-    return ["right"];
+    return ["right"]
   }
 
   if (isPlatformLocationType(locationType)) {
-    return ["left"];
+    return ["left"]
   }
 
-  return ["left", "right"];
-};
+  return ["left", "right"]
+}
 
 export const getPreferredHandleId = (
   locationType: string | undefined,
   preferredSide: FlowHandleId,
   viewMode: ViewMode,
 ): FlowHandleId => {
-  const availableHandles = getAvailableHandleIds(locationType, viewMode);
-  return availableHandles.includes(preferredSide)
-    ? preferredSide
-    : availableHandles[0];
-};
+  const availableHandles = getAvailableHandleIds(locationType, viewMode)
+  return availableHandles.includes(preferredSide) ? preferredSide : availableHandles[0]
+}
 
 const getNodePosition = (node?: {
-  position?: { x: number; y: number };
-  positionAbsolute?: { x: number; y: number };
-}) => node?.positionAbsolute ?? node?.position ?? { x: 0, y: 0 };
+  position?: { x: number; y: number }
+  positionAbsolute?: { x: number; y: number }
+}) => node?.positionAbsolute ?? node?.position ?? { x: 0, y: 0 }
 
 export const getConnectionHandleIds = (
   sourceNode?: { data?: Record<string, unknown> },
   targetNode?: { data?: Record<string, unknown> },
   viewMode: ViewMode = "column",
 ) => {
-  const sourceData = sourceNode?.data as Partial<CustomNodeData> | undefined;
-  const targetData = targetNode?.data as Partial<CustomNodeData> | undefined;
+  const sourceData = sourceNode?.data as Partial<CustomNodeData> | undefined
+  const targetData = targetNode?.data as Partial<CustomNodeData> | undefined
 
   if (viewMode !== "column") {
-    const sourcePosition = getNodePosition(sourceNode as any);
-    const targetPosition = getNodePosition(targetNode as any);
-    const deltaX = targetPosition.x - sourcePosition.x;
-    const deltaY = targetPosition.y - sourcePosition.y;
-    const horizontalFlow = Math.abs(deltaX) >= Math.abs(deltaY);
+    const sourcePosition = getNodePosition(sourceNode as any)
+    const targetPosition = getNodePosition(targetNode as any)
+    const deltaX = targetPosition.x - sourcePosition.x
+    const deltaY = targetPosition.y - sourcePosition.y
+    const horizontalFlow = Math.abs(deltaX) >= Math.abs(deltaY)
 
     if (horizontalFlow) {
       return {
@@ -414,7 +383,7 @@ export const getConnectionHandleIds = (
           deltaX >= 0 ? "left" : "right",
           viewMode,
         ),
-      };
+      }
     }
 
     return {
@@ -428,12 +397,12 @@ export const getConnectionHandleIds = (
         deltaY >= 0 ? "top" : "bottom",
         viewMode,
       ),
-    };
+    }
   }
 
-  const sourceLayer = Number(sourceData?.layer ?? 1);
-  const targetLayer = Number(targetData?.layer ?? 1);
-  const movesLeftToRight = sourceLayer <= targetLayer;
+  const sourceLayer = Number(sourceData?.layer ?? 1)
+  const targetLayer = Number(targetData?.layer ?? 1)
+  const movesLeftToRight = sourceLayer <= targetLayer
 
   return {
     sourceHandle: getPreferredHandleId(
@@ -446,31 +415,31 @@ export const getConnectionHandleIds = (
       movesLeftToRight ? "left" : "right",
       viewMode,
     ),
-  };
-};
+  }
+}
 
 const getParallelEdgeOffset = (siblingIndex: number, siblingCount: number) => {
   if (siblingCount <= 1) {
-    return 0;
+    return 0
   }
 
-  return (siblingIndex - (siblingCount - 1) / 2) * 24;
-};
+  return (siblingIndex - (siblingCount - 1) / 2) * 24
+}
 
 const getEdgeDirectionVector = (position?: Position) => {
   switch (position) {
     case Position.Left:
-      return { x: -1, y: 0 };
+      return { x: -1, y: 0 }
     case Position.Right:
-      return { x: 1, y: 0 };
+      return { x: 1, y: 0 }
     case Position.Top:
-      return { x: 0, y: -1 };
+      return { x: 0, y: -1 }
     case Position.Bottom:
-      return { x: 0, y: 1 };
+      return { x: 0, y: 1 }
     default:
-      return { x: 0, y: 0 };
+      return { x: 0, y: 0 }
   }
-};
+}
 
 const getCubicBezierPoint = ({
   t,
@@ -479,23 +448,21 @@ const getCubicBezierPoint = ({
   p2,
   p3,
 }: {
-  t: number;
-  p0: { x: number; y: number };
-  p1: { x: number; y: number };
-  p2: { x: number; y: number };
-  p3: { x: number; y: number };
+  t: number
+  p0: { x: number; y: number }
+  p1: { x: number; y: number }
+  p2: { x: number; y: number }
+  p3: { x: number; y: number }
 }) => {
-  const mt = 1 - t;
-  const mt2 = mt * mt;
-  const t2 = t * t;
+  const mt = 1 - t
+  const mt2 = mt * mt
+  const t2 = t * t
 
   return {
-    x:
-      mt2 * mt * p0.x + 3 * mt2 * t * p1.x + 3 * mt * t2 * p2.x + t2 * t * p3.x,
-    y:
-      mt2 * mt * p0.y + 3 * mt2 * t * p1.y + 3 * mt * t2 * p2.y + t2 * t * p3.y,
-  };
-};
+    x: mt2 * mt * p0.x + 3 * mt2 * t * p1.x + 3 * mt * t2 * p2.x + t2 * t * p3.x,
+    y: mt2 * mt * p0.y + 3 * mt2 * t * p1.y + 3 * mt * t2 * p2.y + t2 * t * p3.y,
+  }
+}
 
 const getAnchoredParallelBezierPath = ({
   sourceX,
@@ -507,16 +474,16 @@ const getAnchoredParallelBezierPath = ({
   siblingIndex,
   siblingCount,
 }: {
-  sourceX: number;
-  sourceY: number;
-  targetX: number;
-  targetY: number;
-  sourcePosition?: Position;
-  targetPosition?: Position;
-  siblingIndex: number;
-  siblingCount: number;
+  sourceX: number
+  sourceY: number
+  targetX: number
+  targetY: number
+  sourcePosition?: Position
+  targetPosition?: Position
+  siblingIndex: number
+  siblingCount: number
 }) => {
-  const offset = getParallelEdgeOffset(siblingIndex, siblingCount);
+  const offset = getParallelEdgeOffset(siblingIndex, siblingCount)
 
   if (offset === 0) {
     const [edgePath, labelX, labelY] = getBezierPath({
@@ -527,45 +494,45 @@ const getAnchoredParallelBezierPath = ({
       targetY,
       targetPosition,
       curvature: 0.25,
-    });
+    })
 
-    return { edgePath, labelX, labelY };
+    return { edgePath, labelX, labelY }
   }
 
-  const deltaX = targetX - sourceX;
-  const deltaY = targetY - sourceY;
-  const vectorLength = Math.max(Math.hypot(deltaX, deltaY), 1);
-  const normalX = (-deltaY / vectorLength) * offset;
-  const normalY = (deltaX / vectorLength) * offset;
-  const controlDistance = Math.min(Math.max(vectorLength * 0.35, 40), 160);
-  const sourceDirection = getEdgeDirectionVector(sourcePosition);
-  const targetDirection = getEdgeDirectionVector(targetPosition);
+  const deltaX = targetX - sourceX
+  const deltaY = targetY - sourceY
+  const vectorLength = Math.max(Math.hypot(deltaX, deltaY), 1)
+  const normalX = (-deltaY / vectorLength) * offset
+  const normalY = (deltaX / vectorLength) * offset
+  const controlDistance = Math.min(Math.max(vectorLength * 0.35, 40), 160)
+  const sourceDirection = getEdgeDirectionVector(sourcePosition)
+  const targetDirection = getEdgeDirectionVector(targetPosition)
 
-  const p0 = { x: sourceX, y: sourceY };
+  const p0 = { x: sourceX, y: sourceY }
   const p1 = {
     x: sourceX + sourceDirection.x * controlDistance + normalX,
     y: sourceY + sourceDirection.y * controlDistance + normalY,
-  };
+  }
   const p2 = {
     x: targetX + targetDirection.x * controlDistance + normalX,
     y: targetY + targetDirection.y * controlDistance + normalY,
-  };
-  const p3 = { x: targetX, y: targetY };
+  }
+  const p3 = { x: targetX, y: targetY }
   const labelPoint = getCubicBezierPoint({
     t: 0.5,
     p0,
     p1,
     p2,
     p3,
-  });
-  const edgePath = `M ${p0.x},${p0.y} C ${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p3.y}`;
+  })
+  const edgePath = `M ${p0.x},${p0.y} C ${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p3.y}`
 
   return {
     edgePath,
     labelX: labelPoint.x,
     labelY: labelPoint.y,
-  };
-};
+  }
+}
 
 const getEdgePillLabel = ({
   typeLabel,
@@ -575,74 +542,65 @@ const getEdgePillLabel = ({
   edgeLabelMode,
   connection,
 }: {
-  typeLabel?: string;
-  pairConnectionCount?: number;
-  siblingIndex?: number;
-  typeConnectionCount: number;
-  edgeLabelMode: EdgeLabelMode;
-  connection?: any | null;
+  typeLabel?: string
+  pairConnectionCount?: number
+  siblingIndex?: number
+  typeConnectionCount: number
+  edgeLabelMode: EdgeLabelMode
+  connection?: any | null
 }) => {
   if ((pairConnectionCount ?? 0) > 1) {
     if ((siblingIndex ?? 0) > 0) {
-      return "";
+      return ""
     }
 
-    return String(pairConnectionCount);
+    return String(pairConnectionCount)
   }
 
   if (typeConnectionCount > 1) {
-    return String(typeConnectionCount);
+    return String(typeConnectionCount)
   }
 
   if (edgeLabelMode === "time") {
-    const rawTraversalTime = connection?.traversal_time;
+    const rawTraversalTime = connection?.traversal_time
 
-    if (
-      rawTraversalTime === null ||
-      rawTraversalTime === undefined ||
-      rawTraversalTime === ""
-    ) {
-      return "None";
+    if (rawTraversalTime === null || rawTraversalTime === undefined || rawTraversalTime === "") {
+      return "None"
     }
 
-    const traversalTime = Number(rawTraversalTime);
+    const traversalTime = Number(rawTraversalTime)
 
-    return Number.isFinite(traversalTime) && traversalTime >= 0
-      ? `${traversalTime}s`
-      : "None";
+    return Number.isFinite(traversalTime) && traversalTime >= 0 ? `${traversalTime}s` : "None"
   }
 
-  return typeLabel ?? "";
-};
+  return typeLabel ?? ""
+}
 
-const getLabelHorizontalOffset = (
-  siblingIndex: number,
-  siblingCount: number,
-) => {
+const getLabelHorizontalOffset = (siblingIndex: number, siblingCount: number) => {
   if (siblingCount <= 1) {
-    return 0;
+    return 0
   }
 
-  return (siblingIndex - (siblingCount - 1) / 2) * 52;
-};
+  return (siblingIndex - (siblingCount - 1) / 2) * 52
+}
 
 const getContrastingTextColor = (hexColor: string) => {
-  const normalized = hexColor.replace("#", "");
+  const normalized = hexColor.replace("#", "")
   const fullHex =
     normalized.length === 3
       ? normalized
           .split("")
           .map((char) => `${char}${char}`)
           .join("")
-      : normalized;
+      : normalized
 
-  const red = parseInt(fullHex.slice(0, 2), 16);
-  const green = parseInt(fullHex.slice(2, 4), 16);
-  const blue = parseInt(fullHex.slice(4, 6), 16);
-  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
+  const red = parseInt(fullHex.slice(0, 2), 16)
+  const green = parseInt(fullHex.slice(2, 4), 16)
+  const blue = parseInt(fullHex.slice(4, 6), 16)
+  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255
 
-  return luminance > 0.6 ? "#111111" : "#ffffff";
-};
+  return luminance > 0.6 ? "#111111" : "#ffffff"
+}
 
 export const getEdgeLabelStyles = ({ edgeColor }: { edgeColor: string }) => ({
   labelStyle: {
@@ -655,16 +613,15 @@ export const getEdgeLabelStyles = ({ edgeColor }: { edgeColor: string }) => ({
     color: getContrastingTextColor(edgeColor),
     border: "1px solid rgba(255,255,255,0.15)",
   },
-});
+})
 
 export const getConnectionId = (connection: any) =>
   connection?.pathway_id !== null && connection?.pathway_id !== undefined
     ? String(connection.pathway_id)
-    : null;
+    : null
 
 export const isBidirectionalConnection = (connection: any) =>
-  connection?.direction_type === "bidirectional" ||
-  Number(connection?.is_bidirectional) === 1;
+  connection?.direction_type === "bidirectional" || Number(connection?.is_bidirectional) === 1
 
 export const getEdgeMarkerProps = ({
   edgeColor,
@@ -672,58 +629,58 @@ export const getEdgeMarkerProps = ({
   displaySourceId,
   displayTargetId,
 }: {
-  edgeColor: string;
-  connections: any[];
-  displaySourceId: string;
-  displayTargetId: string;
+  edgeColor: string
+  connections: any[]
+  displaySourceId: string
+  displayTargetId: string
 }) => {
   const marker = {
     type: MarkerType.ArrowClosed,
     color: edgeColor,
     width: 18,
     height: 18,
-  };
+  }
   const hasForwardDirection = connections.some((connection) => {
     if (isBidirectionalConnection(connection)) {
-      return true;
+      return true
     }
 
     return (
       String(connection?.from_stop_id) === displaySourceId &&
       String(connection?.to_stop_id) === displayTargetId
-    );
-  });
+    )
+  })
   const hasReverseDirection = connections.some((connection) => {
     if (isBidirectionalConnection(connection)) {
-      return true;
+      return true
     }
 
     return (
       String(connection?.from_stop_id) === displayTargetId &&
       String(connection?.to_stop_id) === displaySourceId
-    );
-  });
+    )
+  })
 
   return {
     markerStart: hasReverseDirection ? marker : undefined,
     markerEnd: hasForwardDirection ? marker : undefined,
-  };
-};
+  }
+}
 
 export const getMultiConnectionEdgeColor = (theme: string) =>
-  theme === "dark" ? "#f3b54a" : "#b66b16";
+  theme === "dark" ? "#f3b54a" : "#b66b16"
 
-const NODE_LAYOUT_MIN_X = 148;
-const NODE_LAYOUT_MIN_Y = 118;
+const NODE_LAYOUT_MIN_X = 148
+const NODE_LAYOUT_MIN_Y = 118
 
 export const parseCoordinate = (value: unknown) => {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : null;
-};
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : null
+}
 
 export const hasUsableLatLon = (lat: unknown, lon: unknown) => {
-  const parsedLat = parseCoordinate(lat);
-  const parsedLon = parseCoordinate(lon);
+  const parsedLat = parseCoordinate(lat)
+  const parsedLon = parseCoordinate(lon)
 
   return (
     parsedLat !== null &&
@@ -733,11 +690,11 @@ export const hasUsableLatLon = (lat: unknown, lon: unknown) => {
     parsedLon >= -180 &&
     parsedLon <= 180 &&
     !(parsedLat === 0 && parsedLon === 0)
-  );
-};
+  )
+}
 
 export const clamp = (value: number, min: number, max: number) =>
-  Math.min(Math.max(value, min), max);
+  Math.min(Math.max(value, min), max)
 
 export const resolveNodeOverlaps = ({
   nodes,
@@ -746,16 +703,16 @@ export const resolveNodeOverlaps = ({
   lockXAxis = false,
   bounds,
 }: {
-  nodes: Node[];
-  minDistanceX?: number;
-  minDistanceY?: number;
-  lockXAxis?: boolean;
+  nodes: Node[]
+  minDistanceX?: number
+  minDistanceY?: number
+  lockXAxis?: boolean
   bounds?: {
-    minX: number;
-    maxX: number;
-    minY: number;
-    maxY: number;
-  };
+    minX: number
+    maxX: number
+    minY: number
+    maxY: number
+  }
 }) => {
   const adjustedNodes = nodes.map((node) => ({
     ...node,
@@ -763,86 +720,66 @@ export const resolveNodeOverlaps = ({
       x: node.position.x,
       y: node.position.y,
     },
-  }));
+  }))
 
-  const minimumDistance = Math.max(minDistanceX, minDistanceY);
+  const minimumDistance = Math.max(minDistanceX, minDistanceY)
 
   for (let iteration = 0; iteration < 48; iteration += 1) {
-    let moved = false;
+    let moved = false
 
     for (let index = 0; index < adjustedNodes.length; index += 1) {
-      for (
-        let compareIndex = index + 1;
-        compareIndex < adjustedNodes.length;
-        compareIndex += 1
-      ) {
-        const firstNode = adjustedNodes[index];
-        const secondNode = adjustedNodes[compareIndex];
-        const deltaX = secondNode.position.x - firstNode.position.x;
-        const deltaY = secondNode.position.y - firstNode.position.y;
-        const distance = Math.hypot(deltaX, deltaY);
+      for (let compareIndex = index + 1; compareIndex < adjustedNodes.length; compareIndex += 1) {
+        const firstNode = adjustedNodes[index]
+        const secondNode = adjustedNodes[compareIndex]
+        const deltaX = secondNode.position.x - firstNode.position.x
+        const deltaY = secondNode.position.y - firstNode.position.y
+        const distance = Math.hypot(deltaX, deltaY)
 
         if (lockXAxis) {
-          const overlapY = minDistanceY - Math.abs(deltaY);
+          const overlapY = minDistanceY - Math.abs(deltaY)
 
           if (overlapY <= 0) {
-            continue;
+            continue
           }
 
-          moved = true;
-          const pushY = overlapY / 2 + 6;
-          const directionY = deltaY >= 0 ? 1 : -1;
-          firstNode.position.y -= pushY * directionY;
-          secondNode.position.y += pushY * directionY;
+          moved = true
+          const pushY = overlapY / 2 + 6
+          const directionY = deltaY >= 0 ? 1 : -1
+          firstNode.position.y -= pushY * directionY
+          secondNode.position.y += pushY * directionY
         } else {
           if (distance >= minimumDistance) {
-            continue;
+            continue
           }
 
-          moved = true;
-          const safeDistance = distance || 0.001;
-          const pushDistance = (minimumDistance - safeDistance) / 2 + 8;
-          const directionX = deltaX / safeDistance;
-          const directionY = deltaY / safeDistance;
+          moved = true
+          const safeDistance = distance || 0.001
+          const pushDistance = (minimumDistance - safeDistance) / 2 + 8
+          const directionX = deltaX / safeDistance
+          const directionY = deltaY / safeDistance
 
-          firstNode.position.x -= directionX * pushDistance;
-          firstNode.position.y -= directionY * pushDistance;
-          secondNode.position.x += directionX * pushDistance;
-          secondNode.position.y += directionY * pushDistance;
+          firstNode.position.x -= directionX * pushDistance
+          firstNode.position.y -= directionY * pushDistance
+          secondNode.position.x += directionX * pushDistance
+          secondNode.position.y += directionY * pushDistance
         }
 
         if (bounds) {
-          firstNode.position.x = clamp(
-            firstNode.position.x,
-            bounds.minX,
-            bounds.maxX,
-          );
-          firstNode.position.y = clamp(
-            firstNode.position.y,
-            bounds.minY,
-            bounds.maxY,
-          );
-          secondNode.position.x = clamp(
-            secondNode.position.x,
-            bounds.minX,
-            bounds.maxX,
-          );
-          secondNode.position.y = clamp(
-            secondNode.position.y,
-            bounds.minY,
-            bounds.maxY,
-          );
+          firstNode.position.x = clamp(firstNode.position.x, bounds.minX, bounds.maxX)
+          firstNode.position.y = clamp(firstNode.position.y, bounds.minY, bounds.maxY)
+          secondNode.position.x = clamp(secondNode.position.x, bounds.minX, bounds.maxX)
+          secondNode.position.y = clamp(secondNode.position.y, bounds.minY, bounds.maxY)
         }
       }
     }
 
     if (!moved) {
-      break;
+      break
     }
   }
 
-  return adjustedNodes;
-};
+  return adjustedNodes
+}
 
 export const PATHWAY_MODE_OPTIONS = [
   { value: 1, label: "Walkway" },
@@ -852,33 +789,33 @@ export const PATHWAY_MODE_OPTIONS = [
   { value: 5, label: "Elevator" },
   { value: 6, label: "Fare gate" },
   { value: 7, label: "Exit gate" },
-] as const;
+] as const
 
 export const DIRECTION_OPTIONS = [
   { value: 0, label: "Directional (one-way)" },
   { value: 1, label: "Bidirectional (two-way)" },
-] as const;
+] as const
 
 const PATHWAY_MODE_LABELS = new Map<number, string>(
   PATHWAY_MODE_OPTIONS.map((option) => [option.value, option.label]),
-);
+)
 
-const DECIMAL_SEPARATOR_PATTERN = /[.,،٫﹐﹒．，。､]/g;
-const UNICODE_MINUS_PATTERN = /[−﹣－]/g;
+const DECIMAL_SEPARATOR_PATTERN = /[.,،٫﹐﹒．，。､]/g
+const UNICODE_MINUS_PATTERN = /[−﹣－]/g
 
 export const DECIMAL_EDGE_FORM_FIELDS = new Set<keyof EdgeFormValues>([
   "length",
   "max_slope",
   "min_width",
-]);
+])
 
 export const EDGE_OPTIONAL_FIELDS: Array<{
-  key: EdgeOptionalFieldKey;
-  label: string;
-  type: "number" | "text";
-  min?: string;
-  step?: string;
-  inputMode?: React.ComponentProps<"input">["inputMode"];
+  key: EdgeOptionalFieldKey
+  label: string
+  type: "number" | "text"
+  min?: string
+  step?: string
+  inputMode?: React.ComponentProps<"input">["inputMode"]
 }> = [
   {
     key: "stair_count",
@@ -911,87 +848,80 @@ export const EDGE_OPTIONAL_FIELDS: Array<{
     label: "Reversed Signposted As",
     type: "text",
   },
-];
+]
 
 export const normalizeOptionalInteger = (value: unknown) => {
   if (value === "" || value === null || value === undefined) {
-    return null;
+    return null
   }
 
-  const parsed = parseInt(String(value), 10);
-  return Number.isNaN(parsed) ? null : parsed;
-};
+  const parsed = parseInt(String(value), 10)
+  return Number.isNaN(parsed) ? null : parsed
+}
 
 const normalizeDecimalInputString = (value: string) => {
   const normalized = String(value)
     .normalize("NFKC")
     .replace(UNICODE_MINUS_PATTERN, "-")
-    .replace(/\s+/g, "");
+    .replace(/\s+/g, "")
 
   if (normalized === "") {
-    return "";
+    return ""
   }
 
-  const separatorMatches = Array.from(
-    normalized.matchAll(DECIMAL_SEPARATOR_PATTERN),
-  );
-  const lastSeparatorIndex = separatorMatches.at(-1)?.index ?? -1;
+  const separatorMatches = Array.from(normalized.matchAll(DECIMAL_SEPARATOR_PATTERN))
+  const lastSeparatorIndex = separatorMatches.at(-1)?.index ?? -1
   const beforeSeparator =
-    lastSeparatorIndex >= 0
-      ? normalized.slice(0, lastSeparatorIndex)
-      : normalized;
-  const afterSeparator =
-    lastSeparatorIndex >= 0 ? normalized.slice(lastSeparatorIndex + 1) : "";
+    lastSeparatorIndex >= 0 ? normalized.slice(0, lastSeparatorIndex) : normalized
+  const afterSeparator = lastSeparatorIndex >= 0 ? normalized.slice(lastSeparatorIndex + 1) : ""
   const sign = beforeSeparator.trim().startsWith("-")
     ? "-"
     : beforeSeparator.trim().startsWith("+")
       ? "+"
-      : "";
-  const integerDigits = beforeSeparator.replace(/[^\d]/g, "");
-  const fractionalDigits = afterSeparator.replace(/[^\d]/g, "");
+      : ""
+  const integerDigits = beforeSeparator.replace(/[^\d]/g, "")
+  const fractionalDigits = afterSeparator.replace(/[^\d]/g, "")
 
   if (lastSeparatorIndex >= 0) {
     if (integerDigits === "" && fractionalDigits === "" && sign === "") {
-      return "";
+      return ""
     }
 
-    return `${sign}${integerDigits}.${fractionalDigits}`;
+    return `${sign}${integerDigits}.${fractionalDigits}`
   }
 
-  return `${sign}${integerDigits}`;
-};
+  return `${sign}${integerDigits}`
+}
 
 export const normalizeOptionalNumber = (value: unknown) => {
   if (value === "" || value === null || value === undefined) {
-    return null;
+    return null
   }
 
-  const normalizedValue = normalizeDecimalInputString(String(value));
+  const normalizedValue = normalizeDecimalInputString(String(value))
   if (
     normalizedValue === "" ||
     normalizedValue === "." ||
     normalizedValue === "-" ||
     normalizedValue === "-."
   ) {
-    return null;
+    return null
   }
 
-  const parsed = parseFloat(normalizedValue);
-  return Number.isNaN(parsed) ? null : parsed;
-};
+  const parsed = parseFloat(normalizedValue)
+  return Number.isNaN(parsed) ? null : parsed
+}
 
 export const normalizeOptionalString = (value: unknown) => {
   if (value === null || value === undefined) {
-    return null;
+    return null
   }
 
-  const trimmed = String(value).trim();
-  return trimmed === "" ? null : trimmed;
-};
+  const trimmed = String(value).trim()
+  return trimmed === "" ? null : trimmed
+}
 
-export const createInitialEdgeFormValues = (
-  connection?: any | null,
-): EdgeFormValues => ({
+export const createInitialEdgeFormValues = (connection?: any | null): EdgeFormValues => ({
   from_stop_id:
     connection?.from_stop_id === null || connection?.from_stop_id === undefined
       ? ""
@@ -1000,9 +930,7 @@ export const createInitialEdgeFormValues = (
     connection?.to_stop_id === null || connection?.to_stop_id === undefined
       ? ""
       : String(connection.to_stop_id),
-  pathway_mode: String(
-    connection?.pathway_mode ?? PATHWAY_MODE_OPTIONS[0].value,
-  ),
+  pathway_mode: String(connection?.pathway_mode ?? PATHWAY_MODE_OPTIONS[0].value),
   is_bidirectional: String(
     connection?.is_bidirectional ??
       (connection?.direction_type === "bidirectional"
@@ -1010,8 +938,7 @@ export const createInitialEdgeFormValues = (
         : DIRECTION_OPTIONS[0].value),
   ),
   traversal_time:
-    connection?.traversal_time === null ||
-    connection?.traversal_time === undefined
+    connection?.traversal_time === null || connection?.traversal_time === undefined
       ? ""
       : String(connection.traversal_time),
   length:
@@ -1032,58 +959,51 @@ export const createInitialEdgeFormValues = (
       : String(connection.min_width),
   signposted_as: connection?.signposted_as ?? "",
   reversed_signposted_as: connection?.reversed_signposted_as ?? "",
-});
+})
 
 export const getPathwayTypeLabel = (connection: any) => {
   if (connection?.pathway_mode_name) {
-    return String(connection.pathway_mode_name);
+    return String(connection.pathway_mode_name)
   }
 
-  const numericMode = Number(connection?.pathway_mode);
-  return PATHWAY_MODE_LABELS.get(numericMode) ?? "❓";
-};
+  const numericMode = Number(connection?.pathway_mode)
+  return PATHWAY_MODE_LABELS.get(numericMode) ?? "❓"
+}
 
 export const getConnectionTypeKey = (connection: any) => {
-  const typeLabel = getPathwayTypeLabel(connection);
-  const numericMode = connection?.pathway_mode ?? "";
-  return `${typeLabel}::${numericMode}`;
-};
+  const typeLabel = getPathwayTypeLabel(connection)
+  const numericMode = connection?.pathway_mode ?? ""
+  return `${typeLabel}::${numericMode}`
+}
 
 export const getCanonicalPairNodeIds = (
   firstStopId: string,
   secondStopId: string,
 ): [string, string] => {
-  const normalizedFirstStopId = String(firstStopId);
-  const normalizedSecondStopId = String(secondStopId);
+  const normalizedFirstStopId = String(firstStopId)
+  const normalizedSecondStopId = String(secondStopId)
 
   return normalizedFirstStopId.localeCompare(normalizedSecondStopId) <= 0
     ? [normalizedFirstStopId, normalizedSecondStopId]
-    : [normalizedSecondStopId, normalizedFirstStopId];
-};
+    : [normalizedSecondStopId, normalizedFirstStopId]
+}
 
 export const getCanonicalPairKey = (firstStopId: string, secondStopId: string) => {
-  const [sourceStopId, targetStopId] = getCanonicalPairNodeIds(
-    firstStopId,
-    secondStopId,
-  );
+  const [sourceStopId, targetStopId] = getCanonicalPairNodeIds(firstStopId, secondStopId)
 
-  return `${sourceStopId}::${targetStopId}`;
-};
+  return `${sourceStopId}::${targetStopId}`
+}
 
 export const sortConnections = (connections: any[]) =>
   [...connections].sort((left, right) => {
-    const typeCompare = getPathwayTypeLabel(left).localeCompare(
-      getPathwayTypeLabel(right),
-    );
+    const typeCompare = getPathwayTypeLabel(left).localeCompare(getPathwayTypeLabel(right))
 
     if (typeCompare !== 0) {
-      return typeCompare;
+      return typeCompare
     }
 
-    return String(left?.pathway_id ?? "").localeCompare(
-      String(right?.pathway_id ?? ""),
-    );
-  });
+    return String(left?.pathway_id ?? "").localeCompare(String(right?.pathway_id ?? ""))
+  })
 
 export const edgeMatchesCanonicalPair = (
   edge: Edge | null | undefined,
@@ -1091,121 +1011,104 @@ export const edgeMatchesCanonicalPair = (
   secondStopId?: string | null,
 ) => {
   if (!edge || !firstStopId || !secondStopId) {
-    return false;
+    return false
   }
 
   return (
-    getCanonicalPairKey(edge.source, edge.target) ===
-    getCanonicalPairKey(firstStopId, secondStopId)
-  );
-};
+    getCanonicalPairKey(edge.source, edge.target) === getCanonicalPairKey(firstStopId, secondStopId)
+  )
+}
 
 export const isWheelchairAccessibleConnection = (connection: any) => {
-  const pathwayMode = Number(connection?.pathway_mode);
-  const pathwayModeName = String(
-    connection?.pathway_mode_name ?? "",
-  ).toLowerCase();
+  const pathwayMode = Number(connection?.pathway_mode)
+  const pathwayModeName = String(connection?.pathway_mode_name ?? "").toLowerCase()
 
   if (pathwayMode === 2 || pathwayMode === 4) {
-    return false;
+    return false
   }
 
-  if (
-    pathwayModeName.includes("stairs") ||
-    pathwayModeName.includes("escalator")
-  ) {
-    return false;
+  if (pathwayModeName.includes("stairs") || pathwayModeName.includes("escalator")) {
+    return false
   }
 
-  return true;
-};
+  return true
+}
 
 export const isWheelchairAccessibleStop = (stop: any) => {
-  const wheelchairStatus = String(
-    stop?.wheelchair_status ?? stop?.wheelchairStatus ?? "",
-  ).trim();
+  const wheelchairStatus = String(stop?.wheelchair_status ?? stop?.wheelchairStatus ?? "").trim()
 
   return (
     wheelchairStatus === "🟢" ||
     wheelchairStatus === "1" ||
     wheelchairStatus.toLowerCase() === "accessible"
-  );
-};
+  )
+}
 
 export const isModifiedConnectionStatus = (status?: string | null) =>
-  status === "edit" || status === "new" || status === "new edit";
+  status === "edit" || status === "new" || status === "new edit"
 
 export const isNewConnectionStatus = (status?: string | null) =>
-  status === "new" || status === "new edit";
+  status === "new" || status === "new edit"
 
 export const getConnectionStatusLabel = (status?: string | null) => {
   switch (status) {
     case "edit":
-      return "Edited Existing Connection";
+      return "Edited Existing Connection"
     case "new":
     case "new edit":
-      return "New Connection";
+      return "New Connection"
     default:
-      return "Original";
+      return "Original"
   }
-};
+}
 
 export const getConnectionDirectionSummary = (connection: any) => {
-  const fromStopId =
-    connection?.from_stop_id != null
-      ? String(connection.from_stop_id)
-      : "Unknown";
-  const toStopId =
-    connection?.to_stop_id != null ? String(connection.to_stop_id) : "Unknown";
+  const fromStopId = connection?.from_stop_id != null ? String(connection.from_stop_id) : "Unknown"
+  const toStopId = connection?.to_stop_id != null ? String(connection.to_stop_id) : "Unknown"
 
   if (isBidirectionalConnection(connection)) {
     return {
       badgeLabel: "Bidirectional",
       routeLabel: `${fromStopId} ↔ ${toStopId}`,
-    };
+    }
   }
 
   return {
     badgeLabel: "From → To",
     routeLabel: `${fromStopId} → ${toStopId}`,
-  };
-};
+  }
+}
 
 export const getDetachedConnectionDraftConnection = (
   draft: DetachedConnectionDraft,
   options?: {
-    includeOriginalEndpointFallback?: boolean;
+    includeOriginalEndpointFallback?: boolean
   },
 ) => {
-  const includeOriginalEndpointFallback =
-    options?.includeOriginalEndpointFallback ?? true;
+  const includeOriginalEndpointFallback = options?.includeOriginalEndpointFallback ?? true
 
   return {
     ...draft.connection,
     from_stop_id:
-      draft.fromStopId ??
-      (includeOriginalEndpointFallback ? draft.connection.from_stop_id : null),
+      draft.fromStopId ?? (includeOriginalEndpointFallback ? draft.connection.from_stop_id : null),
     to_stop_id:
-      draft.toStopId ??
-      (includeOriginalEndpointFallback ? draft.connection.to_stop_id : null),
-  };
-};
+      draft.toStopId ?? (includeOriginalEndpointFallback ? draft.connection.to_stop_id : null),
+  }
+}
 
-export const getSortedConnectionsFromEdge = (
-  edge: Edge | null | undefined,
-) => {
+export const getSortedConnectionsFromEdge = (edge: Edge | null | undefined) => {
   if (!edge) {
-    return [];
+    return []
   }
 
-  const edgeData = (edge.data ?? {}) as PathwayEdgeData;
+  const edgeData = (edge.data ?? {}) as PathwayEdgeData
   return sortConnections(
     (edgeData.allPairConnections ??
       edgeData.pairConnections ??
       edgeData.connections ??
       []) as any[],
-  );
-};
+  )
+}
 
 const CustomEdge = ({
   id,
@@ -1223,23 +1126,18 @@ const CustomEdge = ({
   labelBgPadding,
   data,
 }: EdgeProps) => {
-  const edgeData = (data ?? {}) as PathwayEdgeData;
-  const edgeConnections = (edgeData.connections ??
-    edgeData.pairConnections ??
-    []) as any[];
-  const siblingIndex = Number(edgeData.siblingIndex ?? 0);
-  const siblingCount = Number(edgeData.siblingCount ?? 1);
-  const typeConnectionCount = Number(edgeData.typeConnectionCount ?? 1);
-  const typeLabel =
-    typeof edgeData.typeLabel === "string" ? edgeData.typeLabel : "";
-  const isDimmed = Boolean(edgeData.isDimmed);
-  const isPopupSelected = Boolean(edgeData.isPopupSelected);
+  const edgeData = (data ?? {}) as PathwayEdgeData
+  const edgeConnections = (edgeData.connections ?? edgeData.pairConnections ?? []) as any[]
+  const siblingIndex = Number(edgeData.siblingIndex ?? 0)
+  const siblingCount = Number(edgeData.siblingCount ?? 1)
+  const typeConnectionCount = Number(edgeData.typeConnectionCount ?? 1)
+  const typeLabel = typeof edgeData.typeLabel === "string" ? edgeData.typeLabel : ""
+  const isDimmed = Boolean(edgeData.isDimmed)
+  const isPopupSelected = Boolean(edgeData.isPopupSelected)
   const popupSelectionColor =
-    edgeData.popupSelectionColor ??
-    (typeof style?.stroke === "string" ? style.stroke : "#2563eb");
-  const edgeLabelMode = edgeData.edgeLabelMode ?? "type";
-  const singleConnection =
-    edgeConnections.length === 1 ? edgeConnections[0] : null;
+    edgeData.popupSelectionColor ?? (typeof style?.stroke === "string" ? style.stroke : "#2563eb")
+  const edgeLabelMode = edgeData.edgeLabelMode ?? "type"
+  const singleConnection = edgeConnections.length === 1 ? edgeConnections[0] : null
   const primaryLabel = getEdgePillLabel({
     typeLabel,
     pairConnectionCount: edgeData.pairConnectionCount,
@@ -1247,14 +1145,13 @@ const CustomEdge = ({
     typeConnectionCount,
     edgeLabelMode,
     connection: singleConnection,
-  });
+  })
   const showConnectionStatusBadge =
     Boolean(primaryLabel) &&
     Boolean(singleConnection) &&
-    isModifiedConnectionStatus(singleConnection?.status);
+    isModifiedConnectionStatus(singleConnection?.status)
   const isNewConnectionBadge =
-    Boolean(singleConnection) &&
-    isNewConnectionStatus(singleConnection?.status);
+    Boolean(singleConnection) && isNewConnectionStatus(singleConnection?.status)
   const { edgePath, labelX, labelY } = getAnchoredParallelBezierPath({
     sourceX,
     sourceY,
@@ -1264,15 +1161,10 @@ const CustomEdge = ({
     targetPosition,
     siblingIndex,
     siblingCount,
-  });
-  const labelHorizontalOffset = getLabelHorizontalOffset(
-    siblingIndex,
-    siblingCount,
-  );
-  const baseStrokeWidth = Number(
-    typeof style?.strokeWidth === "number" ? style.strokeWidth : 2,
-  );
-  const selectedEdgeStrokeWidth = baseStrokeWidth + 2;
+  })
+  const labelHorizontalOffset = getLabelHorizontalOffset(siblingIndex, siblingCount)
+  const baseStrokeWidth = Number(typeof style?.strokeWidth === "number" ? style.strokeWidth : 2)
+  const selectedEdgeStrokeWidth = baseStrokeWidth + 2
 
   return (
     <>
@@ -1362,8 +1254,8 @@ const CustomEdge = ({
                   ? "selected-edge-pill-pulse 1.35s ease-in-out infinite"
                   : undefined,
                 backgroundColor:
-                  (labelBgStyle as React.CSSProperties | undefined)
-                    ?.backgroundColor ?? "hsl(var(--background))",
+                  (labelBgStyle as React.CSSProperties | undefined)?.backgroundColor ??
+                  "hsl(var(--background))",
                 padding: labelBgPadding
                   ? `${labelBgPadding[0]}px ${labelBgPadding[1]}px`
                   : "2px 8px",
@@ -1374,9 +1266,7 @@ const CustomEdge = ({
                 <span
                   className="text-[11px] leading-none"
                   title={getConnectionStatusLabel(singleConnection?.status)}
-                  aria-label={getConnectionStatusLabel(
-                    singleConnection?.status,
-                  )}
+                  aria-label={getConnectionStatusLabel(singleConnection?.status)}
                 >
                   {isNewConnectionBadge ? (
                     <Plus className="h-3 w-3" />
@@ -1390,16 +1280,16 @@ const CustomEdge = ({
         </div>
       </EdgeLabelRenderer>
     </>
-  );
-};
+  )
+}
 
 const CustomNode = ({ data }: { data: CustomNodeData }) => {
-  const isDetachedConnectionNode = Boolean(data.isDetachedConnectionNode);
-  const isPathwayNode = data.layer === 1 && !isDetachedConnectionNode;
-  const isDetachedConnectionEditing = Boolean(data.isDetachedConnectionEditing);
-  const detachedTypeColor = data.detachedTypeColor ?? data.color;
-  const isPopupSelected = Boolean(data.isPopupSelected);
-  const popupSelectionColor = data.popupSelectionColor ?? data.color;
+  const isDetachedConnectionNode = Boolean(data.isDetachedConnectionNode)
+  const isPathwayNode = data.layer === 1 && !isDetachedConnectionNode
+  const isDetachedConnectionEditing = Boolean(data.isDetachedConnectionEditing)
+  const detachedTypeColor = data.detachedTypeColor ?? data.color
+  const isPopupSelected = Boolean(data.isPopupSelected)
+  const popupSelectionColor = data.popupSelectionColor ?? data.color
   const routeBadges = [
     data.isSelectedFrom
       ? {
@@ -1413,50 +1303,43 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
       ? {
           key: "to",
           label: "To",
-          className:
-            "bg-sky-600/95 text-white border-sky-300/60 dark:border-sky-200/30",
+          className: "bg-sky-600/95 text-white border-sky-300/60 dark:border-sky-200/30",
         }
       : null,
-  ].filter(
-    (badge): badge is { key: string; label: string; className: string } =>
-      badge !== null,
-  );
-  const handleIds = getAvailableHandleIds(
-    data.locationType,
-    data.viewMode ?? "column",
-  );
+  ].filter((badge): badge is { key: string; label: string; className: string } => badge !== null)
+  const handleIds = getAvailableHandleIds(data.locationType, data.viewMode ?? "column")
   const detachedShape =
-    "polygon(14% 0, 86% 0, 100% 26%, 100% 74%, 86% 100%, 14% 100%, 0 74%, 0 26%)";
+    "polygon(14% 0, 86% 0, 100% 26%, 100% 74%, 86% 100%, 14% 100%, 0 74%, 0 26%)"
 
   const getHandlePosition = (handleId: FlowHandleId) => {
     switch (handleId) {
       case "left":
-        return Position.Left;
+        return Position.Left
       case "right":
-        return Position.Right;
+        return Position.Right
       case "top":
-        return Position.Top;
+        return Position.Top
       case "bottom":
-        return Position.Bottom;
+        return Position.Bottom
       default:
-        return Position.Right;
+        return Position.Right
     }
-  };
+  }
 
   const getHandleClassName = (handleId: FlowHandleId) => {
     switch (handleId) {
       case "left":
-        return "!-left-2";
+        return "!-left-2"
       case "right":
-        return "!-right-2";
+        return "!-right-2"
       case "top":
-        return "!-top-2";
+        return "!-top-2"
       case "bottom":
-        return "!-bottom-2";
+        return "!-bottom-2"
       default:
-        return "";
+        return ""
     }
-  };
+  }
 
   return (
     <div
@@ -1479,8 +1362,7 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
         animation: isPopupSelected
           ? "selected-node-core-pulse 1.2s ease-in-out infinite"
           : undefined,
-        transition:
-          "opacity 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
+        transition: "opacity 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
       }}
     >
       {isPopupSelected ? (
@@ -1551,22 +1433,18 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
           isConnectableEnd: true,
           className: `!z-20 ${isDetachedConnectionNode ? "!w-5 !h-5" : "!w-4 !h-4"} ${getHandleClassName(handleId)}`,
           style: {
-            background: isDetachedConnectionNode
-              ? detachedTypeColor
-              : data.color,
+            background: isDetachedConnectionNode ? detachedTypeColor : data.color,
             border: "2px solid white",
-            boxShadow: isDetachedConnectionNode
-              ? "0 0 0 3px rgba(15, 23, 42, 0.15)"
-              : undefined,
+            boxShadow: isDetachedConnectionNode ? "0 0 0 3px rgba(15, 23, 42, 0.15)" : undefined,
           },
-        } as const;
+        } as const
 
         return (
           <Fragment key={handleId}>
             <Handle type="target" {...sharedHandleProps} />
             <Handle type="source" {...sharedHandleProps} />
           </Fragment>
-        );
+        )
       })}
 
       <div
@@ -1577,9 +1455,7 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
         }
         style={{
           clipPath: isDetachedConnectionNode ? detachedShape : undefined,
-          border: isDetachedConnectionNode
-            ? "1px solid rgba(255,255,255,0.25)"
-            : undefined,
+          border: isDetachedConnectionNode ? "1px solid rgba(255,255,255,0.25)" : undefined,
         }}
       >
         <div className="text-[8px] font-semibold text-muted-foreground uppercase tracking-tight flex items-center justify-center gap-0.5 whitespace-normal break-words leading-tight">
@@ -1642,27 +1518,27 @@ const CustomNode = ({ data }: { data: CustomNodeData }) => {
         )}
       </div>
     </div>
-  );
-};
+  )
+}
 
 export const nodeTypes: NodeTypes = {
   custom: CustomNode,
-};
+}
 
 export const edgeTypes: EdgeTypes = {
   custom: CustomEdge,
-};
+}
 
 type FlowPopupPanelProps = {
-  borderColor: string;
-  title: ReactNode;
-  subtitle?: ReactNode;
-  subtitleAccent?: ReactNode;
-  headerPrefix?: ReactNode;
-  headerActions?: ReactNode;
-  children: ReactNode;
-  fillHeight?: boolean;
-};
+  borderColor: string
+  title: ReactNode
+  subtitle?: ReactNode
+  subtitleAccent?: ReactNode
+  headerPrefix?: ReactNode
+  headerActions?: ReactNode
+  children: ReactNode
+  fillHeight?: boolean
+}
 
 export const FlowPopupPanel = ({
   borderColor,
@@ -1686,15 +1562,11 @@ export const FlowPopupPanel = ({
           {headerPrefix}
           <h3 className="font-bold text-sm">{title}</h3>
         </div>
-        {subtitle && (
-          <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
-        )}
+        {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
         {subtitleAccent && subtitleAccent}
       </div>
       {headerActions}
     </div>
-    <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 pr-3">
-      {children}
-    </div>
+    <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4 pr-3">{children}</div>
   </div>
-);
+)

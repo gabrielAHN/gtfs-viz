@@ -1,19 +1,19 @@
-import type { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
+import type { ReactNode } from "react"
+import { Button } from "@/components/ui/button"
 
 interface FormActionsProps {
-  isBusy: boolean;
+  isBusy: boolean
   /** Required fields are filled and valid */
-  isValid: boolean;
+  isValid: boolean
   /** Form data has changed from initial state (for edit) or has data (for add) */
-  hasChanges: boolean;
-  onSave: () => void;
-  onCancel: () => void;
-  saveLabel?: string;
-  busyLabel?: string;
-  cancelLabel?: string;
-  error?: string | null;
-  children?: ReactNode;
+  hasChanges: boolean
+  onSave: () => void
+  onCancel: () => void
+  saveLabel?: string
+  busyLabel?: string
+  cancelLabel?: string
+  error?: string | null
+  children?: ReactNode
 }
 
 /**
@@ -33,7 +33,7 @@ export function FormActions({
   error,
   children,
 }: FormActionsProps) {
-  const canSave = isValid && hasChanges && !isBusy;
+  const canSave = isValid && hasChanges && !isBusy
 
   return (
     <div className="relative min-h-0">
@@ -47,7 +47,9 @@ export function FormActions({
         <Button onClick={onSave} disabled={!canSave} className="flex-1">
           {saveLabel}
         </Button>
-        <Button variant="outline" onClick={onCancel} disabled={isBusy}>{cancelLabel}</Button>
+        <Button variant="outline" onClick={onCancel} disabled={isBusy}>
+          {cancelLabel}
+        </Button>
       </div>
       {isBusy && (
         <div className="absolute inset-0 z-10 rounded-md bg-background/80 backdrop-blur-[2px]">
@@ -60,5 +62,5 @@ export function FormActions({
         </div>
       )}
     </div>
-  );
+  )
 }

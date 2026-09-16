@@ -1,31 +1,25 @@
-import {
-  createFileRoute,
-  Outlet,
-  Link,
-  useNavigate,
-  useLocation,
-} from "@tanstack/react-router";
-import { useState, useCallback, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { BiMap, BiTable, BiInfoCircle, BiGridAlt } from "react-icons/bi";
-import { useDuckDB } from "@/context/duckdb.client";
+import { createFileRoute, Outlet, Link, useNavigate, useLocation } from "@tanstack/react-router"
+import { useState, useCallback, useEffect } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { BiMap, BiTable, BiInfoCircle, BiGridAlt } from "react-icons/bi"
+import { useDuckDB } from "@/context/duckdb.client"
 import {
   fetchCheckStationData,
   fetchCheckStationInfo,
-} from "@/lib/duckdb/DataFetching/fetchStationInfoData";
-import { Skeleton } from "@/components/ui/skeleton";
-import { TabHeader } from "@/components/ui/tab-header";
-import PageFooter from "@/components/PageFooter";
-import { EditIndicator } from "@/components/ui/EditIndicator";
+} from "@/lib/duckdb/DataFetching/fetchStationInfoData"
+import { Skeleton } from "@/components/ui/skeleton"
+import { TabHeader } from "@/components/ui/tab-header"
+import PageFooter from "@/components/PageFooter"
+import { EditIndicator } from "@/components/ui/EditIndicator"
 
 type PartsSearchParams = {
-  selectedStationId?: string;
-  selectedNodeId?: string;
-  locationTypes?: string[];
-  stopId?: string;
-  timeRangeMin?: number;
-  timeRangeMax?: number;
-};
+  selectedStationId?: string
+  selectedNodeId?: string
+  locationTypes?: string[]
+  stopId?: string
+  timeRangeMin?: number
+  timeRangeMax?: number
+}
 
 export const Route = createFileRoute("/_layout/stations/parts")({
   component: StationPartsLayout,
@@ -41,20 +35,20 @@ export const Route = createFileRoute("/_layout/stations/parts")({
       stopId: search.stopId as string | undefined,
       timeRangeMin: search.timeRangeMin as number | undefined,
       timeRangeMax: search.timeRangeMax as number | undefined,
-    };
+    }
   },
-});
+})
 
 function StationPartsLayout() {
-  const search = Route.useSearch();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { conn, initialized } = useDuckDB();
+  const search = Route.useSearch()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { conn, initialized } = useDuckDB()
 
-  const [Open, setOpen] = useState({ formType: null, state: false });
-  const [ClickInfo, setClickInfo] = useState();
+  const [Open, setOpen] = useState({ formType: null, state: false })
+  const [ClickInfo, setClickInfo] = useState()
 
-  const stationId = search.selectedStationId;
+  const stationId = search.selectedStationId
 
   const { data: stationData, isLoading: stationLoading } = useQuery({
     queryKey: ["fetchStationInfoData", stationId],
@@ -63,11 +57,11 @@ function StationPartsLayout() {
         conn,
         table: "StopsView",
         stop_id: stationId!,
-      });
+      })
     },
     enabled: !!conn && !!stationId && initialized,
     retry: false,
-  });
+  })
 
   const { data: allStationParts } = useQuery({
     queryKey: ["fetchStationData", stationId],
@@ -78,36 +72,29 @@ function StationPartsLayout() {
         StationView: { stop_id: stationId! },
         LocationsList: [],
         StopsID: undefined,
-      });
-      return result;
+      })
+      return result
     },
     enabled: !!conn && !!stationId && initialized,
     staleTime: Infinity,
     retry: false,
-  });
+  })
 
   useEffect(() => {
-    if (
-      search.selectedNodeId &&
-      allStationParts &&
-      Array.isArray(allStationParts)
-    ) {
-      const part = allStationParts.find(
-        (p: any) => p.stop_id === search.selectedNodeId,
-      );
+    if (search.selectedNodeId && allStationParts && Array.isArray(allStationParts)) {
+      const part = allStationParts.find((p: any) => p.stop_id === search.selectedNodeId)
       if (part) {
-        
-        setClickInfo({ ...part });
+        setClickInfo({ ...part })
       }
     } else if (!search.selectedNodeId && ClickInfo) {
-      setClickInfo(undefined);
+      setClickInfo(undefined)
     }
-  }, [search.selectedNodeId, allStationParts, location.pathname]);
+  }, [search.selectedNodeId, allStationParts, location.pathname])
 
   const handleSetClickInfo = useCallback(
     (value: any) => {
-      setClickInfo(value);
-      const nodeId = value?.object?.stop_id || value?.stop_id;
+      setClickInfo(value)
+      const nodeId = value?.object?.stop_id || value?.stop_id
 
       navigate({
         search: (prev) => ({
@@ -115,19 +102,19 @@ function StationPartsLayout() {
           selectedNodeId: nodeId || undefined,
         }),
         replace: true,
-      });
+      })
     },
     [navigate],
-  );
+  )
 
   if (!stationId) {
     return (
-        <div className="p-4">
-          <div className="text-sm text-muted-foreground">
-            No station selected. Please select a station from the stations list.
-          </div>
+      <div className="p-4">
+        <div className="text-sm text-muted-foreground">
+          No station selected. Please select a station from the stations list.
         </div>
-    );
+      </div>
+    )
   }
 
   if (stationLoading) {
@@ -151,19 +138,17 @@ function StationPartsLayout() {
         {}
         <Skeleton className="h-[70vh] w-full" />
       </div>
-    );
+    )
   }
 
   if (!stationData) {
-    return (
-        <div className="p-4">Error loading station information.</div>
-    );
+    return <div className="p-4">Error loading station information.</div>
   }
 
   const pathwayTabPath =
     stationData.pathways_status === "❌"
       ? "/stations/pathways/flow/column"
-      : "/stations/pathways/map/directional";
+      : "/stations/pathways/map/directional"
 
   const MainTabs = [
     {
@@ -184,7 +169,7 @@ function StationPartsLayout() {
       icon: <BiMap />,
       path: pathwayTabPath,
     },
-  ];
+  ]
 
   const ToggleTabs = [
     {
@@ -199,48 +184,46 @@ function StationPartsLayout() {
       icon: <BiTable className="w-5" />,
       path: `/stations/parts/table`,
     },
-  ];
+  ]
 
   return (
-      <div className="p-4">
-        <div className="text-4xl font-bold flex justify-center items-center gap-3 mb-6">
-          <EditIndicator status={stationData?.status} className="h-8 w-8" />
-          {stationData.stop_name}
-        </div>
+    <div className="p-4">
+      <div className="text-4xl font-bold flex justify-center items-center gap-3 mb-6">
+        <EditIndicator status={stationData?.status} className="h-8 w-8" />
+        {stationData.stop_name}
+      </div>
 
+      {}
+      <TabHeader
+        tabs={MainTabs}
+        searchParams={(prev) => ({ ...prev, selectedStationId: stationId })}
+        customActiveCheck={(pathname, tab) => pathname.startsWith(`/stations/${tab.value}`)}
+        className="mb-4"
+      />
+
+      <div className="relative flex flex-col space-y-4">
         {}
         <TabHeader
-          tabs={MainTabs}
-          searchParams={(prev) => ({ ...prev, selectedStationId: stationId })}
-          customActiveCheck={(pathname, tab) =>
-            pathname.startsWith(`/stations/${tab.value}`)
-          }
-          className="mb-4"
+          tabs={ToggleTabs}
+          searchParams={(prev) => ({
+            ...prev,
+            selectedStationId: stationId,
+            selectedNodeId: search.selectedNodeId,
+          })}
+          className="mb-2"
         />
 
-        <div className="relative flex flex-col space-y-4">
-          {}
-          <TabHeader
-            tabs={ToggleTabs}
-            searchParams={(prev) => ({
-              ...prev,
-              selectedStationId: stationId,
-              selectedNodeId: search.selectedNodeId,
-            })}
-            className="mb-2"
-          />
-
-          <Outlet
-            context={{
-              Open,
-              setOpen,
-              ClickInfo,
-              setClickInfo: handleSetClickInfo,
-            }}
-          />
-        </div>
-
-        <PageFooter />
+        <Outlet
+          context={{
+            Open,
+            setOpen,
+            ClickInfo,
+            setClickInfo: handleSetClickInfo,
+          }}
+        />
       </div>
-  );
+
+      <PageFooter />
+    </div>
+  )
 }

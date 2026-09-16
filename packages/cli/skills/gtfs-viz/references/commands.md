@@ -152,6 +152,22 @@ gtfs-viz shapes                                    # Open route map in dashboard
 
 Flags: `--shape-id`, `--shape`, `--route-id`, `--route`
 
+## Route Line Bands
+
+```bash
+gtfs-viz route-bands                                # Build parallel route-line bands
+gtfs-viz route-bands --data                         # Build, print band_rows/routes/widest_bundle
+gtfs-viz route-bands --status --data                # Report existing band counts, no rebuild
+```
+
+Detects routes sharing a corridor from the GTFS `shapes` alone, converges them
+onto one centreline, and assigns lateral lanes into `RouteShapeBandsTable` for
+the dashboard's Separate Route(s) view. Runs the DuckDB corridor macros
+(`prepare_route_shape_lanes_*` then `refresh_route_shape_bands`) in a writable
+spatial session, so use this command rather than `query` to populate the bands.
+
+Flags: `--status` (report only), `--data`, `--format json`
+
 ## Pathways & Connections
 
 ```bash

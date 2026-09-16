@@ -1,39 +1,27 @@
-import React from "react";
+import React from "react"
 
-import { BiUpload } from "react-icons/bi";
-import { Button } from "@/components/ui/button";
+import { BiUpload } from "react-icons/bi"
+import { Button } from "@/components/ui/button"
 
 interface UploadFileProps {
-  handleFileUpload: React.ChangeEventHandler<HTMLInputElement>;
+  handleFileUpload: React.ChangeEventHandler<HTMLInputElement>
 }
 
-export default function UploadFile({
-  handleFileUpload,
-}: UploadFileProps) {
-  const fileInputRef = React.useRef < HTMLInputElement | null > (null);
+export default function UploadFile({ handleFileUpload }: UploadFileProps) {
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null)
 
   const onButtonClick = () => {
     if (fileInputRef.current) {
-      fileInputRef.current.click();
+      fileInputRef.current.click()
     }
-  };
+  }
 
   return (
     <div className="mb-2">
-      <input
-        type="file"
-        accept=".zip"
-        ref={fileInputRef}
-        hidden
-        onChange={handleFileUpload}
-      />
-      <Button
-        variant={"outline"}
-        className="w-[30vh]"
-        onClick={onButtonClick}
-      >
+      <input type="file" accept=".zip" ref={fileInputRef} hidden onChange={handleFileUpload} />
+      <Button variant={"outline"} className="w-[30vh]" onClick={onButtonClick}>
         <BiUpload /> Upload GTFS Zip File
       </Button>
     </div>
-  );
+  )
 }

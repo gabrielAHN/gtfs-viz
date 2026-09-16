@@ -1,11 +1,11 @@
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton"
+import { cn } from "@/lib/utils"
 
 type PathwaysLoadingSkeletonProps = {
-  className?: string;
-  headerClassName?: string;
-  contentClassName?: string;
-};
+  className?: string
+  headerClassName?: string
+  contentClassName?: string
+}
 
 export default function PathwaysLoadingSkeleton({
   className,
@@ -15,9 +15,7 @@ export default function PathwaysLoadingSkeleton({
   return (
     <div className={cn("space-y-4", className)}>
       <Skeleton className={cn("h-12 w-full rounded-md", headerClassName)} />
-      <Skeleton
-        className={cn("h-[65vh] w-full rounded-md", contentClassName)}
-      />
+      <Skeleton className={cn("h-[65vh] w-full rounded-md", contentClassName)} />
     </div>
-  );
+  )
 }

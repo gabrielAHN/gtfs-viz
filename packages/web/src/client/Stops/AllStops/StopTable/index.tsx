@@ -1,19 +1,19 @@
-import { useMemo } from "react";
-import { ColumnDef } from "@tanstack/react-table";
+import { useMemo } from "react"
+import { ColumnDef } from "@tanstack/react-table"
 
-import Header from "./Header";
-import TableComponent from "@/components/table";
-import { WHEELCHAIR_STATUS } from "@/components/style";
+import Header from "./Header"
+import TableComponent from "@/components/table"
+import { WHEELCHAIR_STATUS } from "@/components/style"
 
 interface Stop {
-  row_id: number;
-  stop_id: string;
-  stop_name: string;
-  stop_lat?: number;
-  stop_lon?: number;
-  location_type_name?: string;
-  wheelchair_status?: string;
-  status?: string;
+  row_id: number
+  stop_id: string
+  stop_name: string
+  stop_lat?: number
+  stop_lon?: number
+  location_type_name?: string
+  wheelchair_status?: string
+  status?: string
 }
 
 function StopTable({
@@ -27,8 +27,8 @@ function StopTable({
   clearSortingTrigger,
 }) {
   const getWheelchairStatusLabel = (emoji: string): string => {
-    return WHEELCHAIR_STATUS[emoji]?.name || emoji;
-  };
+    return WHEELCHAIR_STATUS[emoji]?.name || emoji
+  }
 
   const columns = useMemo<ColumnDef<Stop>[]>(
     () => [
@@ -56,8 +56,8 @@ function StopTable({
         accessorKey: "wheelchair_status",
         header: "Wheelchair",
         cell: ({ row }) => {
-          const emoji = row.original.wheelchair_status || "";
-          const label = getWheelchairStatusLabel(emoji);
+          const emoji = row.original.wheelchair_status || ""
+          const label = getWheelchairStatusLabel(emoji)
           return (
             <span className="inline-block relative group">
               {emoji}
@@ -65,12 +65,12 @@ function StopTable({
                 {label}
               </span>
             </span>
-          );
+          )
         },
       },
     ],
     [ClickInfo, setClickInfo],
-  );
+  )
 
   return (
     <TableComponent
@@ -85,7 +85,7 @@ function StopTable({
     >
       <Header ClickInfo={ClickInfo} setClickInfo={setClickInfo} setOpen={setOpen} />
     </TableComponent>
-  );
+  )
 }
 
-export default StopTable;
+export default StopTable

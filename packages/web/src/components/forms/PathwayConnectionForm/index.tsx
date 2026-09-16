@@ -1,67 +1,59 @@
-import { ArrowLeftRight } from "lucide-react";
+import { ArrowLeftRight } from "lucide-react"
 
-import Combobox from "@/components/ui/combobox";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import Combobox from "@/components/ui/combobox"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/components/ui/select"
 import type {
   DetachedConnectionEndpointFocus,
   EdgeFormValues,
   EdgeOptionalFieldKey,
-} from "@/components/pathways/flow-editor/core/types";
+} from "@/components/pathways/flow-editor/core/types"
 import {
   DIRECTION_OPTIONS,
   EDGE_OPTIONAL_FIELDS,
   PATHWAY_MODE_OPTIONS,
-} from "@/components/pathways/flow-editor/core/shared";
-import FormShell from "@/components/forms/shared/FormShell";
+} from "@/components/pathways/flow-editor/core/shared"
+import FormShell from "@/components/forms/shared/FormShell"
 
 type ComboboxOption = {
-  value: string;
-  label: string;
-  color?: string;
-  searchLabel?: string;
-};
+  value: string
+  label: string
+  color?: string
+  searchLabel?: string
+}
 
 type PathwayConnectionFormProps = {
-  edgePanelMode: "list" | "create" | "edit";
-  isEditingDetachedConnectionDraft: boolean;
-  detachedConnectionEndpointFocus: DetachedConnectionEndpointFocus;
-  edgeFormValues: EdgeFormValues;
-  edgeFormDefaults: EdgeFormValues;
-  edgeFormSubmitting: boolean;
-  edgeFormError: string | null;
-  isEdgeFormValid: boolean;
-  isEdgeFormDirty: boolean;
-  editingPathwayConnection: any;
-  potentialEdge: any;
-  panelSourceId: string;
-  panelTargetId: string;
-  visibleEdgeOptionalFields: Record<EdgeOptionalFieldKey, boolean>;
-  repairNodeOptions: ComboboxOption[];
-  handleEdgeFormSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-  handleDetachedEndpointFocusChange: (
-    focus: DetachedConnectionEndpointFocus,
-  ) => void;
-  handleDetachedEndpointSelection: (
-    field: "from_stop_id" | "to_stop_id",
-    value?: string,
-  ) => void;
-  handleReverseDetachedEndpoints: () => void;
-  handleEdgeFormFieldChange: (
-    field: keyof EdgeFormValues,
-    value: string,
-  ) => void;
-  showEdgeOptionalField: (field: EdgeOptionalFieldKey) => void;
-  setEdgeFormValues: (value: EdgeFormValues) => void;
-  setEdgeFormError: (value: string | null) => void;
-};
+  edgePanelMode: "list" | "create" | "edit"
+  isEditingDetachedConnectionDraft: boolean
+  detachedConnectionEndpointFocus: DetachedConnectionEndpointFocus
+  edgeFormValues: EdgeFormValues
+  edgeFormDefaults: EdgeFormValues
+  edgeFormSubmitting: boolean
+  edgeFormError: string | null
+  isEdgeFormValid: boolean
+  isEdgeFormDirty: boolean
+  editingPathwayConnection: any
+  potentialEdge: any
+  panelSourceId: string
+  panelTargetId: string
+  visibleEdgeOptionalFields: Record<EdgeOptionalFieldKey, boolean>
+  repairNodeOptions: ComboboxOption[]
+  handleEdgeFormSubmit: (event: React.FormEvent<HTMLFormElement>) => void
+  handleDetachedEndpointFocusChange: (focus: DetachedConnectionEndpointFocus) => void
+  handleDetachedEndpointSelection: (field: "from_stop_id" | "to_stop_id", value?: string) => void
+  handleReverseDetachedEndpoints: () => void
+  handleEdgeFormFieldChange: (field: keyof EdgeFormValues, value: string) => void
+  showEdgeOptionalField: (field: EdgeOptionalFieldKey) => void
+  setEdgeFormValues: (value: EdgeFormValues) => void
+  setEdgeFormError: (value: string | null) => void
+}
 
 const CORE_EDGE_FORM_FIELDS = [
   {
@@ -79,7 +71,7 @@ const CORE_EDGE_FORM_FIELDS = [
     step: "0.01",
     inputMode: "decimal" as const,
   },
-];
+]
 
 function DetachedConnectionEndsSection({
   detachedConnectionEndpointFocus,
@@ -92,23 +84,15 @@ function DetachedConnectionEndsSection({
   handleEdgeFormFieldChange,
   editingPathwayConnection,
 }: {
-  detachedConnectionEndpointFocus: DetachedConnectionEndpointFocus;
-  edgeFormSubmitting: boolean;
-  edgeFormValues: EdgeFormValues;
-  repairNodeOptions: ComboboxOption[];
-  handleDetachedEndpointFocusChange: (
-    focus: DetachedConnectionEndpointFocus,
-  ) => void;
-  handleDetachedEndpointSelection: (
-    field: "from_stop_id" | "to_stop_id",
-    value?: string,
-  ) => void;
-  handleReverseDetachedEndpoints: () => void;
-  handleEdgeFormFieldChange: (
-    field: keyof EdgeFormValues,
-    value: string,
-  ) => void;
-  editingPathwayConnection: any;
+  detachedConnectionEndpointFocus: DetachedConnectionEndpointFocus
+  edgeFormSubmitting: boolean
+  edgeFormValues: EdgeFormValues
+  repairNodeOptions: ComboboxOption[]
+  handleDetachedEndpointFocusChange: (focus: DetachedConnectionEndpointFocus) => void
+  handleDetachedEndpointSelection: (field: "from_stop_id" | "to_stop_id", value?: string) => void
+  handleReverseDetachedEndpoints: () => void
+  handleEdgeFormFieldChange: (field: keyof EdgeFormValues, value: string) => void
+  editingPathwayConnection: any
 }) {
   return (
     <div className="space-y-3">
@@ -208,7 +192,7 @@ function DetachedConnectionEndsSection({
         Drag the orphan node, click nodes on the canvas, or choose nodes here before saving.
       </p>
     </div>
-  );
+  )
 }
 
 function ConnectionSummarySection({
@@ -218,11 +202,11 @@ function ConnectionSummarySection({
   panelSourceId,
   panelTargetId,
 }: {
-  edgePanelMode: "list" | "create" | "edit";
-  potentialEdge: any;
-  editingPathwayConnection: any;
-  panelSourceId: string;
-  panelTargetId: string;
+  edgePanelMode: "list" | "create" | "edit"
+  potentialEdge: any
+  editingPathwayConnection: any
+  panelSourceId: string
+  panelTargetId: string
 }) {
   return (
     <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
@@ -250,7 +234,7 @@ function ConnectionSummarySection({
         </>
       )}
     </div>
-  );
+  )
 }
 
 function PathwayConnectionForm({
@@ -278,7 +262,7 @@ function PathwayConnectionForm({
   setEdgeFormValues,
   setEdgeFormError,
 }: PathwayConnectionFormProps) {
-  const isCreate = edgePanelMode === "create";
+  const isCreate = edgePanelMode === "create"
 
   return (
     <FormShell
@@ -289,8 +273,8 @@ function PathwayConnectionForm({
       busyLabel={isCreate ? "Creating..." : "Saving..."}
       error={edgeFormError}
       onReset={() => {
-        setEdgeFormValues(edgeFormDefaults);
-        setEdgeFormError(null);
+        setEdgeFormValues(edgeFormDefaults)
+        setEdgeFormError(null)
       }}
     >
       <div className="space-y-4">
@@ -401,7 +385,8 @@ function PathwayConnectionForm({
           </div>
         )}
 
-        {EDGE_OPTIONAL_FIELDS.filter((field) => visibleEdgeOptionalFields[field.key]).length > 0 && (
+        {EDGE_OPTIONAL_FIELDS.filter((field) => visibleEdgeOptionalFields[field.key]).length >
+          0 && (
           <div className="grid gap-3 md:grid-cols-2">
             {EDGE_OPTIONAL_FIELDS.filter((field) => visibleEdgeOptionalFields[field.key]).map(
               (field) => (
@@ -424,7 +409,7 @@ function PathwayConnectionForm({
         )}
       </div>
     </FormShell>
-  );
+  )
 }
 
-export default PathwayConnectionForm;
+export default PathwayConnectionForm

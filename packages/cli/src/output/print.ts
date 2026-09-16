@@ -285,6 +285,24 @@ const commandHelp: Record<string, string> = {
     gtfs-viz shapes --route R1 --data               Shapes for route R1
     gtfs-viz shapes shape-123 --data                Points for shape-123`,
 
+  "route-bands": `gtfs-viz route-bands [flags]
+
+  Build the parallel route-line bands from the imported feed. Routes sharing a
+  corridor are converged onto one centreline and assigned lateral lanes, written
+  to RouteShapeBandsTable for the dashboard's Separate Route(s) view. Runs the
+  DuckDB corridor macros (prepare_route_shape_lanes_* then
+  refresh_route_shape_bands) against the local database.
+
+  Flags:
+    --status                Report the existing band counts without rebuilding
+    --data                  Print band_rows, routes, widest_bundle as a row
+    --format json           JSON output
+
+  Examples:
+    gtfs-viz route-bands                             Build bands, print a summary
+    gtfs-viz route-bands --data                      Build bands, print counts
+    gtfs-viz route-bands --status --data             Report existing band counts`,
+
   edit_table: `gtfs-viz edit_table [table] [flags]
 
   Show edit tracking tables.
@@ -661,6 +679,7 @@ const commandHelp: Record<string, string> = {
 };
 
 const commandAliases: Record<string, string> = {
+  "route_bands": "route-bands",
   "station-connections": "station_connections",
   "station-pathways": "station_pathways",
   "station-routes": "station_routes",
@@ -712,6 +731,7 @@ Data:
   trip <trip-id>                     View trip stop times
   calendar [service-id]              Browse services/calendar
   shapes [shape-id]                  Browse route shapes
+  route-bands [--status]             Build parallel route-line bands (Separate Route(s))
 
 Edit:
   edit_table [table]                 Show edit tracking tables

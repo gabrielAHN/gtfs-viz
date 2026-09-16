@@ -1,26 +1,26 @@
-import { ArrowLeft, Edit, LocateFixed, Trash2, X } from "lucide-react";
+import { ArrowLeft, Edit, LocateFixed, Trash2, X } from "lucide-react"
 
-import { rgbToHex } from "@/components/colorUtil";
-import EntityForm from "@/components/forms/EntityForm";
-import { getStopColor } from "@/components/style";
-import { EditIndicator } from "@/components/ui/EditIndicator";
-import { Button } from "@/components/ui/button";
+import { rgbToHex } from "@/components/colorUtil"
+import EntityForm from "@/components/forms/EntityForm"
+import { getStopColor } from "@/components/style"
+import { EditIndicator } from "@/components/ui/EditIndicator"
+import { Button } from "@/components/ui/button"
 
-import { FlowPopupPanel } from "../core/shared";
+import { FlowPopupPanel } from "../core/shared"
 
 type NodeFormPanelProps = {
-  theme: string;
-  nodeFormMode: "add" | "edit";
-  activeNodeFormClickInfo: any;
-  selectedNode: any;
-  parentStationId?: string;
-  isNodeFormOpen: boolean;
-  closeNodeForm: () => void;
-  focusNodeById: (nodeId: string) => void;
-  pathwayStops: any[];
-  setNodeFormOpenValue: (value: { formType: string | null; state: boolean }) => void;
-  setNodeFormClickInfo: (value: any) => void;
-};
+  theme: string
+  nodeFormMode: "add" | "edit"
+  activeNodeFormClickInfo: any
+  selectedNode: any
+  parentStationId?: string
+  isNodeFormOpen: boolean
+  closeNodeForm: () => void
+  focusNodeById: (nodeId: string) => void
+  pathwayStops: any[]
+  setNodeFormOpenValue: (value: { formType: string | null; state: boolean }) => void
+  setNodeFormClickInfo: (value: any) => void
+}
 
 export function PathwayFlowNodeFormPanel({
   theme,
@@ -38,7 +38,7 @@ export function PathwayFlowNodeFormPanel({
   const nodeFormBorderColor =
     nodeFormMode === "edit" && activeNodeFormClickInfo
       ? rgbToHex(getStopColor(activeNodeFormClickInfo.location_type_name || "Unknown", theme))
-      : "hsl(var(--primary))";
+      : "hsl(var(--primary))"
 
   return (
     <FlowPopupPanel
@@ -101,11 +101,11 @@ export function PathwayFlowNodeFormPanel({
         }}
         setOpenValue={(value) => {
           if (!value.state) {
-            closeNodeForm();
-            return;
+            closeNodeForm()
+            return
           }
 
-          setNodeFormOpenValue(value);
+          setNodeFormOpenValue(value)
         }}
         ClickInfo={activeNodeFormClickInfo}
         setClickInfo={setNodeFormClickInfo}
@@ -117,22 +117,22 @@ export function PathwayFlowNodeFormPanel({
         showLevelField={true}
       />
     </FlowPopupPanel>
-  );
+  )
 }
 
 type NodeInfoPanelProps = {
-  selectedNode: any;
-  freshNodeData: any;
-  color: string;
-  selectedFromStop?: string;
-  selectedToStop?: string;
-  setSelectedNode: (value: any) => void;
-  onSelectedFromStopChange?: (stopId?: string) => void;
-  onSelectedToStopChange?: (stopId?: string) => void;
-  openNodeForm: (mode: "add" | "edit", clickInfo?: any) => void;
-  focusNodeById: (nodeId: string) => void;
-  handleDeleteNode: (nodeId: string) => void;
-};
+  selectedNode: any
+  freshNodeData: any
+  color: string
+  selectedFromStop?: string
+  selectedToStop?: string
+  setSelectedNode: (value: any) => void
+  onSelectedFromStopChange?: (stopId?: string) => void
+  onSelectedToStopChange?: (stopId?: string) => void
+  openNodeForm: (mode: "add" | "edit", clickInfo?: any) => void
+  focusNodeById: (nodeId: string) => void
+  handleDeleteNode: (nodeId: string) => void
+}
 
 export function PathwayFlowNodeInfoPanel({
   selectedNode,
@@ -166,7 +166,7 @@ export function PathwayFlowNodeInfoPanel({
           variant="ghost"
           size="sm"
           onClick={() => {
-            setSelectedNode(null);
+            setSelectedNode(null)
           }}
           className="h-7 w-7 p-0"
           title="Close Node"
@@ -220,8 +220,8 @@ export function PathwayFlowNodeInfoPanel({
                   selectedToStop === String(freshNodeData.stop_id)
                 }
                 onClick={() => {
-                  onSelectedFromStopChange?.(String(freshNodeData.stop_id));
-                  setSelectedNode(null);
+                  onSelectedFromStopChange?.(String(freshNodeData.stop_id))
+                  setSelectedNode(null)
                 }}
                 className="h-8 px-2 text-xs"
               >
@@ -236,8 +236,8 @@ export function PathwayFlowNodeInfoPanel({
                   selectedToStop === String(freshNodeData.stop_id)
                 }
                 onClick={() => {
-                  onSelectedToStopChange?.(String(freshNodeData.stop_id));
-                  setSelectedNode(null);
+                  onSelectedToStopChange?.(String(freshNodeData.stop_id))
+                  setSelectedNode(null)
                 }}
                 className="h-8 px-2 text-xs"
               >
@@ -251,7 +251,7 @@ export function PathwayFlowNodeInfoPanel({
               type="button"
               variant="icon"
               onClick={() => {
-                focusNodeById(selectedNode.id);
+                focusNodeById(selectedNode.id)
               }}
               className="h-8 w-8"
               title="Focus Node"
@@ -262,7 +262,7 @@ export function PathwayFlowNodeInfoPanel({
               type="button"
               variant="icon"
               onClick={() => {
-                openNodeForm("edit", freshNodeData);
+                openNodeForm("edit", freshNodeData)
               }}
               className="h-8 w-8"
               title="Edit Node"
@@ -273,7 +273,7 @@ export function PathwayFlowNodeInfoPanel({
               type="button"
               variant="icon"
               onClick={() => {
-                handleDeleteNode(selectedNode.id);
+                handleDeleteNode(selectedNode.id)
               }}
               className="h-8 w-8 border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
               title="Delete Node"
@@ -284,5 +284,5 @@ export function PathwayFlowNodeInfoPanel({
         </div>
       </div>
     </FlowPopupPanel>
-  );
+  )
 }

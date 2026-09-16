@@ -23,13 +23,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": [
-    "src",
-    "vite.config.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "src/src"
-  ]
+  "include": ["src", "vite.config.ts"],
+  "exclude": ["node_modules", "dist", "src/src"]
 }

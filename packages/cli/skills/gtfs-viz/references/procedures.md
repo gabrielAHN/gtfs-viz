@@ -206,6 +206,72 @@ FROM get_reroute_stop_times('AFFECTED_TRIP', 'DONOR_TRIP', 'FROM STATION', 'TO S
 
 Returns: `stop_sequence`, `stop_id`, `arrival_time`, `departure_time`
 
+## Route Line Macros
+
+Render overlapping route lines as clean parallel bands from the GTFS `shapes`
+alone (no OSM). Routes sharing a stretch of track are detected as a shared
+corridor, converged onto one centreline, and each assigned a lateral lane. These
+macros need the spatial extension (`LOAD spatial`) and write to tables, so run
+them with `gtfs-viz route-bands` or a writable DuckDB session — the read-only
+`gtfs-viz query` cannot execute them.
+
+The two-phase pipeline stages into `RouteShapeLanesTable` (lane assignment) and
+finishes into `RouteShapeBandsTable` (faired geometry the dashboard reads).
+
+### prepare_route_shape_lanes_rail() / prepare_route_shape_lanes_bus() / prepare_route_shape_lanes_other()
+
+Phase one: assign each route a lane within every corridor it shares with other
+routes of the same mode group. Insert the results into `RouteShapeLanesTable`.
+
+```sql
+LOAD spatial;
+INSERT INTO RouteShapeLanesTable SELECT * FROM prepare_route_shape_lanes_rail();
+INSERT INTO RouteShapeLanesTable SELECT * FROM prepare_route_shape_lanes_bus();
+INSERT INTO RouteShapeLanesTable SELECT * FROM prepare_route_shape_lanes_other();
+```
+
+Returns: `RouteShapeLanesTable` columns (`route_id`, `shape_id`,
+`shape_pt_sequence`, `lat`, `lon`, lane bookkeeping).
+
+### finish_route_shape_bands(route_ids)
+
+Phase two: fair the lane geometry for a set of routes and produce band rows.
+
+```sql
+SELECT * FROM finish_route_shape_bands(['R1', 'R2']);
+```
+
+Returns: `RouteShapeBandsTable` columns.
+
+### refresh_route_shape_bands()
+
+Finish every route currently staged in `RouteShapeLanesTable`.
+
+```sql
+INSERT INTO RouteShapeBandsTable SELECT * FROM refresh_route_shape_bands();
+```
+
+Returns: `RouteShapeBandsTable` columns.
+
+### get_station_line_bands(route_ids, p_kind := 'route', spacing_meters := 30.0)
+
+Schematic banded lines built from station nodes rather than shape geometry: for
+the given route ids (or trip ids with `p_kind := 'trip'`) it draws straight
+segments between the stations each entity visits, and where several entities
+share a station-to-station corridor it fans them into parallel bands. `p_ids` is
+a list, so pass an array. This is independent of the `route-bands` pipeline and
+does not read `RouteShapeBandsTable`.
+
+```sql
+SELECT * FROM get_station_line_bands(['1', '2', '3']);
+SELECT * FROM get_station_line_bands(['TRIP_A', 'TRIP_B'], p_kind := 'trip');
+```
+
+Returns: `entity_kind`, `entity_id`, `route_id`, `route_name`, `route_color_hex`,
+`route_text_color_hex`, `route_type_name`, `shape_id`, `shape_pt_lat`,
+`shape_pt_lon`, `shape_pt_sequence`, `shape_dist_traveled`, `band_index`,
+`band_count`
+
 ## Pathfinding Macros
 
 ### find_shortest_path(p_station_id, start_stop, end_stop, max_hops)

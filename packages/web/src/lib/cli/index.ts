@@ -5,4 +5,4 @@ export {
   readCliLaunchProfileFromUrl,
   resolveCliLaunchTarget,
   type CliLaunchProfile,
-} from "./launchProfile";
+} from "./launchProfile"

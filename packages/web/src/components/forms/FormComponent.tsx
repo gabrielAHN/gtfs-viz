@@ -1,34 +1,34 @@
-import { useState, useEffect } from "react";
-import type { ReactNode } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useState, useEffect } from "react"
+import type { ReactNode } from "react"
+import { useMutation } from "@tanstack/react-query"
+import { useForm } from "react-hook-form"
 
-import { Form } from "@/components/ui/form";
-import FormFieldsRenderer from "./FormFieldsRenderer";
-import FormShell from "./shared/FormShell";
+import { Form } from "@/components/ui/form"
+import FormFieldsRenderer from "./FormFieldsRenderer"
+import FormShell from "./shared/FormShell"
 
 interface FormField {
-  name: string;
-  label?: string;
-  type: "formField" | "map" | "routeLine";
-  parts: any;
+  name: string
+  label?: string
+  type: "formField" | "map" | "routeLine"
+  parts: any
 }
 
 interface FormComponentProps {
-  inputData: FormField[];
-  mutationFn: (data: any) => Promise<any>;
-  header: string;
-  buttonLabel: "Create" | "Edit";
-  onSuccess?: (data?: any) => void;
-  onError?: (error: any) => void;
-  onReset?: () => void;
-  defaultValues?: Record<string, any>;
-  customActions?: ReactNode;
-  disableInputs?: boolean;
-  validationMode?: "onBlur" | "onChange" | "onSubmit" | "all";
-  enableSubmitButton?: boolean;
-  onMutationStateChange?: (isPending: boolean) => void;
-  hideHeader?: boolean;
+  inputData: FormField[]
+  mutationFn: (data: any) => Promise<any>
+  header: string
+  buttonLabel: "Create" | "Edit"
+  onSuccess?: (data?: any) => void
+  onError?: (error: any) => void
+  onReset?: () => void
+  defaultValues?: Record<string, any>
+  customActions?: ReactNode
+  disableInputs?: boolean
+  validationMode?: "onBlur" | "onChange" | "onSubmit" | "all"
+  enableSubmitButton?: boolean
+  onMutationStateChange?: (isPending: boolean) => void
+  hideHeader?: boolean
 }
 
 function FormComponent({
@@ -53,49 +53,49 @@ function FormComponent({
     reValidateMode: validationMode === "all" ? "onChange" : validationMode,
     criteriaMode: "all",
     shouldFocusError: true,
-  });
+  })
 
   const {
     handleSubmit,
     reset,
     formState: { isDirty, isValid },
-  } = form;
+  } = form
 
-  const [submissionError, setSubmissionError] = useState<string | null>(null);
-  const [submittedData, setSubmittedData] = useState<any>(null);
+  const [submissionError, setSubmissionError] = useState<string | null>(null)
+  const [submittedData, setSubmittedData] = useState<any>(null)
 
   const mutation = useMutation({
     mutationFn,
     onSuccess: (data) => {
-      reset(defaultValues);
-      setSubmissionError(null);
-      setSubmittedData(null);
-      onSuccess?.(data);
+      reset(defaultValues)
+      setSubmissionError(null)
+      setSubmittedData(null)
+      onSuccess?.(data)
     },
     onError: (error: any) => {
-      setSubmissionError(error.message);
-      setSubmittedData(null);
-      onError?.(error);
+      setSubmissionError(error.message)
+      setSubmittedData(null)
+      onError?.(error)
     },
-  });
+  })
 
   useEffect(() => {
-    onMutationStateChange?.(mutation.isPending);
-  }, [mutation.isPending, onMutationStateChange]);
+    onMutationStateChange?.(mutation.isPending)
+  }, [mutation.isPending, onMutationStateChange])
 
   const onSubmit = (data: any) => {
-    setSubmissionError(null);
-    setSubmittedData(data);
-    mutation.mutate(data);
-  };
+    setSubmissionError(null)
+    setSubmittedData(data)
+    mutation.mutate(data)
+  }
 
   const handleReset = () => {
-    reset(defaultValues);
-    setSubmissionError(null);
-    onReset?.();
-  };
+    reset(defaultValues)
+    setSubmissionError(null)
+    onReset?.()
+  }
 
-  const isBusy = mutation.isPending || disableInputs;
+  const isBusy = mutation.isPending || disableInputs
 
   return (
     <Form {...form}>
@@ -123,7 +123,7 @@ function FormComponent({
         />
       </FormShell>
     </Form>
-  );
+  )
 }
 
-export default FormComponent;
+export default FormComponent

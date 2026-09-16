@@ -1,35 +1,35 @@
-import React from "react";
-import { Accessibility, Plus } from "lucide-react";
-import { BiReset } from "react-icons/bi";
-import { Button } from "@/components/ui/button";
-import Combobox from "@/components/ui/combobox";
-import { Switch } from "@/components/ui/switch";
+import React from "react"
+import { Accessibility, Plus } from "lucide-react"
+import { BiReset } from "react-icons/bi"
+import { Button } from "@/components/ui/button"
+import Combobox from "@/components/ui/combobox"
+import { Switch } from "@/components/ui/switch"
 
-type EdgeLabelMode = "type" | "time";
+type EdgeLabelMode = "type" | "time"
 
 interface PathwayFlowHeaderProps {
-  selectedFromStop?: string;
-  onSelectedFromStopChange: (value?: string) => void;
-  selectedToStop?: string;
-  onSelectedToStopChange: (value?: string) => void;
+  selectedFromStop?: string
+  onSelectedFromStopChange: (value?: string) => void
+  selectedToStop?: string
+  onSelectedToStopChange: (value?: string) => void
   fromStopOptions: {
-    id: string;
-    label: string;
-    color?: string;
-    searchLabel?: string;
-  }[];
+    id: string
+    label: string
+    color?: string
+    searchLabel?: string
+  }[]
   toStopOptions: {
-    id: string;
-    label: string;
-    color?: string;
-    searchLabel?: string;
-  }[];
-  wheelchairAccessibleOnly: boolean;
-  onWheelchairAccessibleOnlyChange: (value: boolean) => void;
-  showWheelchairAccessibleSwitch: boolean;
-  edgeLabelMode: EdgeLabelMode;
-  onEdgeLabelModeChange: (mode: EdgeLabelMode) => void;
-  onCreateNode: () => void;
+    id: string
+    label: string
+    color?: string
+    searchLabel?: string
+  }[]
+  wheelchairAccessibleOnly: boolean
+  onWheelchairAccessibleOnlyChange: (value: boolean) => void
+  showWheelchairAccessibleSwitch: boolean
+  edgeLabelMode: EdgeLabelMode
+  onEdgeLabelModeChange: (mode: EdgeLabelMode) => void
+  onCreateNode: () => void
 }
 
 export const PathwayFlowHeader: React.FC<PathwayFlowHeaderProps> = ({
@@ -46,8 +46,7 @@ export const PathwayFlowHeader: React.FC<PathwayFlowHeaderProps> = ({
   onEdgeLabelModeChange,
   onCreateNode,
 }) => {
-  const hasActiveFilters =
-    !!selectedFromStop || !!selectedToStop || wheelchairAccessibleOnly;
+  const hasActiveFilters = !!selectedFromStop || !!selectedToStop || wheelchairAccessibleOnly
 
   return (
     <div className="mt-2">
@@ -57,9 +56,9 @@ export const PathwayFlowHeader: React.FC<PathwayFlowHeaderProps> = ({
             variant="outline"
             disabled={!hasActiveFilters}
             onClick={() => {
-              onSelectedFromStopChange(undefined);
-              onSelectedToStopChange(undefined);
-              onWheelchairAccessibleOnlyChange(false);
+              onSelectedFromStopChange(undefined)
+              onSelectedToStopChange(undefined)
+              onWheelchairAccessibleOnlyChange(false)
             }}
             className="h-9 w-full justify-center px-2.5 text-xs md:w-[136px]"
           >
@@ -94,9 +93,7 @@ export const PathwayFlowHeader: React.FC<PathwayFlowHeaderProps> = ({
             <span>Edge: {edgeLabelMode === "time" ? "Time" : "Type"}</span>
             <Switch
               checked={edgeLabelMode === "time"}
-              onCheckedChange={(checked) =>
-                onEdgeLabelModeChange(checked ? "time" : "type")
-              }
+              onCheckedChange={(checked) => onEdgeLabelModeChange(checked ? "time" : "type")}
               aria-label="Edge labels"
               className="scale-90 origin-right"
             />
@@ -134,5 +131,5 @@ export const PathwayFlowHeader: React.FC<PathwayFlowHeaderProps> = ({
         </div>
       </div>
     </div>
-  );
-};
+  )
+}

@@ -1,21 +1,25 @@
-import { Input } from "@/components/ui/input";
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectItem,
   SelectContent,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { validateTableData } from "@/lib/duckdb/DataEditing/validatingData";
-import { STOP_ID_PATTERN, LATITUDE_RULES, LONGITUDE_RULES } from "@/components/forms/shared/validation";
-import CoordinateInput from "@/components/forms/shared/inputs/CoordinateInput";
+} from "@/components/ui/select"
+import { validateTableData } from "@/lib/duckdb/DataEditing/validatingData"
+import {
+  STOP_ID_PATTERN,
+  LATITUDE_RULES,
+  LONGITUDE_RULES,
+} from "@/components/forms/shared/validation"
+import CoordinateInput from "@/components/forms/shared/inputs/CoordinateInput"
 
 export type LocationTypeConfig = {
-  show: boolean;
-  options?: Array<{ value: string; label: string }>;
-  defaultValue?: string;
-  required?: boolean;
-};
+  show: boolean
+  options?: Array<{ value: string; label: string }>
+  defaultValue?: string
+  required?: boolean
+}
 
 export const LOCATION_TYPE_CONFIGS = {
   STOP: {
@@ -40,7 +44,7 @@ export const LOCATION_TYPE_CONFIGS = {
     ],
     required: true,
   } as LocationTypeConfig,
-};
+}
 
 export const STOP_STATION_QUERY_KEYS = [
   "createStationTable",
@@ -52,17 +56,17 @@ export const STOP_STATION_QUERY_KEYS = [
   "fetchStationData",
   "fetchStationInfoData",
   "stationPathwaysComplete",
-] as const;
+] as const
 
 type StopStationFieldsParams = {
-  mode: "add" | "edit";
-  type: "station" | "stop";
-  conn: any;
-  ClickInfo: any;
-  Data: any[];
-  parentStation?: string;
-  showLevelField?: boolean;
-};
+  mode: "add" | "edit"
+  type: "station" | "stop"
+  conn: any
+  ClickInfo: any
+  Data: any[]
+  parentStation?: string
+  showLevelField?: boolean
+}
 
 export function getStopStationFields({
   mode,
@@ -73,20 +77,20 @@ export function getStopStationFields({
   parentStation,
   showLevelField = false,
 }: StopStationFieldsParams) {
-  const isStation = type === "station";
-  const isAddMode = mode === "add";
-  const isEditMode = mode === "edit";
-  const isChildNode = !!parentStation;
-  const tableName = isStation ? "StationsTable" : "StopsTable";
-  const placeholder = isStation ? "place-CM-0493" : "stop-123";
+  const isStation = type === "station"
+  const isAddMode = mode === "add"
+  const isEditMode = mode === "edit"
+  const isChildNode = !!parentStation
+  const tableName = isStation ? "StationsTable" : "StopsTable"
+  const placeholder = isStation ? "place-CM-0493" : "stop-123"
 
   const locationTypeConfig = isStation
     ? LOCATION_TYPE_CONFIGS.STATION
     : isChildNode
       ? LOCATION_TYPE_CONFIGS.NODE
-      : LOCATION_TYPE_CONFIGS.STOP;
+      : LOCATION_TYPE_CONFIGS.STOP
 
-  const fields: any[] = [];
+  const fields: any[] = []
 
   if (isAddMode) {
     fields.push({
@@ -111,20 +115,20 @@ export function getStopStationFields({
           validate: {
             checkDuplicate: async (value: string) => {
               if (!value || !STOP_ID_PATTERN.value.test(value)) {
-                return true;
+                return true
               }
               const queryResult = await validateTableData({
                 conn,
                 table: tableName,
                 column: "stop_id",
                 value,
-              });
-              return queryResult || "Stop Id already exists";
+              })
+              return queryResult || "Stop Id already exists"
             },
           },
         },
       },
-    });
+    })
   }
 
   fields.push({
@@ -147,7 +151,7 @@ export function getStopStationFields({
         required: "Name is required",
       },
     },
-  });
+  })
 
   // Location type field for NODE entities (add mode only)
   if (isAddMode && locationTypeConfig.show) {
@@ -160,7 +164,7 @@ export function getStopStationFields({
           <Select
             value={value || ""}
             onValueChange={(val) => {
-              onChange(val);
+              onChange(val)
             }}
             disabled={false}
           >
@@ -176,11 +180,9 @@ export function getStopStationFields({
             </SelectContent>
           </Select>
         ),
-        rules: locationTypeConfig.required
-          ? { required: "Location Type is required" }
-          : undefined,
+        rules: locationTypeConfig.required ? { required: "Location Type is required" } : undefined,
       },
-    });
+    })
   }
 
   if (showLevelField) {
@@ -201,7 +203,7 @@ export function getStopStationFields({
           />
         ),
       },
-    });
+    })
   }
 
   fields.push({
@@ -214,7 +216,7 @@ export function getStopStationFields({
         <Select
           value={value || ""}
           onValueChange={(val) => {
-            onChange(val);
+            onChange(val)
           }}
           disabled={disabled}
         >
@@ -233,7 +235,7 @@ export function getStopStationFields({
         required: "Wheelchair accessibility is required",
       },
     },
-  });
+  })
 
   fields.push({
     name: "location",
@@ -245,7 +247,13 @@ export function getStopStationFields({
         label: "Latitude",
         ...(isEditMode && { editLabel: ClickInfo?.stop_lat }),
         renderInput: (field: any) => (
-          <CoordinateInput type="lat" value={field.value} onChange={field.onChange} ref={field.ref} disabled={field.disabled} />
+          <CoordinateInput
+            type="lat"
+            value={field.value}
+            onChange={field.onChange}
+            ref={field.ref}
+            disabled={field.disabled}
+          />
         ),
         rules: LATITUDE_RULES,
       },
@@ -254,22 +262,28 @@ export function getStopStationFields({
         label: "Longitude",
         ...(isEditMode && { editLabel: ClickInfo?.stop_lon }),
         renderInput: (field: any) => (
-          <CoordinateInput type="lon" value={field.value} onChange={field.onChange} ref={field.ref} disabled={field.disabled} />
+          <CoordinateInput
+            type="lon"
+            value={field.value}
+            onChange={field.onChange}
+            ref={field.ref}
+            disabled={field.disabled}
+          />
         ),
         rules: LONGITUDE_RULES,
       },
     },
-  });
+  })
 
-  return fields;
+  return fields
 }
 
 type StopStationDefaultsParams = {
-  mode: "add" | "edit";
-  type: "station" | "stop";
-  ClickInfo: any;
-  parentStation?: string;
-};
+  mode: "add" | "edit"
+  type: "station" | "stop"
+  ClickInfo: any
+  parentStation?: string
+}
 
 export function getStopStationDefaults({
   mode,
@@ -277,13 +291,13 @@ export function getStopStationDefaults({
   ClickInfo,
   parentStation,
 }: StopStationDefaultsParams) {
-  const isStation = type === "station";
-  const isChildNode = !!parentStation;
+  const isStation = type === "station"
+  const isChildNode = !!parentStation
   const locationTypeConfig = isStation
     ? LOCATION_TYPE_CONFIGS.STATION
     : isChildNode
       ? LOCATION_TYPE_CONFIGS.NODE
-      : LOCATION_TYPE_CONFIGS.STOP;
+      : LOCATION_TYPE_CONFIGS.STOP
 
   if (mode === "add") {
     return {
@@ -295,7 +309,7 @@ export function getStopStationDefaults({
       level_id: "",
       lat: "",
       lon: "",
-    };
+    }
   }
 
   return {
@@ -307,7 +321,7 @@ export function getStopStationDefaults({
     level_id: ClickInfo?.level_id || "",
     lat: ClickInfo?.stop_lat || "",
     lon: ClickInfo?.stop_lon || "",
-  };
+  }
 }
 
 export function getStopStationHeader(
@@ -315,8 +329,8 @@ export function getStopStationHeader(
   mode: "add" | "edit",
   parentStation?: string,
 ) {
-  const isStation = type === "station";
-  const isChildNode = !!parentStation;
-  const entityName = isStation ? "Station" : isChildNode ? "Node" : "Stop";
-  return mode === "add" ? `Add ${entityName}` : `Edit ${entityName}`;
+  const isStation = type === "station"
+  const isChildNode = !!parentStation
+  const entityName = isStation ? "Station" : isChildNode ? "Node" : "Stop"
+  return mode === "add" ? `Add ${entityName}` : `Edit ${entityName}`
 }

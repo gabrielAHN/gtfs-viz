@@ -1,41 +1,37 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { mutationDeleteStationFn } from "@/lib/duckdb/DataEditing/editingFn";
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { mutationDeleteStationFn } from "@/lib/duckdb/DataEditing/editingFn"
 
-import { Button } from "@/components/ui/button";
-import { BiPencil, BiTrash } from "react-icons/bi";
-import { useDuckDB } from "@/context/duckdb.client";
-import { createStopsTable, createStopsView } from "@/lib/extensions";
-import TableSelectionHeader from "@/components/table/TableSelectionHeader";
-import { RouteChipsForStop } from "@/components/routes/RouteChips";
+import { Button } from "@/components/ui/button"
+import { BiPencil, BiTrash } from "react-icons/bi"
+import { useDuckDB } from "@/context/duckdb.client"
+import { createStopsTable, createStopsView } from "@/lib/extensions"
+import TableSelectionHeader from "@/components/table/TableSelectionHeader"
+import { RouteChipsForStop } from "@/components/routes/RouteChips"
 
-function Header({
-  setOpen,
-  ClickInfo,
-  setClickInfo
-}) {
-  const duckDB = useDuckDB();
-  const conn = duckDB?.conn;
-  const hasStopTimes = duckDB?.hasStopTimes ?? false;
+function Header({ setOpen, ClickInfo, setClickInfo }) {
+  const duckDB = useDuckDB()
+  const conn = duckDB?.conn
+  const hasStopTimes = duckDB?.hasStopTimes ?? false
 
-  const queryClient = useQueryClient();
+  const queryClient = useQueryClient()
 
   const mutation = useMutation({
     mutationFn: async () => {
       await mutationDeleteStationFn({
         conn: conn,
         SelectStation: ClickInfo,
-      });
+      })
     },
     onSuccess: async () => {
-      await createStopsView(conn);
-      await createStopsTable(conn);
-      queryClient.invalidateQueries({ queryKey: ["createStopsTable"] });
-      queryClient.invalidateQueries({ queryKey: ["fetchStopsData"] });
-      queryClient.invalidateQueries({ queryKey: ["fetchStopsIdData"] });
-      queryClient.invalidateQueries({ queryKey: ["fetchStopsNamesData"] });
-      setClickInfo(undefined);
+      await createStopsView(conn)
+      await createStopsTable(conn)
+      queryClient.invalidateQueries({ queryKey: ["createStopsTable"] })
+      queryClient.invalidateQueries({ queryKey: ["fetchStopsData"] })
+      queryClient.invalidateQueries({ queryKey: ["fetchStopsIdData"] })
+      queryClient.invalidateQueries({ queryKey: ["fetchStopsNamesData"] })
+      setClickInfo(undefined)
     },
-  });
+  })
 
   return (
     <TableSelectionHeader
@@ -71,7 +67,7 @@ function Header({
         </Button>
       </div>
     </TableSelectionHeader>
-  );
+  )
 }
 
-export default Header;
+export default Header

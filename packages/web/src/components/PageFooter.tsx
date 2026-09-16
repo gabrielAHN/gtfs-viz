@@ -1,5 +1,5 @@
-import { GithubButton } from "@/components/contact";
-import UpcomingFeatures from "@/components/UpcomingFeatures";
+import { GithubButton } from "@/components/contact"
+import UpcomingFeatures from "@/components/UpcomingFeatures"
 
 export default function PageFooter() {
   return (
@@ -7,5 +7,5 @@ export default function PageFooter() {
       <GithubButton />
       <UpcomingFeatures />
     </div>
-  );
+  )
 }

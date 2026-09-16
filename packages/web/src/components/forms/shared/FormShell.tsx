@@ -1,20 +1,20 @@
-import type { FormEvent, ReactNode } from "react";
-import { Button } from "@/components/ui/button";
+import type { FormEvent, ReactNode } from "react"
+import { Button } from "@/components/ui/button"
 
 type FormShellProps = {
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  isBusy: boolean;
-  isSubmitDisabled: boolean;
-  submitLabel: string;
-  busyLabel: string;
-  error?: string | null;
-  onReset?: () => void;
-  resetDisabled?: boolean;
-  children: ReactNode;
-  customActions?: ReactNode;
-  header?: string;
-  hideHeader?: boolean;
-};
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  isBusy: boolean
+  isSubmitDisabled: boolean
+  submitLabel: string
+  busyLabel: string
+  error?: string | null
+  onReset?: () => void
+  resetDisabled?: boolean
+  children: ReactNode
+  customActions?: ReactNode
+  header?: string
+  hideHeader?: boolean
+}
 
 /**
  * Shared form shell with loading overlay, submit/reset buttons, and error state.
@@ -76,7 +76,7 @@ function FormShell({
         </div>
       )}
     </form>
-  );
+  )
 }
 
-export default FormShell;
+export default FormShell

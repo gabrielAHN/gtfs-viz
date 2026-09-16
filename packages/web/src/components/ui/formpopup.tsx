@@ -7,17 +7,12 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from "@/components/ui/drawer"
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogDescription,
-} from "@/components/ui/dialog"
+import { Dialog, DialogTitle, DialogContent, DialogDescription } from "@/components/ui/dialog"
 
 const FormPopup = ({ children, setOpenValue, OpenValue, isBusy = false }) => {
   const isDesktop = useMediaQuery("(min-width: 768px)")
   const openedAtRef = React.useRef(0)
-  const isOpen = OpenValue?.state === true;
+  const isOpen = OpenValue?.state === true
 
   React.useEffect(() => {
     if (isOpen) {
@@ -47,9 +42,7 @@ const FormPopup = ({ children, setOpenValue, OpenValue, isBusy = false }) => {
       >
         <DialogTitle className="hidden" />
         <DialogDescription className="hidden" />
-        <div className="flex-1 overflow-y-auto p-6">
-          {children}
-        </div>
+        <div className="flex-1 overflow-y-auto p-6">{children}</div>
       </DialogContent>
     </Dialog>
   ) : (
@@ -62,9 +55,7 @@ const FormPopup = ({ children, setOpenValue, OpenValue, isBusy = false }) => {
           <DrawerTitle />
           <DrawerDescription />
         </DrawerHeader>
-        <div className="flex-1 overflow-y-auto p-5">
-          {children}
-        </div>
+        <div className="flex-1 overflow-y-auto p-5">{children}</div>
       </DrawerContent>
     </Drawer>
   )

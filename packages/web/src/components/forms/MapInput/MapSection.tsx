@@ -1,99 +1,82 @@
-import { useEffect, useState, useMemo } from "react";
-import { ScatterplotLayer } from "@deck.gl/layers";
+import { useEffect, useState, useMemo } from "react"
+import { ScatterplotLayer } from "@deck.gl/layers"
 
-import { useThemeContext } from "@/context/theme.client";
-import { useDuckDB } from "@/context/duckdb.client";
-import { getMapsFunction } from "@/functions/mapComponent/MapFunctions";
-import { getStopColor, getHighlightColor } from "@/components/style";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useThemeContext } from "@/context/theme.client"
+import { useDuckDB } from "@/context/duckdb.client"
+import { getMapsFunction } from "@/functions/mapComponent/MapFunctions"
+import { getStopColor, getHighlightColor } from "@/components/style"
+import { Skeleton } from "@/components/ui/skeleton"
 
-import MapContainer from "@/components/maps/MapContainer";
-import MapLegend from "@/components/maps/MapLegend";
-import DeckglMap from "@/components/maps/DeckglMap.lazy";
-import { createPointOutline } from "@/components/maps/MapOutlineHelpers";
+import MapContainer from "@/components/maps/MapContainer"
+import MapLegend from "@/components/maps/MapLegend"
+import DeckglMap from "@/components/maps/DeckglMap.lazy"
+import { createPointOutline } from "@/components/maps/MapOutlineHelpers"
 
 interface MapSectionProps {
-  Data: any[];
-  lat: number | undefined;
-  lon: number | undefined;
-  onMapClick: (newLon: number, newLat: number) => void;
-  locationType?: string;
+  Data: any[]
+  lat: number | undefined
+  lon: number | undefined
+  onMapClick: (newLon: number, newLat: number) => void
+  locationType?: string
 }
 
-export default function MapSection({
-  Data,
-  lat,
-  lon,
-  onMapClick,
-  locationType,
-}: MapSectionProps) {
-  const { theme } = useThemeContext();
-  const duckDB = useDuckDB();
-  const conn = duckDB?.conn;
+export default function MapSection({ Data, lat, lon, onMapClick, locationType }: MapSectionProps) {
+  const { theme } = useThemeContext()
+  const duckDB = useDuckDB()
+  const conn = duckDB?.conn
 
-  const [viewState, setViewState] = useState(null);
-  const [MapLayers, setMapLayers] = useState([]);
-  const [BoundBox, setBoundBox] = useState(null);
+  const [viewState, setViewState] = useState(null)
+  const [MapLayers, setMapLayers] = useState([])
+  const [BoundBox, setBoundBox] = useState(null)
 
   const legendItems = useMemo(() => {
-    if (!Array.isArray(Data) || Data.length === 0) return [];
+    if (!Array.isArray(Data) || Data.length === 0) return []
 
-    const uniqueTypes = new Set(
-      Data.map((d) => d.location_type_name).filter(Boolean),
-    );
+    const uniqueTypes = new Set(Data.map((d) => d.location_type_name).filter(Boolean))
     const items = Array.from(uniqueTypes).map((type) => {
-      const color = getStopColor(type, theme);
-      const rgbColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-      return { label: type, color: rgbColor };
-    });
+      const color = getStopColor(type, theme)
+      const rgbColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`
+      return { label: type, color: rgbColor }
+    })
 
     if (lat !== undefined && lon !== undefined && locationType) {
-      const selectedColor = getStopColor(locationType, theme);
-      const rgbSelected = `rgb(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]})`;
-      items.push({ label: `Selected Point (${locationType})`, color: rgbSelected });
+      const selectedColor = getStopColor(locationType, theme)
+      const rgbSelected = `rgb(${selectedColor[0]}, ${selectedColor[1]}, ${selectedColor[2]})`
+      items.push({ label: `Selected Point (${locationType})`, color: rgbSelected })
     } else if (lat !== undefined && lon !== undefined) {
-      const highlightColor = getHighlightColor(theme);
-      const rgbHighlight = `rgb(${highlightColor[0]}, ${highlightColor[1]}, ${highlightColor[2]})`;
-      items.push({ label: "Selected Point", color: rgbHighlight });
+      const highlightColor = getHighlightColor(theme)
+      const rgbHighlight = `rgb(${highlightColor[0]}, ${highlightColor[1]}, ${highlightColor[2]})`
+      items.push({ label: "Selected Point", color: rgbHighlight })
     }
 
-    return items;
-  }, [Data, theme, lat, lon, locationType]);
+    return items
+  }, [Data, theme, lat, lon, locationType])
 
   useEffect(() => {
     if (!conn || !Array.isArray(Data) || Data.length === 0) {
-      setMapLayers([]);
-      return;
+      setMapLayers([])
+      return
     }
 
     const mapPoints = Data.filter((row) => {
-      const lo = parseFloat(row.stop_lon);
-      const la = parseFloat(row.stop_lat);
-      return !isNaN(lo) && !isNaN(la);
-    });
+      const lo = parseFloat(row.stop_lon)
+      const la = parseFloat(row.stop_lat)
+      return !isNaN(lo) && !isNaN(la)
+    })
 
-    let cancelled = false;
+    let cancelled = false
     getMapsFunction(conn, { data: mapPoints }).then(({ BoundBox: mapBounds, ViewState }) => {
-      if (cancelled || !ViewState) return;
+      if (cancelled || !ViewState) return
       setViewState((prev) => {
-        const newZoom =
-          prev && typeof prev.zoom === "number"
-            ? prev.zoom
-            : ViewState.zoom;
+        const newZoom = prev && typeof prev.zoom === "number" ? prev.zoom : ViewState.zoom
         return {
           ...prev,
-          longitude:
-            lat !== undefined && lon !== undefined
-              ? lon
-              : ViewState.longitude,
-          latitude:
-            lat !== undefined && lon !== undefined
-              ? lat
-              : ViewState.latitude,
+          longitude: lat !== undefined && lon !== undefined ? lon : ViewState.longitude,
+          latitude: lat !== undefined && lon !== undefined ? lat : ViewState.latitude,
           zoom: newZoom,
-        };
-      });
-      setBoundBox(mapBounds);
+        }
+      })
+      setBoundBox(mapBounds)
 
       const baseLayer = new ScatterplotLayer({
         id: "station-data",
@@ -102,23 +85,23 @@ export default function MapSection({
         getPosition: (d) => [Number(d.stop_lon), Number(d.stop_lat)],
         getFillColor: (d) => getStopColor(d.location_type_name, theme),
         radiusMinPixels: 4,
-      });
+      })
 
-      const layers = [baseLayer];
+      const layers = [baseLayer]
 
       if (lat !== undefined && lon !== undefined) {
-        const selectedPointData = [{ stop_lat: lat, stop_lon: lon }];
+        const selectedPointData = [{ stop_lat: lat, stop_lon: lon }]
 
         const outlineLayer = createPointOutline({
           id: "selected-point-outline",
           data: selectedPointData,
           theme,
           state: "selected",
-        });
+        })
 
         const pointColor = locationType
           ? getStopColor(locationType, theme)
-          : getHighlightColor(theme);
+          : getHighlightColor(theme)
 
         const selectedPointLayer = new ScatterplotLayer({
           id: "selected-point",
@@ -128,29 +111,31 @@ export default function MapSection({
           getFillColor: pointColor,
           radiusMinPixels: 8,
           stroked: false,
-        });
+        })
 
-        layers.push(outlineLayer, selectedPointLayer);
+        layers.push(outlineLayer, selectedPointLayer)
       }
 
-      setMapLayers(layers);
-    });
-    return () => { cancelled = true; };
-  }, [conn, Data, lat, lon, theme, locationType]);
+      setMapLayers(layers)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [conn, Data, lat, lon, theme, locationType])
 
   const handleMapClick = (info: any) => {
     if (info?.coordinate) {
-      const [lon, lat] = info.coordinate;
-      onMapClick(lon, lat);
+      const [lon, lat] = info.coordinate
+      onMapClick(lon, lat)
     }
-  };
+  }
 
   if (!viewState || !BoundBox) {
     return (
       <div className="relative h-40 w-full overflow-hidden rounded-md">
         <Skeleton className="h-full w-full rounded-sm" />
       </div>
-    );
+    )
   }
 
   return (
@@ -178,5 +163,5 @@ export default function MapSection({
         />
       </MapContainer>
     </div>
-  );
+  )
 }

@@ -1,6 +1,6 @@
-import { executeQuery, toSqlString, toSqlNumber, toSqlStringList } from "@/lib/duckdb/QueryHelper";
-import { logger } from "@/lib/logger";
-import { getPathwayRouteFilterData } from "@/lib/pathways/routeFilterGraph";
+import { executeQuery, toSqlString, toSqlNumber, toSqlStringList } from "@/lib/duckdb/QueryHelper"
+import { logger } from "@/lib/logger"
+import { getPathwayRouteFilterData } from "@/lib/pathways/routeFilterGraph"
 
 export const fetchPathwayMapRouteData = async ({
   conn,
@@ -15,17 +15,17 @@ export const fetchPathwayMapRouteData = async ({
   pathwayTypes,
   excludeTime,
 }: {
-  conn: any;
-  stationId: string;
-  stops: any[];
-  fromStopId?: string;
-  toStopId?: string;
-  minTime?: number;
-  maxTime?: number;
-  includeNullTime?: boolean;
-  directionType?: string;
-  pathwayTypes?: string[];
-  excludeTime?: number;
+  conn: any
+  stationId: string
+  stops: any[]
+  fromStopId?: string
+  toStopId?: string
+  minTime?: number
+  maxTime?: number
+  includeNullTime?: boolean
+  directionType?: string
+  pathwayTypes?: string[]
+  excludeTime?: number
 }) => {
   const connectionsQuery = `
     SELECT *
@@ -39,7 +39,7 @@ export const fetchPathwayMapRouteData = async ({
       ${toSqlString(directionType)},
       ${toSqlStringList(pathwayTypes)}
     )
-  `;
+  `
 
   logger.log("🔍 Fetching pathway map route data", {
     stationId,
@@ -51,15 +51,15 @@ export const fetchPathwayMapRouteData = async ({
     directionType,
     pathwayTypes,
     excludeTime,
-  });
+  })
 
-  let connections = await executeQuery(conn, connectionsQuery);
+  let connections = await executeQuery(conn, connectionsQuery)
 
   if (excludeTime != null) {
     connections = connections.filter((connection: any) => {
-      const traversalTime = connection?.traversal_time;
-      return traversalTime !== null && traversalTime !== undefined && traversalTime !== excludeTime;
-    });
+      const traversalTime = connection?.traversal_time
+      return traversalTime !== null && traversalTime !== undefined && traversalTime !== excludeTime
+    })
   }
 
   return getPathwayRouteFilterData({
@@ -67,5 +67,5 @@ export const fetchPathwayMapRouteData = async ({
     connections,
     fromStopId,
     toStopId,
-  });
-};
+  })
+}

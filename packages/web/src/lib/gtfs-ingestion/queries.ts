@@ -69,7 +69,7 @@ CREATE OR REPLACE MACRO get_station_stops(station_id) AS TABLE (
   FROM station_stops s
   WHERE COALESCE(NULLIF(s.parent_station, ''), s.stop_id) = station_id
 );
-`;
+`
 
 export const PATHWAY_QUERY_MACROS = `
 
@@ -339,6 +339,6 @@ CREATE OR REPLACE MACRO get_time_interval_ranges(station_id) AS TABLE (
     END AS interval_size
   FROM time_stats
 );
-`;
+`
 
-export const QUERY_MACROS = BASIC_QUERY_MACROS + "\n" + PATHWAY_QUERY_MACROS;
+export const QUERY_MACROS = BASIC_QUERY_MACROS + "\n" + PATHWAY_QUERY_MACROS

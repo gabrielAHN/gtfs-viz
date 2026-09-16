@@ -199,6 +199,49 @@ Standalone stops only (non-Station, no parent_station).
 | level_id           | TEXT   |
 | wheelchair_status  | TEXT   |
 
+## Route Line Tables
+
+Populated on demand by `gtfs-viz route-bands` (or the route line macros in a
+writable spatial session), not by import. Empty until the bands are built.
+
+### RouteShapeLanesTable
+
+Phase-one staging: each route's per-vertex lane assignment within shared
+corridors, written by `prepare_route_shape_lanes_*`.
+
+| Column            | Type   | Description                                   |
+| ----------------- | ------ | --------------------------------------------- |
+| route_id          | VARCHAR|                                               |
+| shape_id          | VARCHAR|                                               |
+| shape_pt_sequence | DOUBLE |                                               |
+| lat               | DOUBLE | Converged centreline latitude                 |
+| lon               | DOUBLE | Converged centreline longitude                |
+| coslat, ux, uy    | DOUBLE | Corridor direction bookkeeping                 |
+| band_index        | BIGINT | This route's lane index in the corridor        |
+| band_count        | BIGINT | Number of routes sharing the corridor          |
+| shift_s, slot_s   | DOUBLE | Smoothed lateral offset                        |
+| plat, plon, nlat, nlon | DOUBLE | Neighbouring vertices                     |
+
+### RouteShapeBandsTable
+
+Phase-two output the dashboard reads for the Separate Route(s) view: faired band
+geometry with a compact lane offset per vertex.
+
+| Column               | Type     | Description                              |
+| -------------------- | -------- | ---------------------------------------- |
+| route_id             | VARCHAR  |                                          |
+| route_name           | VARCHAR  |                                          |
+| route_color_hex      | VARCHAR  |                                          |
+| route_text_color_hex | VARCHAR  |                                          |
+| shape_id             | VARCHAR  |                                          |
+| shape_pt_sequence    | DOUBLE   |                                          |
+| shape_pt_lat         | DOUBLE   | Banded latitude                          |
+| shape_pt_lon         | DOUBLE   | Banded longitude                         |
+| band_index           | SMALLINT | Lane index                               |
+| band_count           | SMALLINT | Routes sharing the corridor              |
+| slot                 | FLOAT    | Lateral lane offset                      |
+| turn_radius          | FLOAT    | Local turn radius (metres)               |
+
 ## Edit Tables
 
 ### EditStopTable

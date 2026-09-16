@@ -1,11 +1,11 @@
-import { useEffect } from "react";
-import { Progress } from "@/components/ui/progress";
+import { useEffect } from "react"
+import { Progress } from "@/components/ui/progress"
 
 interface LoadingOverlayProps {
-  isVisible: boolean;
-  message?: string;
-  subMessage?: string;
-  progress?: number;
+  isVisible: boolean
+  message?: string
+  subMessage?: string
+  progress?: number
 }
 
 export function LoadingOverlay({
@@ -16,17 +16,17 @@ export function LoadingOverlay({
 }: LoadingOverlayProps) {
   useEffect(() => {
     if (isVisible) {
-      document.body.style.overflow = "hidden";
+      document.body.style.overflow = "hidden"
     } else {
-      document.body.style.overflow = "unset";
+      document.body.style.overflow = "unset"
     }
 
     return () => {
-      document.body.style.overflow = "unset";
-    };
-  }, [isVisible]);
+      document.body.style.overflow = "unset"
+    }
+  }, [isVisible])
 
-  if (!isVisible) return null;
+  if (!isVisible) return null
 
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center">
@@ -44,18 +44,14 @@ export function LoadingOverlay({
           {}
           <div className="text-center space-y-2 w-full">
             <h3 className="text-lg font-semibold text-foreground">{message}</h3>
-            {subMessage && (
-              <p className="text-sm text-muted-foreground">{subMessage}</p>
-            )}
+            {subMessage && <p className="text-sm text-muted-foreground">{subMessage}</p>}
           </div>
 
           {}
           {progress !== undefined && (
             <div className="w-full space-y-2">
               <Progress value={progress} className="w-full" />
-              <p className="text-xs text-center text-muted-foreground">
-                {Math.round(progress)}%
-              </p>
+              <p className="text-xs text-center text-muted-foreground">{Math.round(progress)}%</p>
             </div>
           )}
 
@@ -68,5 +64,5 @@ export function LoadingOverlay({
         </div>
       </div>
     </div>
-  );
+  )
 }

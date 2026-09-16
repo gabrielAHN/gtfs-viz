@@ -1,8 +1,8 @@
-import { MarkerType } from "@xyflow/react";
-import type { Edge, Node } from "@xyflow/react";
+import { MarkerType } from "@xyflow/react"
+import type { Edge, Node } from "@xyflow/react"
 
-import { rgbToHex } from "@/components/colorUtil";
-import { getPathwayColor, getStopColor } from "@/components/style";
+import { rgbToHex } from "@/components/colorUtil"
+import { getPathwayColor, getStopColor } from "@/components/style"
 
 import type {
   ConnectionFilterGraph,
@@ -14,7 +14,7 @@ import type {
   PathTraversalCost,
   PathwayEdgeData,
   ViewMode,
-} from "../core/types";
+} from "../core/types"
 import {
   collectReachableNodeIds,
   comparePathTraversalCosts,
@@ -37,45 +37,36 @@ import {
   isWheelchairAccessibleConnection,
   isWheelchairAccessibleStop,
   sortConnections,
-} from "../core/shared";
+} from "../core/shared"
 
 export function buildAvailableOrphanConnections({
   disconnectedConnections,
   detachedConnectionDraftPathwayIds,
 }: {
-  disconnectedConnections: any[];
-  detachedConnectionDraftPathwayIds: Set<string>;
+  disconnectedConnections: any[]
+  detachedConnectionDraftPathwayIds: Set<string>
 }) {
   return disconnectedConnections.filter(
-    (connection: any) =>
-      !detachedConnectionDraftPathwayIds.has(String(connection.pathway_id)),
-  );
+    (connection: any) => !detachedConnectionDraftPathwayIds.has(String(connection.pathway_id)),
+  )
 }
 
-export function buildOrphanPathwayIdOptions(
-  availableOrphanConnections: any[],
-) {
+export function buildOrphanPathwayIdOptions(availableOrphanConnections: any[]) {
   return availableOrphanConnections
     .map((connection: any) => {
-      const pathwayId = String(connection.pathway_id ?? "");
+      const pathwayId = String(connection.pathway_id ?? "")
       return {
         value: pathwayId,
         label: pathwayId,
-      };
+      }
     })
-    .sort((left, right) => left.label.localeCompare(right.label));
+    .sort((left, right) => left.label.localeCompare(right.label))
 }
 
-export function buildOrphanPathwayTypeOptions(
-  availableOrphanConnections: any[],
-) {
+export function buildOrphanPathwayTypeOptions(availableOrphanConnections: any[]) {
   return Array.from(
-    new Set(
-      availableOrphanConnections.map((connection: any) =>
-        getPathwayTypeLabel(connection),
-      ),
-    ),
-  ).sort((left, right) => left.localeCompare(right));
+    new Set(availableOrphanConnections.map((connection: any) => getPathwayTypeLabel(connection))),
+  ).sort((left, right) => left.localeCompare(right))
 }
 
 export function filterAvailableOrphanConnections({
@@ -83,20 +74,19 @@ export function filterAvailableOrphanConnections({
   orphanPathwayIdFilter,
   orphanPathwayTypeFilter,
 }: {
-  availableOrphanConnections: any[];
-  orphanPathwayIdFilter?: string;
-  orphanPathwayTypeFilter: string;
+  availableOrphanConnections: any[]
+  orphanPathwayIdFilter?: string
+  orphanPathwayTypeFilter: string
 }) {
   return availableOrphanConnections.filter((connection: any) => {
     const matchesPathwayId =
-      !orphanPathwayIdFilter ||
-      String(connection.pathway_id) === orphanPathwayIdFilter;
+      !orphanPathwayIdFilter || String(connection.pathway_id) === orphanPathwayIdFilter
     const matchesPathwayType =
       orphanPathwayTypeFilter === "all" ||
-      getPathwayTypeLabel(connection) === orphanPathwayTypeFilter;
+      getPathwayTypeLabel(connection) === orphanPathwayTypeFilter
 
-    return matchesPathwayId && matchesPathwayType;
-  });
+    return matchesPathwayId && matchesPathwayType
+  })
 }
 
 export function buildConnectionFilterGraph({
@@ -104,9 +94,9 @@ export function buildConnectionFilterGraph({
   theme,
   wheelchairAccessibleOnly,
 }: {
-  pathwayData?: { connections: any[]; stops: any[] };
-  theme: string;
-  wheelchairAccessibleOnly: boolean;
+  pathwayData?: { connections: any[]; stops: any[] }
+  theme: string
+  wheelchairAccessibleOnly: boolean
 }): ConnectionFilterGraph {
   if (!pathwayData?.stops || !pathwayData?.connections) {
     return {
@@ -123,12 +113,12 @@ export function buildConnectionFilterGraph({
       traversalEdgesByToNode: new Map(),
       fromIds: new Set<string>(),
       toIds: new Set<string>(),
-    };
+    }
   }
 
-  const stopOptionById = new Map<string, FlowStopOption>();
-  const wheelchairAccessibleStopOptionById = new Map<string, FlowStopOption>();
-  const wheelchairAccessibleStopIds = new Set<string>();
+  const stopOptionById = new Map<string, FlowStopOption>()
+  const wheelchairAccessibleStopOptionById = new Map<string, FlowStopOption>()
+  const wheelchairAccessibleStopIds = new Set<string>()
 
   pathwayData.stops.forEach((stop: any) => {
     if (
@@ -136,45 +126,43 @@ export function buildConnectionFilterGraph({
       stop.status === "deleted" ||
       stop.stop_id == null
     ) {
-      return;
+      return
     }
 
-    const stopId = String(stop.stop_id);
+    const stopId = String(stop.stop_id)
     const stopName =
-      stop.stop_name && String(stop.stop_name) !== stopId
-        ? ` · ${stop.stop_name}`
-        : "";
-    const locationType = String(stop.location_type_name || "Unknown");
-    const locationColor = rgbToHex(getStopColor(locationType, theme));
+      stop.stop_name && String(stop.stop_name) !== stopId ? ` · ${stop.stop_name}` : ""
+    const locationType = String(stop.location_type_name || "Unknown")
+    const locationColor = rgbToHex(getStopColor(locationType, theme))
 
     const stopOption = {
       id: stopId,
       label: `${stopId}${stopName} · ${locationType}`,
       color: locationColor,
       searchLabel: `${stopId}${stopName} · ${locationType}`,
-    };
+    }
 
-    stopOptionById.set(stopId, stopOption);
+    stopOptionById.set(stopId, stopOption)
 
     if (isWheelchairAccessibleStop(stop)) {
-      wheelchairAccessibleStopIds.add(stopId);
-      wheelchairAccessibleStopOptionById.set(stopId, stopOption);
+      wheelchairAccessibleStopIds.add(stopId)
+      wheelchairAccessibleStopOptionById.set(stopId, stopOption)
     }
-  });
+  })
 
-  const validConnections: any[] = [];
-  const filterConnections: any[] = [];
-  const wheelchairAccessibleConnectionIds = new Set<string>();
-  const outgoingNodeIdsByNode = new Map<string, Set<string>>();
-  const incomingNodeIdsByNode = new Map<string, Set<string>>();
-  const traversalEdgesByFromNode = new Map<string, any[]>();
-  const traversalEdgesByToNode = new Map<string, any[]>();
-  const fromIds = new Set<string>();
-  const toIds = new Set<string>();
+  const validConnections: any[] = []
+  const filterConnections: any[] = []
+  const wheelchairAccessibleConnectionIds = new Set<string>()
+  const outgoingNodeIdsByNode = new Map<string, Set<string>>()
+  const incomingNodeIdsByNode = new Map<string, Set<string>>()
+  const traversalEdgesByFromNode = new Map<string, any[]>()
+  const traversalEdgesByToNode = new Map<string, any[]>()
+  const fromIds = new Set<string>()
+  const toIds = new Set<string>()
 
   pathwayData.connections.forEach((connection: any) => {
-    const fromStopId = String(connection?.from_stop_id ?? "");
-    const toStopId = String(connection?.to_stop_id ?? "");
+    const fromStopId = String(connection?.from_stop_id ?? "")
+    const toStopId = String(connection?.to_stop_id ?? "")
 
     if (
       !fromStopId ||
@@ -184,63 +172,63 @@ export function buildConnectionFilterGraph({
       !stopOptionById.has(fromStopId) ||
       !stopOptionById.has(toStopId)
     ) {
-      return;
+      return
     }
 
-    validConnections.push(connection);
-    const connectionId = getConnectionId(connection);
+    validConnections.push(connection)
+    const connectionId = getConnectionId(connection)
     const isWheelchairEligibleConnection =
       isWheelchairAccessibleConnection(connection) &&
       wheelchairAccessibleStopIds.has(fromStopId) &&
-      wheelchairAccessibleStopIds.has(toStopId);
+      wheelchairAccessibleStopIds.has(toStopId)
 
     if (isWheelchairEligibleConnection && connectionId) {
-      wheelchairAccessibleConnectionIds.add(connectionId);
+      wheelchairAccessibleConnectionIds.add(connectionId)
     }
 
     if (wheelchairAccessibleOnly && !isWheelchairEligibleConnection) {
-      return;
+      return
     }
 
-    filterConnections.push(connection);
-    fromIds.add(fromStopId);
-    toIds.add(toStopId);
-    getOrCreateSet(outgoingNodeIdsByNode, fromStopId).add(toStopId);
-    getOrCreateSet(incomingNodeIdsByNode, toStopId).add(fromStopId);
+    filterConnections.push(connection)
+    fromIds.add(fromStopId)
+    toIds.add(toStopId)
+    getOrCreateSet(outgoingNodeIdsByNode, fromStopId).add(toStopId)
+    getOrCreateSet(incomingNodeIdsByNode, toStopId).add(fromStopId)
 
     if (connectionId) {
       getOrCreateList(traversalEdgesByFromNode, fromStopId).push({
         toNodeId: toStopId,
         connection,
         connectionId,
-      });
+      })
       getOrCreateList(traversalEdgesByToNode, toStopId).push({
         toNodeId: fromStopId,
         connection,
         connectionId,
-      });
+      })
     }
 
     if (isBidirectionalConnection(connection)) {
-      fromIds.add(toStopId);
-      toIds.add(fromStopId);
-      getOrCreateSet(outgoingNodeIdsByNode, toStopId).add(fromStopId);
-      getOrCreateSet(incomingNodeIdsByNode, fromStopId).add(toStopId);
+      fromIds.add(toStopId)
+      toIds.add(fromStopId)
+      getOrCreateSet(outgoingNodeIdsByNode, toStopId).add(fromStopId)
+      getOrCreateSet(incomingNodeIdsByNode, fromStopId).add(toStopId)
 
       if (connectionId) {
         getOrCreateList(traversalEdgesByFromNode, toStopId).push({
           toNodeId: fromStopId,
           connection,
           connectionId,
-        });
+        })
         getOrCreateList(traversalEdgesByToNode, fromStopId).push({
           toNodeId: toStopId,
           connection,
           connectionId,
-        });
+        })
       }
     }
-  });
+  })
 
   return {
     stopOptionById,
@@ -252,15 +240,14 @@ export function buildConnectionFilterGraph({
     wheelchairAccessibleStopIds,
     wheelchairAccessibleConnectionIds,
     showWheelchairAccessibleSwitch:
-      wheelchairAccessibleStopIds.size > 0 &&
-      wheelchairAccessibleConnectionIds.size > 0,
+      wheelchairAccessibleStopIds.size > 0 && wheelchairAccessibleConnectionIds.size > 0,
     outgoingNodeIdsByNode,
     incomingNodeIdsByNode,
     traversalEdgesByFromNode,
     traversalEdgesByToNode,
     fromIds,
     toIds,
-  };
+  }
 }
 
 export function buildLocalRouteStopOptions({
@@ -268,84 +255,76 @@ export function buildLocalRouteStopOptions({
   selectedFromStop,
   selectedToStop,
 }: {
-  connectionFilterGraph: ConnectionFilterGraph;
-  selectedFromStop?: string;
-  selectedToStop?: string;
+  connectionFilterGraph: ConnectionFilterGraph
+  selectedFromStop?: string
+  selectedToStop?: string
 }) {
   const toTargetShortestPathTree = selectedToStop
-    ? computeShortestPathTree(
-        selectedToStop,
-        connectionFilterGraph.traversalEdgesByToNode,
-      )
-    : null;
+    ? computeShortestPathTree(selectedToStop, connectionFilterGraph.traversalEdgesByToNode)
+    : null
   const fromSourceShortestPathTree = selectedFromStop
-    ? computeShortestPathTree(
-        selectedFromStop,
-        connectionFilterGraph.traversalEdgesByFromNode,
-      )
-    : null;
+    ? computeShortestPathTree(selectedFromStop, connectionFilterGraph.traversalEdgesByFromNode)
+    : null
 
   const buildOptionList = ({
     ids,
     costByNodeId,
     excludedId,
   }: {
-    ids: Set<string>;
-    costByNodeId?: Map<string, PathTraversalCost>;
-    excludedId?: string;
+    ids: Set<string>
+    costByNodeId?: Map<string, PathTraversalCost>
+    excludedId?: string
   }) =>
     Array.from(ids)
       .filter((id) => id !== excludedId)
       .filter((id) => !costByNodeId || costByNodeId.has(id))
       .map((id) => {
-        const routeOption = connectionFilterGraph.routeStopOptionById.get(id);
+        const routeOption = connectionFilterGraph.routeStopOptionById.get(id)
         if (!routeOption) {
-          return null;
+          return null
         }
 
-        const costLabel = formatPathTraversalCost(costByNodeId?.get(id));
+        const costLabel = formatPathTraversalCost(costByNodeId?.get(id))
 
         return {
           id,
           label: routeOption.id,
           color: routeOption.color,
-          searchLabel: costLabel
-            ? `${routeOption.label} · ${costLabel}`
-            : routeOption.label,
+          searchLabel: costLabel ? `${routeOption.label} · ${costLabel}` : routeOption.label,
           sortLabel: routeOption.label,
           cost: costByNodeId?.get(id) ?? null,
-        };
+        }
       })
       .filter(
         (
           option,
         ): option is {
-          id: string;
-          label: string;
-          color?: string;
-          searchLabel?: string;
-          sortLabel: string;
-          cost: PathTraversalCost | null;
+          id: string
+          label: string
+          color?: string
+          searchLabel?: string
+          sortLabel: string
+          cost: PathTraversalCost | null
         } => Boolean(option),
       )
       .sort((left, right) => {
         if (left.cost && right.cost) {
-          const costCompare = comparePathTraversalCosts(left.cost, right.cost);
+          const costCompare = comparePathTraversalCosts(left.cost, right.cost)
           if (costCompare !== 0) {
-            return costCompare;
+            return costCompare
           }
         } else if (left.cost || right.cost) {
-          return left.cost ? -1 : 1;
+          return left.cost ? -1 : 1
         }
 
-        return left.sortLabel.localeCompare(right.sortLabel);
+        return left.sortLabel.localeCompare(right.sortLabel)
       })
       .map(({ id, label, color, searchLabel }) => ({
         id,
         label,
         color,
         searchLabel,
-      }));
+      }))
 
   return {
     fromStopOptions: buildOptionList({
@@ -358,18 +337,16 @@ export function buildLocalRouteStopOptions({
       costByNodeId: fromSourceShortestPathTree?.costByNodeId,
       excludedId: selectedFromStop,
     }),
-  };
+  }
 }
 
-export function buildRepairNodeOptions(
-  connectionFilterGraph: ConnectionFilterGraph,
-) {
+export function buildRepairNodeOptions(connectionFilterGraph: ConnectionFilterGraph) {
   return Array.from(connectionFilterGraph.stopOptionById.values())
     .map((option) => ({
       value: option.id,
       label: option.label,
     }))
-    .sort((left, right) => left.label.localeCompare(right.label));
+    .sort((left, right) => left.label.localeCompare(right.label))
 }
 
 export function buildFlowGraph({
@@ -385,61 +362,55 @@ export function buildFlowGraph({
   theme,
   viewMode,
 }: {
-  pathwayData?: { connections: any[]; stops: any[] };
-  connectionFilterGraph: ConnectionFilterGraph;
-  procedureRouteFilterData?: { filteredConnectionIds: string[] };
-  hasConnectionFilters: boolean;
-  hasRouteEndpointFilters: boolean;
-  wheelchairAccessibleOnly: boolean;
-  selectedFromStop?: string;
-  selectedToStop?: string;
-  edgeLabelMode: EdgeLabelMode;
-  theme: string;
-  viewMode: ViewMode;
+  pathwayData?: { connections: any[]; stops: any[] }
+  connectionFilterGraph: ConnectionFilterGraph
+  procedureRouteFilterData?: { filteredConnectionIds: string[] }
+  hasConnectionFilters: boolean
+  hasRouteEndpointFilters: boolean
+  wheelchairAccessibleOnly: boolean
+  selectedFromStop?: string
+  selectedToStop?: string
+  edgeLabelMode: EdgeLabelMode
+  theme: string
+  viewMode: ViewMode
 }): FlowGraphBuildResult {
   if (!pathwayData?.stops || !pathwayData?.connections) {
-    return { nodes: [], edges: [] };
+    return { nodes: [], edges: [] }
   }
 
-  const entranceExits: any[] = [];
-  const pathwayNodes: any[] = [];
-  const platforms: any[] = [];
-  const others: any[] = [];
+  const entranceExits: any[] = []
+  const pathwayNodes: any[] = []
+  const platforms: any[] = []
+  const others: any[] = []
 
   pathwayData.stops.forEach((stop: any) => {
-    const locationType = stop.location_type_name || "Unknown";
+    const locationType = stop.location_type_name || "Unknown"
     if (locationType === "Station" || stop.status === "deleted") {
-      return;
+      return
     }
 
-    if (
-      locationType === "Exit/Entrance" ||
-      locationType === "Entrance/Exit"
-    ) {
-      entranceExits.push(stop);
+    if (locationType === "Exit/Entrance" || locationType === "Entrance/Exit") {
+      entranceExits.push(stop)
     } else if (locationType === "Platform") {
-      platforms.push(stop);
-    } else if (
-      locationType === "Pathway Node" ||
-      locationType === "Generic Node"
-    ) {
-      pathwayNodes.push(stop);
+      platforms.push(stop)
+    } else if (locationType === "Pathway Node" || locationType === "Generic Node") {
+      pathwayNodes.push(stop)
     } else {
-      others.push(stop);
+      others.push(stop)
     }
-  });
+  })
 
-  const baseNodes: Node[] = [];
+  const baseNodes: Node[] = []
   const allStops = [
     ...entranceExits.map((s) => ({ ...s, layer: 0 })),
     ...pathwayNodes.map((s) => ({ ...s, layer: 1 })),
     ...others.map((s) => ({ ...s, layer: 1 })),
     ...platforms.map((s) => ({ ...s, layer: 2 })),
-  ];
+  ]
 
   allStops.forEach((stop) => {
-    const color = getStopColor(stop.location_type_name || "Unknown", theme);
-    const stopId = String(stop.stop_id);
+    const color = getStopColor(stop.location_type_name || "Unknown", theme)
+    const stopId = String(stop.stop_id)
     baseNodes.push({
       id: stopId,
       type: "custom",
@@ -456,39 +427,31 @@ export function buildFlowGraph({
         stopLon: stop.stop_lon,
         isDimmed: false,
       } satisfies CustomNodeData,
-    });
-  });
+    })
+  })
 
-  const nodeById = new Map(baseNodes.map((node) => [node.id, node]));
+  const nodeById = new Map(baseNodes.map((node) => [node.id, node]))
   const validConnections = connectionFilterGraph.validConnections.filter(
     (connection) =>
-      nodeById.has(String(connection.from_stop_id)) &&
-      nodeById.has(String(connection.to_stop_id)),
-  );
+      nodeById.has(String(connection.from_stop_id)) && nodeById.has(String(connection.to_stop_id)),
+  )
   const filterConnectionIds = new Set(
     connectionFilterGraph.filterConnections
       .map((connection) => getConnectionId(connection))
       .filter(Boolean) as string[],
-  );
+  )
   const procedureFilteredConnectionIds = new Set(
     procedureRouteFilterData?.filteredConnectionIds ?? [],
-  );
-  const useProcedureRouteFilters =
-    hasRouteEndpointFilters && procedureRouteFilterData !== undefined;
+  )
+  const useProcedureRouteFilters = hasRouteEndpointFilters && procedureRouteFilterData !== undefined
   const forwardReachableNodeIds =
     !useProcedureRouteFilters && selectedFromStop
-      ? collectReachableNodeIds(
-          selectedFromStop,
-          connectionFilterGraph.outgoingNodeIdsByNode,
-        )
-      : null;
+      ? collectReachableNodeIds(selectedFromStop, connectionFilterGraph.outgoingNodeIdsByNode)
+      : null
   const backwardReachableNodeIds =
     !useProcedureRouteFilters && selectedToStop
-      ? collectReachableNodeIds(
-          selectedToStop,
-          connectionFilterGraph.incomingNodeIdsByNode,
-        )
-      : null;
+      ? collectReachableNodeIds(selectedToStop, connectionFilterGraph.incomingNodeIdsByNode)
+      : null
   const bestPathResult =
     !useProcedureRouteFilters && selectedFromStop && selectedToStop
       ? getShortestPathResult(
@@ -496,80 +459,74 @@ export function buildFlowGraph({
           selectedToStop,
           connectionFilterGraph.traversalEdgesByFromNode,
         )
-      : null;
+      : null
 
   const matchingConnections = validConnections.filter((connection) => {
-    const connectionId = getConnectionId(connection);
-    const fromStopId = String(connection.from_stop_id);
-    const toStopId = String(connection.to_stop_id);
+    const connectionId = getConnectionId(connection)
+    const fromStopId = String(connection.from_stop_id)
+    const toStopId = String(connection.to_stop_id)
 
     if (wheelchairAccessibleOnly) {
       if (!connectionId || !filterConnectionIds.has(connectionId)) {
-        return false;
+        return false
       }
     }
 
     if (!selectedFromStop && !selectedToStop) {
-      return true;
+      return true
     }
 
     if (useProcedureRouteFilters) {
-      return Boolean(
-        connectionId && procedureFilteredConnectionIds.has(connectionId),
-      );
+      return Boolean(connectionId && procedureFilteredConnectionIds.has(connectionId))
     }
 
     if (selectedFromStop && selectedToStop) {
-      return Boolean(
-        connectionId && bestPathResult?.connectionIds.has(connectionId),
-      );
+      return Boolean(connectionId && bestPathResult?.connectionIds.has(connectionId))
     }
 
     if (selectedFromStop) {
       return Boolean(
-        forwardReachableNodeIds?.has(fromStopId) &&
-          forwardReachableNodeIds?.has(toStopId),
-      );
+        forwardReachableNodeIds?.has(fromStopId) && forwardReachableNodeIds?.has(toStopId),
+      )
     }
 
     if (selectedToStop) {
       return Boolean(
-        backwardReachableNodeIds?.has(fromStopId) &&
-          backwardReachableNodeIds?.has(toStopId),
-      );
+        backwardReachableNodeIds?.has(fromStopId) && backwardReachableNodeIds?.has(toStopId),
+      )
     }
 
-    return true;
-  });
+    return true
+  })
 
   const highlightedConnectionIds = new Set(
     matchingConnections
       .map((connection) => getConnectionId(connection))
       .filter(Boolean) as string[],
-  );
-  const highlightedNodeIds = new Set<string>();
+  )
+  const highlightedNodeIds = new Set<string>()
 
   matchingConnections.forEach((connection) => {
-    highlightedNodeIds.add(String(connection.from_stop_id));
-    highlightedNodeIds.add(String(connection.to_stop_id));
-  });
+    highlightedNodeIds.add(String(connection.from_stop_id))
+    highlightedNodeIds.add(String(connection.to_stop_id))
+  })
 
   if (wheelchairAccessibleOnly && !selectedFromStop && !selectedToStop) {
     connectionFilterGraph.wheelchairAccessibleStopIds.forEach((nodeId) => {
-      highlightedNodeIds.add(nodeId);
-    });
+      highlightedNodeIds.add(nodeId)
+    })
   }
 
   bestPathResult?.nodeIds.forEach((nodeId) => {
-    highlightedNodeIds.add(nodeId);
-  });
+    highlightedNodeIds.add(nodeId)
+  })
 
   if (
     selectedFromStop &&
     (!wheelchairAccessibleOnly ||
       connectionFilterGraph.wheelchairAccessibleStopIds.has(selectedFromStop))
   ) {
-    highlightedNodeIds.add(selectedFromStop);
+    highlightedNodeIds.add(selectedFromStop)
   }
 
   if (
@@ -577,13 +534,11 @@ export function buildFlowGraph({
     (!wheelchairAccessibleOnly ||
       connectionFilterGraph.wheelchairAccessibleStopIds.has(selectedToStop))
   ) {
-    highlightedNodeIds.add(selectedToStop);
+    highlightedNodeIds.add(selectedToStop)
   }
 
   const nodes: Node[] = baseNodes.map((node) => {
-    const shouldDimNode = hasConnectionFilters
-      ? !highlightedNodeIds.has(node.id)
-      : false;
+    const shouldDimNode = hasConnectionFilters ? !highlightedNodeIds.has(node.id) : false
 
     return {
       ...node,
@@ -597,29 +552,26 @@ export function buildFlowGraph({
         isSelectedFrom: node.id === selectedFromStop,
         isSelectedTo: node.id === selectedToStop,
       },
-    };
-  });
+    }
+  })
 
   const connectionGroups = new Map<
     string,
     {
-      displaySourceId: string;
-      displayTargetId: string;
-      pairConnections: any[];
-      typeGroups: Map<string, { typeLabel: string; connections: any[] }>;
+      displaySourceId: string
+      displayTargetId: string
+      pairConnections: any[]
+      typeGroups: Map<string, { typeLabel: string; connections: any[] }>
     }
-  >();
+  >()
 
   validConnections.forEach((connection: any) => {
-    const fromStopId = String(connection.from_stop_id);
-    const toStopId = String(connection.to_stop_id);
-    const [displaySourceId, displayTargetId] = getCanonicalPairNodeIds(
-      fromStopId,
-      toStopId,
-    );
-    const pairKey = getCanonicalPairKey(fromStopId, toStopId);
-    const typeKey = getConnectionTypeKey(connection);
-    const typeLabel = getPathwayTypeLabel(connection);
+    const fromStopId = String(connection.from_stop_id)
+    const toStopId = String(connection.to_stop_id)
+    const [displaySourceId, displayTargetId] = getCanonicalPairNodeIds(fromStopId, toStopId)
+    const pairKey = getCanonicalPairKey(fromStopId, toStopId)
+    const typeKey = getConnectionTypeKey(connection)
+    const typeLabel = getPathwayTypeLabel(connection)
 
     if (!connectionGroups.has(pairKey)) {
       connectionGroups.set(pairKey, {
@@ -627,98 +579,90 @@ export function buildFlowGraph({
         displayTargetId,
         pairConnections: [],
         typeGroups: new Map(),
-      });
+      })
     }
 
-    const pairGroup = connectionGroups.get(pairKey)!;
-    pairGroup.pairConnections.push(connection);
+    const pairGroup = connectionGroups.get(pairKey)!
+    pairGroup.pairConnections.push(connection)
 
     if (!pairGroup.typeGroups.has(typeKey)) {
       pairGroup.typeGroups.set(typeKey, {
         typeLabel,
         connections: [],
-      });
+      })
     }
 
-    pairGroup.typeGroups.get(typeKey)!.connections.push(connection);
-  });
+    pairGroup.typeGroups.get(typeKey)!.connections.push(connection)
+  })
 
-  const edges: Edge[] = [];
+  const edges: Edge[] = []
 
   connectionGroups.forEach((group, pairKey) => {
-    const pairConnections = sortConnections(group.pairConnections);
+    const pairConnections = sortConnections(group.pairConnections)
     const displayedPairConnections = sortConnections(
       hasRouteEndpointFilters
         ? pairConnections.filter((connection) =>
             highlightedConnectionIds.has(getConnectionId(connection) ?? ""),
           )
         : pairConnections,
-    );
+    )
     const renderPairConnections = hasRouteEndpointFilters
       ? displayedPairConnections
-      : pairConnections;
+      : pairConnections
 
     if (renderPairConnections.length === 0) {
-      return;
+      return
     }
 
-    const displayedTypeGroups = new Map<
-      string,
-      { typeLabel: string; connections: any[] }
-    >();
+    const displayedTypeGroups = new Map<string, { typeLabel: string; connections: any[] }>()
 
     renderPairConnections.forEach((connection) => {
-      const typeKey = getConnectionTypeKey(connection);
-      const typeLabel = getPathwayTypeLabel(connection);
+      const typeKey = getConnectionTypeKey(connection)
+      const typeLabel = getPathwayTypeLabel(connection)
 
       if (!displayedTypeGroups.has(typeKey)) {
         displayedTypeGroups.set(typeKey, {
           typeLabel,
           connections: [],
-        });
+        })
       }
 
-      displayedTypeGroups.get(typeKey)!.connections.push(connection);
-    });
+      displayedTypeGroups.get(typeKey)!.connections.push(connection)
+    })
 
     const typeEntries = Array.from(displayedTypeGroups.values())
       .map((typeGroup) => ({
         ...typeGroup,
         connections: sortConnections(typeGroup.connections),
       }))
-      .sort((left, right) => left.typeLabel.localeCompare(right.typeLabel));
+      .sort((left, right) => left.typeLabel.localeCompare(right.typeLabel))
 
-    const distinctTypeCount = typeEntries.length;
-    const sourceNode = nodeById.get(group.displaySourceId);
-    const targetNode = nodeById.get(group.displayTargetId);
+    const distinctTypeCount = typeEntries.length
+    const sourceNode = nodeById.get(group.displaySourceId)
+    const targetNode = nodeById.get(group.displayTargetId)
 
     if (!sourceNode || !targetNode) {
-      return;
+      return
     }
 
-    const { sourceHandle, targetHandle } = getConnectionHandleIds(
-      sourceNode,
-      targetNode,
-      viewMode,
-    );
-    const pairHasHighlightedConnection = renderPairConnections.some(
-      (connection) =>
-        highlightedConnectionIds.has(getConnectionId(connection) ?? ""),
-    );
+    const { sourceHandle, targetHandle } = getConnectionHandleIds(sourceNode, targetNode, viewMode)
+    const pairHasHighlightedConnection = renderPairConnections.some((connection) =>
+      highlightedConnectionIds.has(getConnectionId(connection) ?? ""),
+    )
 
     if (renderPairConnections.length > 1) {
-      const edgeId = `edge-${pairKey}-multi`;
-      const edgeColor = getMultiConnectionEdgeColor(theme);
+      const edgeId = `edge-${pairKey}-multi`
+      const edgeColor = getMultiConnectionEdgeColor(theme)
       const isDimmed = hasRouteEndpointFilters
         ? false
-        : hasConnectionFilters && !pairHasHighlightedConnection;
-      const { labelStyle, labelBgStyle } = getEdgeLabelStyles({ edgeColor });
+        : hasConnectionFilters && !pairHasHighlightedConnection
+      const { labelStyle, labelBgStyle } = getEdgeLabelStyles({ edgeColor })
       const edgeMarkers = getEdgeMarkerProps({
         edgeColor,
         connections: renderPairConnections,
         displaySourceId: group.displaySourceId,
         displayTargetId: group.displayTargetId,
-      });
+      })
 
       edges.push({
         id: edgeId,
@@ -755,34 +699,33 @@ export function buildFlowGraph({
           isDimmed,
           edgeLabelMode,
         } satisfies PathwayEdgeData,
-      });
-      return;
+      })
+      return
     }
 
     typeEntries.forEach((typeGroup, siblingIndex) => {
-      const representativeConnection = typeGroup.connections[0];
-      const edgeColor = rgbToHex(getPathwayColor(typeGroup.typeLabel, theme));
-      const typeConnectionCount = typeGroup.connections.length;
-      const typeHasHighlightedConnection = typeGroup.connections.some(
-        (connection) =>
-          highlightedConnectionIds.has(getConnectionId(connection) ?? ""),
-      );
+      const representativeConnection = typeGroup.connections[0]
+      const edgeColor = rgbToHex(getPathwayColor(typeGroup.typeLabel, theme))
+      const typeConnectionCount = typeGroup.connections.length
+      const typeHasHighlightedConnection = typeGroup.connections.some((connection) =>
+        highlightedConnectionIds.has(getConnectionId(connection) ?? ""),
+      )
 
       if (hasRouteEndpointFilters && !typeHasHighlightedConnection) {
-        return;
+        return
       }
 
       const isDimmed = hasRouteEndpointFilters
         ? false
-        : hasConnectionFilters && !typeHasHighlightedConnection;
-      const edgeId = `edge-${pairKey}-${getConnectionTypeKey(representativeConnection).replace(/[^a-zA-Z0-9_-]/g, "-")}`;
-      const { labelStyle, labelBgStyle } = getEdgeLabelStyles({ edgeColor });
+        : hasConnectionFilters && !typeHasHighlightedConnection
+      const edgeId = `edge-${pairKey}-${getConnectionTypeKey(representativeConnection).replace(/[^a-zA-Z0-9_-]/g, "-")}`
+      const { labelStyle, labelBgStyle } = getEdgeLabelStyles({ edgeColor })
       const edgeMarkers = getEdgeMarkerProps({
         edgeColor,
         connections: typeGroup.connections,
         displaySourceId: group.displaySourceId,
         displayTargetId: group.displayTargetId,
-      });
+      })
 
       edges.push({
         id: edgeId,
@@ -819,42 +762,33 @@ export function buildFlowGraph({
           isDimmed,
           edgeLabelMode,
         } satisfies PathwayEdgeData,
-      });
-    });
-  });
+      })
+    })
+  })
 
-  return { nodes, edges };
+  return { nodes, edges }
 }
 
 export function buildFilterStats({
   initialNodes,
   initialEdges,
 }: {
-  initialNodes: Node[];
-  initialEdges: Edge[];
+  initialNodes: Node[]
+  initialEdges: Edge[]
 }): FilterStats {
-  const nodeConnectionCounts = new Map<string, number>();
-  initialNodes.forEach((n) => nodeConnectionCounts.set(n.id, 0));
+  const nodeConnectionCounts = new Map<string, number>()
+  initialNodes.forEach((n) => nodeConnectionCounts.set(n.id, 0))
 
   initialEdges.forEach((edge) => {
-    nodeConnectionCounts.set(
-      edge.source,
-      (nodeConnectionCounts.get(edge.source) || 0) + 1,
-    );
-    nodeConnectionCounts.set(
-      edge.target,
-      (nodeConnectionCounts.get(edge.target) || 0) + 1,
-    );
-  });
+    nodeConnectionCounts.set(edge.source, (nodeConnectionCounts.get(edge.source) || 0) + 1)
+    nodeConnectionCounts.set(edge.target, (nodeConnectionCounts.get(edge.target) || 0) + 1)
+  })
 
-  const isolatedNodes = initialNodes.filter(
-    (n) => (nodeConnectionCounts.get(n.id) || 0) === 0,
-  );
+  const isolatedNodes = initialNodes.filter((n) => (nodeConnectionCounts.get(n.id) || 0) === 0)
   const orphanedEdges = initialEdges.filter(
     (e) =>
-      !initialNodes.some((n) => n.id === e.source) ||
-      !initialNodes.some((n) => n.id === e.target),
-  );
+      !initialNodes.some((n) => n.id === e.source) || !initialNodes.some((n) => n.id === e.target),
+  )
 
   return {
     totalNodes: initialNodes.length,
@@ -863,7 +797,7 @@ export function buildFilterStats({
     orphanedEdges: orphanedEdges.length,
     isolatedNodesList: isolatedNodes,
     orphanedEdgesList: orphanedEdges,
-  };
+  }
 }
 
 export function buildDetachedDraftEdges({
@@ -874,14 +808,14 @@ export function buildDetachedDraftEdges({
   viewMode,
   edgeLabelMode,
 }: {
-  detachedConnectionDrafts: any[];
-  nodes: Node[];
-  editingPathwayConnectionPathwayId?: string | null;
-  theme: string;
-  viewMode: ViewMode;
-  edgeLabelMode: EdgeLabelMode;
+  detachedConnectionDrafts: any[]
+  nodes: Node[]
+  editingPathwayConnectionPathwayId?: string | null
+  theme: string
+  viewMode: ViewMode
+  edgeLabelMode: EdgeLabelMode
 }): Edge[] {
-  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const nodeById = new Map(nodes.map((node) => [node.id, node]))
 
   return detachedConnectionDrafts.flatMap((draft) => {
     const draftConnection = draft.connection
@@ -890,42 +824,34 @@ export function buildDetachedDraftEdges({
           from_stop_id: draft.fromStopId ?? draft.connection.from_stop_id,
           to_stop_id: draft.toStopId ?? draft.connection.to_stop_id,
         }
-      : null;
+      : null
 
     if (!draftConnection) {
-      return [];
+      return []
     }
 
-    const attachedNodeIds = [draft.fromStopId, draft.toStopId].filter(
-      Boolean,
-    ) as string[];
-    const edgeColor = rgbToHex(
-      getPathwayColor(getPathwayTypeLabel(draftConnection), theme),
-    );
+    const attachedNodeIds = [draft.fromStopId, draft.toStopId].filter(Boolean) as string[]
+    const edgeColor = rgbToHex(getPathwayColor(getPathwayTypeLabel(draftConnection), theme))
 
     if (attachedNodeIds.length < 2) {
-      return [];
+      return []
     }
 
-    const [fromNodeId, toNodeId] = attachedNodeIds;
+    const [fromNodeId, toNodeId] = attachedNodeIds
     const edgeMarkers = getEdgeMarkerProps({
       edgeColor,
       connections: [draftConnection],
       displaySourceId: fromNodeId,
       displayTargetId: toNodeId,
-    });
-    const fromNode = nodeById.get(fromNodeId);
-    const toNode = nodeById.get(toNodeId);
+    })
+    const fromNode = nodeById.get(fromNodeId)
+    const toNode = nodeById.get(toNodeId)
 
     if (!fromNode || !toNode) {
-      return [];
+      return []
     }
 
-    const { sourceHandle, targetHandle } = getConnectionHandleIds(
-      fromNode,
-      toNode,
-      viewMode,
-    );
+    const { sourceHandle, targetHandle } = getConnectionHandleIds(fromNode, toNode, viewMode)
 
     return [
       {
@@ -957,14 +883,13 @@ export function buildDetachedDraftEdges({
           edgeId: `detached-draft-preview-edge-${draft.nodeId}`,
           isDimmed: false,
           isPopupSelected:
-            String(editingPathwayConnectionPathwayId ?? "") ===
-            String(draft.connection.pathway_id),
+            String(editingPathwayConnectionPathwayId ?? "") === String(draft.connection.pathway_id),
           popupSelectionColor: edgeColor,
           edgeLabelMode,
         } satisfies PathwayEdgeData,
       } satisfies Edge,
-    ];
-  });
+    ]
+  })
 }
 
 export function buildDisplayEdges({
@@ -973,47 +898,40 @@ export function buildDisplayEdges({
   potentialEdge,
   viewMode,
 }: {
-  edges: Edge[];
-  detachedDraftEdges: Edge[];
-  potentialEdge: any;
-  viewMode: ViewMode;
+  edges: Edge[]
+  detachedDraftEdges: Edge[]
+  potentialEdge: any
+  viewMode: ViewMode
 }) {
-  const edgePairKey = (edge: Edge) => getCanonicalPairKey(edge.source, edge.target);
+  const edgePairKey = (edge: Edge) => getCanonicalPairKey(edge.source, edge.target)
   const multiPairKeys = new Set(
     edges
       .filter((edge) => {
-        const edgeData = (edge.data ?? {}) as PathwayEdgeData;
-        return (
-          Number(edgeData.pairConnectionCount ?? 0) > 1 ||
-          edge.id.endsWith("-multi")
-        );
+        const edgeData = (edge.data ?? {}) as PathwayEdgeData
+        return Number(edgeData.pairConnectionCount ?? 0) > 1 || edge.id.endsWith("-multi")
       })
       .map(edgePairKey),
-  );
+  )
 
   const normalizedEdges = edges.filter((edge) => {
-    const edgeData = (edge.data ?? {}) as PathwayEdgeData;
-    const isMultiEdge =
-      Number(edgeData.pairConnectionCount ?? 0) > 1 ||
-      edge.id.endsWith("-multi");
+    const edgeData = (edge.data ?? {}) as PathwayEdgeData
+    const isMultiEdge = Number(edgeData.pairConnectionCount ?? 0) > 1 || edge.id.endsWith("-multi")
 
     if (!multiPairKeys.has(edgePairKey(edge))) {
-      return true;
+      return true
     }
 
-    return isMultiEdge;
-  });
+    return isMultiEdge
+  })
 
   const hasRenderedEdgeForPotentialPair =
     potentialEdge?.existingEdgeId != null ||
     (potentialEdge != null &&
-      normalizedEdges.some((edge) =>
-        getCanonicalPairKey(edge.source, edge.target) ===
-        getCanonicalPairKey(
-          potentialEdge.connection.source,
-          potentialEdge.connection.target,
-        ),
-      ));
+      normalizedEdges.some(
+        (edge) =>
+          getCanonicalPairKey(edge.source, edge.target) ===
+          getCanonicalPairKey(potentialEdge.connection.source, potentialEdge.connection.target),
+      ))
 
   const previewEdges =
     potentialEdge && !hasRenderedEdgeForPotentialPair
@@ -1023,18 +941,14 @@ export function buildDisplayEdges({
               potentialEdge.sourceNode,
               potentialEdge.targetNode,
               viewMode,
-            );
+            )
 
             return {
               id: "potential-edge",
               source: potentialEdge.connection.source!,
               target: potentialEdge.connection.target!,
-              sourceHandle:
-                potentialEdge.connection.sourceHandle ??
-                fallbackHandles.sourceHandle,
-              targetHandle:
-                potentialEdge.connection.targetHandle ??
-                fallbackHandles.targetHandle,
+              sourceHandle: potentialEdge.connection.sourceHandle ?? fallbackHandles.sourceHandle,
+              targetHandle: potentialEdge.connection.targetHandle ?? fallbackHandles.targetHandle,
               type: "custom",
               markerEnd: {
                 type: MarkerType.ArrowClosed,
@@ -1050,10 +964,10 @@ export function buildDisplayEdges({
                 opacity: 0.8,
               },
               data: {},
-            } as Edge;
+            } as Edge
           })(),
         ]
-      : [];
+      : []
 
-  return [...normalizedEdges, ...detachedDraftEdges, ...previewEdges];
+  return [...normalizedEdges, ...detachedDraftEdges, ...previewEdges]
 }

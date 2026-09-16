@@ -1,5 +1,5 @@
-import Papa from "papaparse";
-import * as arrow from "apache-arrow";
+import Papa from "papaparse"
+import * as arrow from "apache-arrow"
 
 export const requiredFiles = {
   "stops.txt": {
@@ -94,7 +94,7 @@ export const requiredFiles = {
       exception_type: new arrow.Int32(),
     },
   },
-};
+}
 
 export function keepColumnsFromCSV(
   csvContent: string,
@@ -103,36 +103,36 @@ export function keepColumnsFromCSV(
   const parsedCSV = Papa.parse(csvContent, {
     header: true,
     skipEmptyLines: true,
-  });
-  const keepKeys = Object.keys(columnsToKeep);
+  })
+  const keepKeys = Object.keys(columnsToKeep)
 
   const filteredData = parsedCSV.data.map((row: any) => {
-    const filteredRow: any = {};
+    const filteredRow: any = {}
     keepKeys.forEach((column) => {
-      filteredRow[column] = row.hasOwnProperty(column) ? row[column] : "";
-    });
-    return filteredRow;
-  });
+      filteredRow[column] = row.hasOwnProperty(column) ? row[column] : ""
+    })
+    return filteredRow
+  })
 
-  const newCSV = Papa.unparse(filteredData);
+  const newCSV = Papa.unparse(filteredData)
 
-  return newCSV;
+  return newCSV
 }
 
 export function mapArrowTypeToSQL(type: arrow.DataType): string {
-  if (type instanceof arrow.Utf8) return "VARCHAR";
-  if (type instanceof arrow.Float64) return "DOUBLE";
-  if (type instanceof arrow.Int32) return "INTEGER";
-  throw new Error(`Unsupported type: ${type}`);
+  if (type instanceof arrow.Utf8) return "VARCHAR"
+  if (type instanceof arrow.Float64) return "DOUBLE"
+  if (type instanceof arrow.Int32) return "INTEGER"
+  throw new Error(`Unsupported type: ${type}`)
 }
 
 export function generateCreateTableQuery(fileSchema: {
-  tableName: string;
-  fileColumns: Record<string, arrow.DataType>;
+  tableName: string
+  fileColumns: Record<string, arrow.DataType>
 }) {
   const columns = Object.entries(fileSchema.fileColumns)
     .map(([columnName, columnType]) => `${columnName} ${mapArrowTypeToSQL(columnType)}`)
-    .join(", ");
+    .join(", ")
 
-  return `CREATE TABLE ${fileSchema.tableName} (${columns});`;
+  return `CREATE TABLE ${fileSchema.tableName} (${columns});`
 }

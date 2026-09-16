@@ -1,24 +1,24 @@
-import { useMemo } from "react";
-import { ColumnDef } from "@tanstack/react-table";
-import TableComponent from "@/components/table";
-import { Button } from "@/components/ui/button";
-import { Link } from "@tanstack/react-router";
-import { BiInfoCircle, BiPencil, BiTrash, BiX } from "react-icons/bi";
-import { getRouteTypeColor } from "@/client/Routes/routeTypeColors";
-import { EditIndicator } from "@/components/ui/EditIndicator";
+import { useMemo } from "react"
+import { ColumnDef } from "@tanstack/react-table"
+import TableComponent from "@/components/table"
+import { Button } from "@/components/ui/button"
+import { Link } from "@tanstack/react-router"
+import { BiInfoCircle, BiPencil, BiTrash, BiX } from "react-icons/bi"
+import { getRouteTypeColor } from "@/client/Routes/routeTypeColors"
+import { EditIndicator } from "@/components/ui/EditIndicator"
 
 interface ServiceRoute {
-  row_id: number;
-  route_id: string;
-  route_name: string;
-  route_short_name?: string;
-  route_long_name?: string;
-  route_type_name?: string;
-  route_color_hex?: string;
-  route_text_color_hex?: string;
-  stop_count?: number;
-  station_count?: number;
-  trip_count?: number;
+  row_id: number
+  route_id: string
+  route_name: string
+  route_short_name?: string
+  route_long_name?: string
+  route_type_name?: string
+  route_color_hex?: string
+  route_text_color_hex?: string
+  stop_count?: number
+  station_count?: number
+  trip_count?: number
 }
 
 function RouteTable({
@@ -44,36 +44,41 @@ function RouteTable({
         accessorKey: "route_name",
         header: "Route Name",
         cell: ({ row }) => {
-          const route = row.original as any;
+          const route = row.original as any
           return (
             <div className="flex min-w-0 items-center gap-2">
               <EditIndicator status={route.status} className="h-5 w-5" />
               <span
                 className="h-3 w-8 rounded-sm border shrink-0"
-                style={{ backgroundColor: route.route_color_hex || getRouteTypeColor(route.route_type_name) }}
+                style={{
+                  backgroundColor:
+                    route.route_color_hex || getRouteTypeColor(route.route_type_name),
+                }}
               />
               <span className="truncate">{route.route_name}</span>
             </div>
-          );
+          )
         },
       },
       {
         accessorKey: "route_type_name",
         header: "Type",
       },
-      ...(hasStopTimes ? [
-        { accessorKey: "stop_count", header: "Stops" },
-        { accessorKey: "station_count", header: "Stations" },
-      ] : []),
+      ...(hasStopTimes
+        ? [
+            { accessorKey: "stop_count", header: "Stops" },
+            { accessorKey: "station_count", header: "Stations" },
+          ]
+        : []),
       {
         accessorKey: "trip_count",
         header: "Trips",
       },
     ],
     [hasStopTimes],
-  );
+  )
 
-  const routeColor = ClickInfo?.route_color_hex || getRouteTypeColor(ClickInfo?.route_type_name);
+  const routeColor = ClickInfo?.route_color_hex || getRouteTypeColor(ClickInfo?.route_type_name)
 
   return (
     <TableComponent
@@ -133,7 +138,12 @@ function RouteTable({
               </Link>
             </Button>
             {onEdit && (
-              <Button size="sm" variant="outline" className="w-full" onClick={() => onEdit(ClickInfo)}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={() => onEdit(ClickInfo)}
+              >
                 <BiPencil className="mr-2 h-4 w-4" />
                 Edit
               </Button>
@@ -154,7 +164,7 @@ function RouteTable({
         </div>
       )}
     </TableComponent>
-  );
+  )
 }
 
-export default RouteTable;
+export default RouteTable

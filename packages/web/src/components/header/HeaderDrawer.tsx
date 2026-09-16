@@ -5,11 +5,11 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
-} from "@/components/ui/sheet";
-import { GithubButton } from "@/components/contact";
-import UpcomingFeatures from "@/components/UpcomingFeatures";
-import { Button } from "@/components/ui/button";
-import { BiMenu } from "react-icons/bi";
+} from "@/components/ui/sheet"
+import { GithubButton } from "@/components/contact"
+import UpcomingFeatures from "@/components/UpcomingFeatures"
+import { Button } from "@/components/ui/button"
+import { BiMenu } from "react-icons/bi"
 
 function HeaderDrawer({ TabList }) {
   return (
@@ -27,10 +27,7 @@ function HeaderDrawer({ TabList }) {
 
         <nav className="grid gap-2">
           {TabList.map((tab, index) => (
-            <div
-              key={index}
-              className="flex flex-col border-b border-primary/20 py-2"
-            >
+            <div key={index} className="flex flex-col border-b border-primary/20 py-2">
               <div
                 className="
                   px-2 py-2 
@@ -82,7 +79,7 @@ function HeaderDrawer({ TabList }) {
         </nav>
       </SheetContent>
     </Sheet>
-  );
+  )
 }
 
-export default HeaderDrawer;
+export default HeaderDrawer

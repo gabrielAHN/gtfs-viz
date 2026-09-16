@@ -1,12 +1,12 @@
-import { Button } from "@/components/ui/button";
-import { BiPencil, BiTrash } from "react-icons/bi";
+import { Button } from "@/components/ui/button"
+import { BiPencil, BiTrash } from "react-icons/bi"
 
 interface EditButtonProps {
-  onClick: () => void;
-  disabled?: boolean;
-  className?: string;
-  size?: "sm" | "default" | "lg" | "icon";
-  variant?: "default" | "outline" | "ghost" | "link" | "destructive" | "delete";
+  onClick: () => void
+  disabled?: boolean
+  className?: string
+  size?: "sm" | "default" | "lg" | "icon"
+  variant?: "default" | "outline" | "ghost" | "link" | "destructive" | "delete"
 }
 
 export function EditButton({
@@ -27,15 +27,15 @@ export function EditButton({
       <BiPencil className="mr-2 h-5 w-5" />
       Edit
     </Button>
-  );
+  )
 }
 
 interface DeleteButtonProps {
-  onClick: () => void;
-  disabled?: boolean;
-  isPending?: boolean;
-  className?: string;
-  size?: "sm" | "default" | "lg" | "icon";
+  onClick: () => void
+  disabled?: boolean
+  isPending?: boolean
+  className?: string
+  size?: "sm" | "default" | "lg" | "icon"
 }
 
 export function DeleteButton({
@@ -56,5 +56,5 @@ export function DeleteButton({
       <BiTrash className="mr-2 h-5 w-5" />
       {isPending ? "Deleting..." : "Delete"}
     </Button>
-  );
+  )
 }
