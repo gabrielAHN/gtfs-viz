@@ -1,30 +1,30 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react"
 
-import { Button } from "@/components/ui/button";
-import { BiPencil, BiTrash, BiReset } from "react-icons/bi";
-import { useDuckDB } from "@/context/duckdb.client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchStopsMapBounds } from "@/lib/duckdb/DataFetching/fetchRouteData";
-import { mutationDeleteStationFn } from "@/lib/duckdb/DataEditing/editingFn";
+import { Button } from "@/components/ui/button"
+import { BiPencil, BiTrash, BiReset } from "react-icons/bi"
+import { useDuckDB } from "@/context/duckdb.client"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { fetchStopsMapBounds } from "@/lib/duckdb/DataFetching/fetchRouteData"
+import { mutationDeleteStationFn } from "@/lib/duckdb/DataEditing/editingFn"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { getStopColor, WHEELCHAIR_STATUS } from "@/components/style";
-import { rgbToHex } from "@/components/colorUtil";
-import { useThemeContext } from "@/context/theme.client";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { EditIndicator } from "@/components/ui/EditIndicator";
-import { RouteChipsForStop } from "@/components/routes/RouteChips";
+} from "@/components/ui/select"
+import { getStopColor, WHEELCHAIR_STATUS } from "@/components/style"
+import { rgbToHex } from "@/components/colorUtil"
+import { useThemeContext } from "@/context/theme.client"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { EditIndicator } from "@/components/ui/EditIndicator"
+import { RouteChipsForStop } from "@/components/routes/RouteChips"
 
-import MapSection from "./Components/MapSection";
-import MapClickPopup from "@/components/maps/MapClickPopup";
-import MapContainer from "@/components/maps/MapContainer";
-import MapLegend from "@/components/maps/MapLegend";
-import { createStopsTable, createStopsView } from "@/lib/extensions";
+import MapSection from "./Components/MapSection"
+import MapClickPopup from "@/components/maps/MapClickPopup"
+import MapContainer from "@/components/maps/MapContainer"
+import MapLegend from "@/components/maps/MapLegend"
+import { createStopsTable, createStopsView } from "@/lib/extensions"
 
 function StopsMap({
   data,
@@ -34,61 +34,61 @@ function StopsMap({
   externalViewState,
   initialStopId,
 }: any) {
-  const duckDB = useDuckDB();
-  const conn = duckDB?.conn;
-  const hasStopTimes = duckDB?.hasStopTimes ?? false;
-  const queryClient = useQueryClient();
-  const { theme } = useThemeContext();
+  const duckDB = useDuckDB()
+  const conn = duckDB?.conn
+  const hasStopTimes = duckDB?.hasStopTimes ?? false
+  const queryClient = useQueryClient()
+  const { theme } = useThemeContext()
 
   const { data: sqlBounds } = useQuery({
     queryKey: ["fetchStopsMapBounds"],
     queryFn: () => fetchStopsMapBounds(conn),
     enabled: !!conn,
     staleTime: Infinity,
-  });
+  })
 
-  const [MapLayers, setMapLayers] = useState([]);
-  const [DataColor, setDataColor] = useState("location_type_name");
-  const [viewState, setViewState] = useState<any>();
-  const [BoundBox, setBoundBox] = useState<any>();
+  const [MapLayers, setMapLayers] = useState([])
+  const [DataColor, setDataColor] = useState("location_type_name")
+  const [viewState, setViewState] = useState<any>()
+  const [BoundBox, setBoundBox] = useState<any>()
 
   useEffect(() => {
-    if (!sqlBounds) return;
-    setBoundBox(sqlBounds.boundBox);
+    if (!sqlBounds) return
+    setBoundBox(sqlBounds.boundBox)
     if (!viewState) {
-      setViewState(sqlBounds.viewState);
+      setViewState(sqlBounds.viewState)
     }
-  }, [sqlBounds]);
+  }, [sqlBounds])
 
-  const [initialApplied, setInitialApplied] = useState(false);
+  const [initialApplied, setInitialApplied] = useState(false)
   useEffect(() => {
-    if (initialApplied || !initialStopId || !data || data.length === 0) return;
-    const stop = data.find((s: any) => String(s.stop_id) === String(initialStopId));
+    if (initialApplied || !initialStopId || !data || data.length === 0) return
+    const stop = data.find((s: any) => String(s.stop_id) === String(initialStopId))
     if (stop) {
-      setClickInfo(stop);
-      setInitialApplied(true);
+      setClickInfo(stop)
+      setInitialApplied(true)
     }
-  }, [initialStopId, data, initialApplied, setClickInfo]);
+  }, [initialStopId, data, initialApplied, setClickInfo])
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const clickData = ClickInfo?.object || ClickInfo;
+      const clickData = ClickInfo?.object || ClickInfo
       await mutationDeleteStationFn({
         conn: conn,
         SelectStation: clickData,
-      });
+      })
     },
     onSuccess: async () => {
-      await createStopsView(conn);
-      await createStopsTable(conn);
+      await createStopsView(conn)
+      await createStopsTable(conn)
 
-      queryClient.invalidateQueries({ queryKey: ["createStopsTable"] });
-      queryClient.invalidateQueries({ queryKey: ["fetchStopsData"] });
-      queryClient.invalidateQueries({ queryKey: ["fetchStopsIdData"] });
-      queryClient.invalidateQueries({ queryKey: ["fetchStopsNamesData"] });
-      setClickInfo(undefined);
+      queryClient.invalidateQueries({ queryKey: ["createStopsTable"] })
+      queryClient.invalidateQueries({ queryKey: ["fetchStopsData"] })
+      queryClient.invalidateQueries({ queryKey: ["fetchStopsIdData"] })
+      queryClient.invalidateQueries({ queryKey: ["fetchStopsNamesData"] })
+      setClickInfo(undefined)
     },
-  });
+  })
 
   useEffect(() => {
     if (externalViewState) {
@@ -96,52 +96,52 @@ function StopsMap({
         ...(prev || {}),
         ...externalViewState,
         transitionDuration: 500,
-      }));
+      }))
     }
-  }, [externalViewState]);
+  }, [externalViewState])
 
   const handleGoToLocation = () => {
-    const clickData = ClickInfo?.object || ClickInfo;
+    const clickData = ClickInfo?.object || ClickInfo
     setViewState({
       longitude: clickData.stop_lon,
       latitude: clickData.stop_lat,
       zoom: 15,
-    });
-  };
+    })
+  }
 
   const legendItems = useMemo(() => {
-    if (!data || data.length === 0) return [];
+    if (!data || data.length === 0) return []
 
-    const valueSet = new Set(data.map((row) => row[DataColor]).filter(Boolean));
+    const valueSet = new Set(data.map((row) => row[DataColor]).filter(Boolean))
 
     return Array.from(valueSet).map((value) => {
-      let color;
-      let label;
+      let color
+      let label
 
       if (DataColor === "location_type_name") {
-        color = rgbToHex(getStopColor(value, theme));
-        label = value;
+        color = rgbToHex(getStopColor(value, theme))
+        label = value
       } else if (DataColor === "wheelchair_status") {
-        color = rgbToHex(WHEELCHAIR_STATUS[value]?.color || [128, 128, 128]);
-        label = WHEELCHAIR_STATUS[value]?.name || value;
+        color = rgbToHex(WHEELCHAIR_STATUS[value]?.color || [128, 128, 128])
+        label = WHEELCHAIR_STATUS[value]?.name || value
       } else {
-        color = "#808080";
-        label = value;
+        color = "#808080"
+        label = value
       }
 
-      return { label, color };
-    });
-  }, [data, DataColor, theme]);
+      return { label, color }
+    })
+  }, [data, DataColor, theme])
 
   if (!data || data.length === 0) {
     return (
       <div className="relative h-[74vh] w-full border rounded overflow-hidden flex items-center justify-center">
         <div className="text-sm text-muted-foreground">No stop data available.</div>
       </div>
-    );
+    )
   }
 
-  const clickData = ClickInfo?.object || ClickInfo;
+  const clickData = ClickInfo?.object || ClickInfo
 
   return (
     <MapContainer
@@ -260,7 +260,7 @@ function StopsMap({
         setBoundBox={setBoundBox}
       />
     </MapContainer>
-  );
+  )
 }
 
-export default StopsMap;
+export default StopsMap

@@ -1,39 +1,39 @@
-import { ChevronLeft, ChevronRight, Filter, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, X } from "lucide-react"
 
-import { rgbToHex } from "@/components/colorUtil";
-import Combobox from "@/components/ui/combobox";
-import { Button } from "@/components/ui/button";
+import { rgbToHex } from "@/components/colorUtil"
+import Combobox from "@/components/ui/combobox"
+import { Button } from "@/components/ui/button"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { getPathwayColor } from "@/components/style";
+} from "@/components/ui/select"
+import { getPathwayColor } from "@/components/style"
 
 import {
   getDetachedConnectionDraftConnection,
   getDetachedConnectionDraftEndpointCount,
-} from "../core/shared";
+} from "../core/shared"
 
 type OrphanConnectionsSidebarProps = {
-  theme: string;
-  hasOrphanConnectionsSidebar: boolean;
-  sidebarOpen: boolean;
-  setSidebarOpen: (value: boolean) => void;
-  availableOrphanConnections: any[];
-  orphanPathwayIdFilter?: string;
-  setOrphanPathwayIdFilter: (value?: string) => void;
-  orphanPathwayIdOptions: Array<{ value: string; label: string }>;
-  orphanPathwayTypeFilter: string;
-  setOrphanPathwayTypeFilter: (value: string) => void;
-  orphanPathwayTypeOptions: string[];
-  filteredAvailableOrphanConnections: any[];
-  activeDetachedConnectionDraftPathwayId: string | null;
-  detachedConnectionDrafts: any[];
-  startDetachedConnectionRepair: (connection: any) => void;
-};
+  theme: string
+  hasOrphanConnectionsSidebar: boolean
+  sidebarOpen: boolean
+  setSidebarOpen: (value: boolean) => void
+  availableOrphanConnections: any[]
+  orphanPathwayIdFilter?: string
+  setOrphanPathwayIdFilter: (value?: string) => void
+  orphanPathwayIdOptions: Array<{ value: string; label: string }>
+  orphanPathwayTypeFilter: string
+  setOrphanPathwayTypeFilter: (value: string) => void
+  orphanPathwayTypeOptions: string[]
+  filteredAvailableOrphanConnections: any[]
+  activeDetachedConnectionDraftPathwayId: string | null
+  detachedConnectionDrafts: any[]
+  startDetachedConnectionRepair: (connection: any) => void
+}
 
 export function OrphanConnectionsSidebar({
   theme,
@@ -53,7 +53,7 @@ export function OrphanConnectionsSidebar({
   startDetachedConnectionRepair,
 }: OrphanConnectionsSidebarProps) {
   if (!hasOrphanConnectionsSidebar) {
-    return null;
+    return null
   }
 
   return (
@@ -112,9 +112,8 @@ export function OrphanConnectionsSidebar({
                   </Select>
                 </div>
                 <p className="text-[9px] text-muted-foreground mb-2">
-                  Click an orphan connection to open the repair form. Once you
-                  choose both nodes, the canvas shows a suggested edge before
-                  you save.
+                  Click an orphan connection to open the repair form. Once you choose both nodes,
+                  the canvas shows a suggested edge before you save.
                 </p>
                 <div className="space-y-1 max-h-[calc(100vh-400px)] overflow-y-auto">
                   {filteredAvailableOrphanConnections.length === 0 ? (
@@ -123,37 +122,29 @@ export function OrphanConnectionsSidebar({
                     </div>
                   ) : (
                     filteredAvailableOrphanConnections.map((connection: any) => {
-                      const isDeleted = connection.status === "deleted";
+                      const isDeleted = connection.status === "deleted"
                       const isLockedByActiveRepair =
                         activeDetachedConnectionDraftPathwayId !== null &&
-                        activeDetachedConnectionDraftPathwayId !==
-                          String(connection.pathway_id);
+                        activeDetachedConnectionDraftPathwayId !== String(connection.pathway_id)
                       const color = rgbToHex(
-                        getPathwayColor(
-                          connection.pathway_mode_name || "❓",
-                          theme,
-                        ),
-                      );
+                        getPathwayColor(connection.pathway_mode_name || "❓", theme),
+                      )
 
                       return (
                         <div
                           key={connection.pathway_id}
-                          role={
-                            !isDeleted && !isLockedByActiveRepair
-                              ? "button"
-                              : undefined
-                          }
+                          role={!isDeleted && !isLockedByActiveRepair ? "button" : undefined}
                           onMouseDown={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
+                            event.preventDefault()
+                            event.stopPropagation()
                           }}
                           onClick={
                             isDeleted || isLockedByActiveRepair
                               ? undefined
                               : (event) => {
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  startDetachedConnectionRepair(connection);
+                                  event.preventDefault()
+                                  event.stopPropagation()
+                                  startDetachedConnectionRepair(connection)
                                 }
                           }
                           className={`text-[10px] p-2 rounded border-2 transition-colors ${
@@ -196,7 +187,7 @@ export function OrphanConnectionsSidebar({
                             </div>
                           ) : null}
                         </div>
-                      );
+                      )
                     })
                   )}
                 </div>
@@ -210,26 +201,22 @@ export function OrphanConnectionsSidebar({
                   Orphan Connection Repair ({detachedConnectionDrafts.length})
                 </div>
                 <p className="text-[9px] text-muted-foreground mb-2">
-                  Only one orphan repair can be active at a time. Use the popup
-                  comboboxes to choose both nodes, then review the suggested
-                  edge on the canvas before saving.
+                  Only one orphan repair can be active at a time. Use the popup comboboxes to choose
+                  both nodes, then review the suggested edge on the canvas before saving.
                 </p>
                 <div className="space-y-1 max-h-[200px] overflow-y-auto">
                   {detachedConnectionDrafts.map((draft) => {
-                    const connection = getDetachedConnectionDraftConnection(draft);
+                    const connection = getDetachedConnectionDraftConnection(draft)
                     const color = rgbToHex(
-                      getPathwayColor(
-                        connection.pathway_mode_name || "❓",
-                        theme,
-                      ),
-                    );
+                      getPathwayColor(connection.pathway_mode_name || "❓", theme),
+                    )
 
                     return (
                       <div
                         key={connection.pathway_id}
                         onMouseDown={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
+                          event.preventDefault()
+                          event.stopPropagation()
                         }}
                         className="text-[10px] p-2 rounded border-2 bg-muted/30 hover:bg-muted/50 transition-colors"
                         style={{ borderColor: color }}
@@ -244,11 +231,10 @@ export function OrphanConnectionsSidebar({
                           {connection.pathway_mode_name || "❓"}
                         </div>
                         <div className="text-[8px] text-muted-foreground">
-                          {getDetachedConnectionDraftEndpointCount(draft)} / 2
-                          {" "}nodes selected
+                          {getDetachedConnectionDraftEndpointCount(draft)} / 2 nodes selected
                         </div>
                       </div>
-                    );
+                    )
                   })}
                 </div>
               </div>
@@ -269,5 +255,5 @@ export function OrphanConnectionsSidebar({
         </Button>
       )}
     </>
-  );
+  )
 }

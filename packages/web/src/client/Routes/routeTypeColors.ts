@@ -10,12 +10,12 @@ const ROUTE_TYPE_COLORS: Record<string, string> = {
   Trolleybus: "#f97316",
   Monorail: "#8b5cf6",
   Other: "#6b7280",
-};
+}
 
 export const getRouteTypeColor = (routeType?: string) => {
-  if (!routeType) return ROUTE_TYPE_COLORS.Other;
-  return ROUTE_TYPE_COLORS[routeType] || ROUTE_TYPE_COLORS.Other;
-};
+  if (!routeType) return ROUTE_TYPE_COLORS.Other
+  return ROUTE_TYPE_COLORS[routeType] || ROUTE_TYPE_COLORS.Other
+}
 
 export const getRouteTypeLegendItems = (routes: any[]) => {
   return Array.from(new Set(routes.map((route) => route.route_type_name).filter(Boolean)))
@@ -23,5 +23,5 @@ export const getRouteTypeLegendItems = (routes: any[]) => {
     .map((type) => ({
       label: String(type),
       color: getRouteTypeColor(String(type)),
-    }));
-};
+    }))
+}

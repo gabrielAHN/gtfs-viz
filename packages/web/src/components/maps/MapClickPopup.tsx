@@ -1,14 +1,14 @@
-import { BiX } from "react-icons/bi";
-import PopupTable from "@/components/table/PopupTable";
+import { BiX } from "react-icons/bi"
+import PopupTable from "@/components/table/PopupTable"
 
 interface MapClickPopupProps {
-  title: string | React.ReactNode;
-  data: Record<string, any>;
-  onClose: () => void;
-  borderColor?: string;
-  columns: string[];
-  columnNames: string[];
-  actions?: React.ReactNode;
+  title: string | React.ReactNode
+  data: Record<string, any>
+  onClose: () => void
+  borderColor?: string
+  columns: string[]
+  columnNames: string[]
+  actions?: React.ReactNode
 }
 
 function MapClickPopup({
@@ -38,20 +38,12 @@ function MapClickPopup({
       </div>
 
       <div className="overflow-y-auto p-2 flex-1 min-h-0">
-        <PopupTable
-          Data={data}
-          ColumnsData={columns}
-          ColumnName={columnNames}
-        />
+        <PopupTable Data={data} ColumnsData={columns} ColumnName={columnNames} />
       </div>
 
-      {actions && (
-        <div className="p-2 border-t flex-shrink-0">
-          {actions}
-        </div>
-      )}
+      {actions && <div className="p-2 border-t flex-shrink-0">{actions}</div>}
     </div>
-  );
+  )
 }
 
-export default MapClickPopup;
+export default MapClickPopup

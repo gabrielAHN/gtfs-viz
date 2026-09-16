@@ -2,17 +2,20 @@ export {
   installExtension,
   installMacros,
   installInit,
+  reinstallMacros,
   getInstallSql,
   recreateStopsView,
   recreatePathwaysView,
   GTFS_LOAD_SQL,
   GTFS_INIT_SQL,
   GTFS_REROUTE_SQL,
+  ROUTE_SHAPE_MACRO_VERSION,
 } from "./installer.js";
 export type { SqlExecutor } from "./installer.js";
 
 export {
   importGtfs,
+  type ImportProgress,
   buildImportSql,
   importStopsSql,
   importPathwaysSql,
@@ -35,3 +38,5 @@ export {
 
 export { sqlForNamedQuery, isNamedQuery, dashboardViewForNamedQuery } from "./named-queries.js";
 export type { NamedQueryName } from "./named-queries.js";
+
+export * from "./deckgl/index.js";

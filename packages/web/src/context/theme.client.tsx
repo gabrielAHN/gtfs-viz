@@ -1,86 +1,79 @@
-import React, {
-  createContext,
-  useState,
-  useContext,
-  ReactNode,
-  FC,
-  useEffect,
-} from "react";
+import React, { createContext, useState, useContext, ReactNode, FC, useEffect } from "react"
 
-type Theme = "light" | "dark";
+type Theme = "light" | "dark"
 
 interface ThemeContextType {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
-  toggleTheme: () => void;
-  themeVariables: Record<string, string>;
+  theme: Theme
+  setTheme: (theme: Theme) => void
+  toggleTheme: () => void
+  themeVariables: Record<string, string>
 }
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 export const ThemeProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "light";
+    if (typeof window === "undefined") return "light"
 
-    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    return systemTheme;
-  });
+    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+    return systemTheme
+  })
 
-  const [themeVariables, setThemeVariables] = useState<Record<string, string>>({});
+  const [themeVariables, setThemeVariables] = useState<Record<string, string>>({})
 
   const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
-  };
+    setThemeState(newTheme)
+  }
 
   const toggleTheme = () => {
-    const newTheme = theme === "dark" ? "light" : "dark";
-    setTheme(newTheme);
-  };
+    const newTheme = theme === "dark" ? "light" : "dark"
+    setTheme(newTheme)
+  }
 
   useEffect(() => {
-    const root = document.documentElement;
+    const root = document.documentElement
     if (theme === "dark") {
-      root.classList.add("dark");
+      root.classList.add("dark")
     } else {
-      root.classList.remove("dark");
+      root.classList.remove("dark")
     }
-  }, [theme]);
+  }, [theme])
 
   useEffect(() => {
-    const rootStyles = getComputedStyle(document.documentElement);
+    const rootStyles = getComputedStyle(document.documentElement)
 
     const fetchThemeVariables = () => ({
       background: rootStyles.getPropertyValue("--background").trim(),
       foreground: rootStyles.getPropertyValue("--foreground").trim(),
       primary: rootStyles.getPropertyValue("--primary").trim(),
       secondary: rootStyles.getPropertyValue("--secondary").trim(),
-    });
+    })
 
-    setThemeVariables(fetchThemeVariables());
+    setThemeVariables(fetchThemeVariables())
 
     const observer = new MutationObserver(() => {
-      setThemeVariables(fetchThemeVariables());
-    });
+      setThemeVariables(fetchThemeVariables())
+    })
 
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["class"],
-    });
+    })
 
-    return () => observer.disconnect();
-  }, [theme]);
+    return () => observer.disconnect()
+  }, [theme])
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, toggleTheme, themeVariables }}>
       {children}
     </ThemeContext.Provider>
-  );
-};
+  )
+}
 
 export const useThemeContext = (): ThemeContextType => {
-  const context = useContext(ThemeContext);
+  const context = useContext(ThemeContext)
   if (!context) {
-    throw new Error("useThemeContext must be used within a ThemeProvider");
+    throw new Error("useThemeContext must be used within a ThemeProvider")
   }
-  return context;
-};
+  return context
+}

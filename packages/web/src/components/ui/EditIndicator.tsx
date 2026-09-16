@@ -1,34 +1,33 @@
-import { BiPencil } from "react-icons/bi";
+import { BiPencil } from "react-icons/bi"
 
 interface EditIndicatorProps {
-  status?: string;
-  className?: string;
+  status?: string
+  className?: string
 }
 
 const getStatusKind = (status?: string | null): "edit" | "new" | "deleted" | null => {
-  if (status === "new" || status === "new edit") return "new";
-  if (status === "edit") return "edit";
-  if (status === "deleted") return "deleted";
-  return null;
-};
+  if (status === "new" || status === "new edit") return "new"
+  if (status === "edit") return "edit"
+  if (status === "deleted") return "deleted"
+  return null
+}
 
-export function EditIndicator({
-  status,
-  className = "h-5 w-5",
-}: EditIndicatorProps) {
-  const statusKind = getStatusKind(status);
+export function EditIndicator({ status, className = "h-5 w-5" }: EditIndicatorProps) {
+  const statusKind = getStatusKind(status)
 
-  if (!statusKind || !status) return null;
+  if (!statusKind || !status) return null
 
   return (
     <span className="inline-flex relative group shrink-0">
-      <span className={`inline-flex items-center justify-center rounded-full ${className} ${
-        statusKind === "new"
-          ? "bg-green-100 dark:bg-green-900/40"
-          : statusKind === "deleted"
-            ? "bg-red-100 dark:bg-red-900/40"
-            : "bg-amber-100 dark:bg-amber-900/40"
-      }`}>
+      <span
+        className={`inline-flex items-center justify-center rounded-full ${className} ${
+          statusKind === "new"
+            ? "bg-green-100 dark:bg-green-900/40"
+            : statusKind === "deleted"
+              ? "bg-red-100 dark:bg-red-900/40"
+              : "bg-amber-100 dark:bg-amber-900/40"
+        }`}
+      >
         {statusKind === "new" ? (
           <span className="text-[9px] leading-none flex items-center justify-center">🆕</span>
         ) : statusKind === "deleted" ? (
@@ -41,5 +40,5 @@ export function EditIndicator({
         {statusKind === "new" ? "New" : statusKind === "deleted" ? "Deleted" : "Edited"}
       </span>
     </span>
-  );
+  )
 }

@@ -1,86 +1,81 @@
-import { Link, useRouter, useRouterState } from "@tanstack/react-router";
-import { useDuckDB } from "@/context/duckdb.client";
-import { useCallback, useMemo, useState } from "react";
-import { logger } from "@/lib/logger";
-import { BiImport, BiMap, BiTable, BiMenu } from "react-icons/bi";
-import { Button } from "@/components/ui/button";
-import ThemeSwitcher from "@/components/ui/ThemeSwitcher";
-import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Link, useRouter, useRouterState } from "@tanstack/react-router"
+import { useDuckDB } from "@/context/duckdb.client"
+import { useCallback, useMemo, useState } from "react"
+import { logger } from "@/lib/logger"
+import { BiImport, BiMap, BiTable, BiMenu } from "react-icons/bi"
+import { Button } from "@/components/ui/button"
+import ThemeSwitcher from "@/components/ui/ThemeSwitcher"
+import { Separator } from "@/components/ui/separator"
+import { cn } from "@/lib/utils"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 function Header() {
-  const router = useRouter();
-  const routerState = useRouterState();
-  const duckDB = useDuckDB();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const router = useRouter()
+  const routerState = useRouterState()
+  const duckDB = useDuckDB()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  const currentPath = routerState.location.pathname;
-  const currentSearch = routerState.location.search as any;
+  const currentPath = routerState.location.pathname
+  const currentSearch = routerState.location.search as any
 
-  const hasStations = duckDB?.hasStations ?? false;
-  const hasStops = duckDB?.hasStops ?? false;
-  const hasRoutes = duckDB?.hasRoutes ?? false;
-  const hasShapes = duckDB?.hasShapes ?? false;
-  const hasTrips = duckDB?.hasTrips ?? false;
-  const hasStopTimes = duckDB?.hasStopTimes ?? false;
-  const isResetting = duckDB?.isResetting ?? false;
-  const isCliLaunch = duckDB?.isCliLaunch ?? false;
+  const hasStations = duckDB?.hasStations ?? false
+  const hasStops = duckDB?.hasStops ?? false
+  const hasRoutes = duckDB?.hasRoutes ?? false
+  const hasShapes = duckDB?.hasShapes ?? false
+  const hasTrips = duckDB?.hasTrips ?? false
+  const hasStopTimes = duckDB?.hasStopTimes ?? false
+  const isResetting = duckDB?.isResetting ?? false
+  const isCliLaunch = duckDB?.isCliLaunch ?? false
 
-  const isRoutesActive = currentPath.startsWith("/routes");
-  const isTripsActive = currentPath.startsWith("/trips");
-  const isStationsActive = currentPath.startsWith("/stations");
-  const isStopsActive = currentPath.startsWith("/stops");
-  const isExportActive = currentPath.startsWith("/export");
+  const isRoutesActive = currentPath.startsWith("/routes")
+  const isTripsActive = currentPath.startsWith("/trips")
+  const isStationsActive = currentPath.startsWith("/stations")
+  const isStopsActive = currentPath.startsWith("/stops")
+  const isExportActive = currentPath.startsWith("/export")
 
   const handleImport = useCallback(async () => {
-    if (isResetting || !duckDB) return;
+    if (isResetting || !duckDB) return
 
-    duckDB.setIsResetting(true);
-    duckDB.setLoadingMessage("Resetting database...");
-    duckDB.setLoadingSubMessage("Clearing all data and preparing for import");
+    duckDB.setIsResetting(true)
+    duckDB.setLoadingMessage("Resetting database...")
+    duckDB.setLoadingSubMessage("Clearing all data and preparing for import")
+
+    router.navigate({ to: "/" })
+    await new Promise((resolve) => setTimeout(resolve, 150))
 
     if (duckDB.resetDb) {
       try {
-        await duckDB.resetDb();
+        await duckDB.resetDb()
       } catch (error) {
-        logger.error("Error resetting database:", error);
+        logger.error("Error resetting database:", error)
       }
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
-    duckDB.setLoadingMessage("Redirecting...");
-    duckDB.setLoadingSubMessage("");
-    await new Promise((resolve) => setTimeout(resolve, 200));
-
-    router.navigate({ to: "/" });
-
     setTimeout(() => {
-      duckDB.setIsResetting(false);
-      duckDB.setLoadingMessage("");
-      duckDB.setLoadingSubMessage("");
-    }, 500);
-  }, [isResetting, duckDB, router]);
+      duckDB.setIsResetting(false)
+      duckDB.setLoadingMessage("")
+      duckDB.setLoadingSubMessage("")
+    }, 300)
+  }, [isResetting, duckDB, router])
 
   const handleNavigate = () => {
-    setMobileMenuOpen(false);
-  };
+    setMobileMenuOpen(false)
+  }
 
   const navigationGroups = useMemo(() => {
     const stationsViews = [
       { id: "map", label: "Map", icon: BiMap, path: "/stations/map" },
       { id: "table", label: "Table", icon: BiTable, path: "/stations/table" },
-    ];
+    ]
     const stopsViews = [
       { id: "map", label: "Map", icon: BiMap, path: "/stops/map" },
       { id: "table", label: "Table", icon: BiTable, path: "/stops/table" },
-    ];
+    ]
     const routesViews = [
       ...(hasShapes ? [{ id: "map", label: "Map", icon: BiMap, path: "/routes/map" }] : []),
       { id: "table", label: "Table", icon: BiTable, path: "/routes/table" },
-    ];
+    ]
     return [
       {
         id: "routes",
@@ -126,11 +121,23 @@ function Header() {
         views: stopsViews,
         search: { selectedStopId: currentSearch?.selectedStopId },
       },
-    ];
-  }, [hasShapes, hasRoutes, hasTrips, hasStopTimes, hasStations, hasStops,
-      isRoutesActive, isTripsActive, isStationsActive, isStopsActive,
-      currentSearch?.selectedRouteId, currentSearch?.selectedTripId,
-      currentSearch?.selectedStationId, currentSearch?.selectedStopId]);
+    ]
+  }, [
+    hasShapes,
+    hasRoutes,
+    hasTrips,
+    hasStopTimes,
+    hasStations,
+    hasStops,
+    isRoutesActive,
+    isTripsActive,
+    isStationsActive,
+    isStopsActive,
+    currentSearch?.selectedRouteId,
+    currentSearch?.selectedTripId,
+    currentSearch?.selectedStationId,
+    currentSearch?.selectedStopId,
+  ])
 
   return (
     <>
@@ -152,8 +159,8 @@ function Header() {
                   variant="outline"
                   className="w-full justify-start"
                   onClick={() => {
-                    handleImport();
-                    handleNavigate();
+                    handleImport()
+                    handleNavigate()
                   }}
                   disabled={isResetting}
                 >
@@ -178,9 +185,9 @@ function Header() {
                             search={group.enabled ? group.search : undefined}
                             onClick={(event) => {
                               if (!group.enabled) {
-                                event.preventDefault();
+                                event.preventDefault()
                               } else {
-                                handleNavigate();
+                                handleNavigate()
                               }
                             }}
                             className={cn(
@@ -206,8 +213,8 @@ function Header() {
                     {group.enabled && group.views.length > 0 && (
                       <div className="ml-6 mt-1 flex flex-col gap-1">
                         {group.views.map((view) => {
-                          const ViewIcon = view.icon;
-                          const isActive = currentPath === view.path;
+                          const ViewIcon = view.icon
+                          const isActive = currentPath === view.path
 
                           return (
                             <Link
@@ -225,7 +232,7 @@ function Header() {
                               <ViewIcon className="h-4 w-4" />
                               <span>{view.label} View</span>
                             </Link>
-                          );
+                          )
                         })}
                       </div>
                     )}
@@ -334,7 +341,7 @@ function Header() {
                       <div className="invisible absolute left-0 top-full z-50 pt-2 opacity-0 transition-opacity group-hover:visible group-hover:opacity-100">
                         <ul className="grid w-[200px] gap-2 rounded-md border bg-popover p-2 text-popover-foreground shadow-lg">
                           {group.views.map((view) => {
-                            const ViewIcon = view.icon;
+                            const ViewIcon = view.icon
 
                             return (
                               <li key={view.id}>
@@ -360,7 +367,7 @@ function Header() {
                                   <span>{view.label}</span>
                                 </Link>
                               </li>
-                            );
+                            )
                           })}
                         </ul>
                       </div>
@@ -386,7 +393,7 @@ function Header() {
         </div>
       </div>
     </>
-  );
+  )
 }
 
-export default Header;
+export default Header

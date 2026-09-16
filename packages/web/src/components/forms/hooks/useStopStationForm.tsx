@@ -1,25 +1,31 @@
-import { useMemo, useCallback, useState } from "react";
-import { useQueryClient, useMutation } from "@tanstack/react-query";
-import { useRouter, useRouterState } from "@tanstack/react-router";
-import { useDuckDB } from "@/context/duckdb.client";
-import { Select, SelectItem, SelectContent, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import { useMemo, useCallback, useState } from "react"
+import { useQueryClient, useMutation } from "@tanstack/react-query"
+import { useRouter, useRouterState } from "@tanstack/react-router"
+import { useDuckDB } from "@/context/duckdb.client"
+import {
+  Select,
+  SelectItem,
+  SelectContent,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 import {
   mutationAddStationFn,
   mutationEditStationFn,
   mutationUpgradeToStationFn,
   mutationDowngradeToStopFn,
-} from "@/lib/duckdb/DataEditing/editingFn";
-import { validateTableData } from "@/lib/duckdb/DataEditing/validatingData";
-import { logger } from "@/lib/logger";
+} from "@/lib/duckdb/DataEditing/editingFn"
+import { validateTableData } from "@/lib/duckdb/DataEditing/validatingData"
+import { logger } from "@/lib/logger"
 import {
   createStationsTable,
   createStopsTable,
   createStopsView,
   recreatePathwaysView,
   recreateStopsView,
-} from "@/lib/extensions";
-import { LOCATION_TYPE_CONFIGS } from "@/components/forms/FormComponent";
+} from "@/lib/extensions"
+import { LOCATION_TYPE_CONFIGS } from "@/components/forms/FormComponent"
 
 const INVALIDATION_KEYS = [
   "createStationTable",
@@ -31,20 +37,20 @@ const INVALIDATION_KEYS = [
   "fetchStationData",
   "fetchStationInfoData",
   "stationPathwaysComplete",
-] as const;
+] as const
 
 type UseStopStationFormProps = {
-  Data: any[];
-  ClickInfo: any;
-  type: "station" | "stop";
-  mode: "add" | "edit";
-  parentStation?: string;
-  onSuccess?: () => void;
-  onZoomToLocation?: (lat: number, lon: number) => void;
-  onFormMutatingChange?: (isMutating: boolean) => void;
-  showConversionActions?: boolean;
-  showLevelField?: boolean;
-};
+  Data: any[]
+  ClickInfo: any
+  type: "station" | "stop"
+  mode: "add" | "edit"
+  parentStation?: string
+  onSuccess?: () => void
+  onZoomToLocation?: (lat: number, lon: number) => void
+  onFormMutatingChange?: (isMutating: boolean) => void
+  showConversionActions?: boolean
+  showLevelField?: boolean
+}
 
 export function useStopStationForm({
   Data,
@@ -58,91 +64,91 @@ export function useStopStationForm({
   showConversionActions = true,
   showLevelField = false,
 }: UseStopStationFormProps) {
-  const queryClient = useQueryClient();
-  const router = useRouter();
-  const routerState = useRouterState();
-  const duckDB = useDuckDB();
-  const { conn } = duckDB || {};
+  const queryClient = useQueryClient()
+  const router = useRouter()
+  const routerState = useRouterState()
+  const duckDB = useDuckDB()
+  const { conn } = duckDB || {}
 
-  const isStation = type === "station";
-  const isAddMode = mode === "add";
-  const isEditMode = mode === "edit";
-  const isChildNode = !!parentStation;
+  const isStation = type === "station"
+  const isAddMode = mode === "add"
+  const isEditMode = mode === "edit"
+  const isChildNode = !!parentStation
 
-  const tableName = isStation ? "StationsTable" : "StopsTable";
-  const entityName = isStation ? "Station" : isChildNode ? "Node" : "Stop";
-  const placeholder = isStation ? "place-CM-0493" : "stop-123";
-  const formHeader = isAddMode ? `Add ${entityName}` : `Edit ${entityName}`;
-  const buttonLabel = isAddMode ? "Create" : "Edit";
+  const tableName = isStation ? "StationsTable" : "StopsTable"
+  const entityName = isStation ? "Station" : isChildNode ? "Node" : "Stop"
+  const placeholder = isStation ? "place-CM-0493" : "stop-123"
+  const formHeader = isAddMode ? `Add ${entityName}` : `Edit ${entityName}`
+  const buttonLabel = isAddMode ? "Create" : "Edit"
 
   const locationTypeConfig = isStation
     ? LOCATION_TYPE_CONFIGS.STATION
     : isChildNode
-    ? LOCATION_TYPE_CONFIGS.NODE
-    : LOCATION_TYPE_CONFIGS.STOP;
+      ? LOCATION_TYPE_CONFIGS.NODE
+      : LOCATION_TYPE_CONFIGS.STOP
 
   const refreshProcedures = useCallback(async () => {
     if (isChildNode) {
-      await recreateStopsView(conn);
+      await recreateStopsView(conn)
     } else {
-      await createStopsView(conn);
+      await createStopsView(conn)
     }
-    await createStationsTable(conn);
-    await createStopsTable(conn);
+    await createStationsTable(conn)
+    await createStopsTable(conn)
     if (isChildNode) {
-      await recreatePathwaysView(conn);
+      await recreatePathwaysView(conn)
     }
-  }, [conn, isChildNode]);
+  }, [conn, isChildNode])
 
   const invalidateQueries = useCallback(() => {
     INVALIDATION_KEYS.forEach((key) => {
-      queryClient.invalidateQueries({ queryKey: [key] });
-    });
-  }, [queryClient]);
+      queryClient.invalidateQueries({ queryKey: [key] })
+    })
+  }, [queryClient])
 
   const handleMutationSuccess = useCallback(
     async (result: { stopId: string; lat?: number; lon?: number }) => {
-      await refreshProcedures();
-      invalidateQueries();
-      onSuccess?.();
+      await refreshProcedures()
+      invalidateQueries()
+      onSuccess?.()
 
       if (result.stopId) {
-        const currentPath = routerState.location.pathname;
+        const currentPath = routerState.location.pathname
 
-        const isPart = !!parentStation;
+        const isPart = !!parentStation
         const searchParam = isPart
           ? "selectedNodeId"
           : isStation
-          ? "selectedStationId"
-          : "selectedStopId";
+            ? "selectedStationId"
+            : "selectedStopId"
 
-        let targetRoute = currentPath;
+        let targetRoute = currentPath
 
         if (currentPath.includes("/pathways/flow")) {
-          targetRoute = "/stations/pathways/flow/column";
+          targetRoute = "/stations/pathways/flow/column"
         } else if (currentPath.includes("/parts")) {
           if (currentPath.includes("/map")) {
-            targetRoute = "/stations/parts/map";
+            targetRoute = "/stations/parts/map"
           } else if (currentPath.includes("/table")) {
-            targetRoute = "/stations/parts/table";
+            targetRoute = "/stations/parts/table"
           } else {
-            targetRoute = "/stations/parts/map";
+            targetRoute = "/stations/parts/map"
           }
         } else if (currentPath.includes("/info")) {
-          targetRoute = isStation ? "/stations/info" : "/stops/map";
+          targetRoute = isStation ? "/stations/info" : "/stops/map"
         } else if (currentPath.includes("/pathways")) {
-          targetRoute = currentPath;
+          targetRoute = currentPath
         } else if (currentPath.includes("/flow")) {
-          targetRoute = "/stations/pathways/flow/column";
+          targetRoute = "/stations/pathways/flow/column"
         } else if (currentPath.includes("/map")) {
-          targetRoute = `${isStation ? "/stations" : "/stops"}/map`;
+          targetRoute = `${isStation ? "/stations" : "/stops"}/map`
         } else if (currentPath.includes("/table")) {
-          targetRoute = `${isStation ? "/stations" : "/stops"}/table`;
+          targetRoute = `${isStation ? "/stations" : "/stops"}/table`
         } else {
-          targetRoute = `${isStation ? "/stations" : "/stops"}/map`;
+          targetRoute = `${isStation ? "/stations" : "/stops"}/map`
         }
 
-        logger.log(`Navigating to ${targetRoute} with ${searchParam}: ${result.stopId}`);
+        logger.log(`Navigating to ${targetRoute} with ${searchParam}: ${result.stopId}`)
 
         router.navigate({
           to: targetRoute,
@@ -155,32 +161,41 @@ export function useStopStationForm({
                 }
               : {}),
           }),
-        });
+        })
 
         if (currentPath.includes("/map") && result.lat && result.lon && onZoomToLocation) {
           setTimeout(() => {
-            onZoomToLocation(result.lat!, result.lon!);
-          }, 100);
+            onZoomToLocation(result.lat!, result.lon!)
+          }, 100)
         }
       }
     },
-    [refreshProcedures, invalidateQueries, router, routerState, isStation, parentStation, onZoomToLocation, onSuccess]
-  );
+    [
+      refreshProcedures,
+      invalidateQueries,
+      router,
+      routerState,
+      isStation,
+      parentStation,
+      onZoomToLocation,
+      onSuccess,
+    ],
+  )
 
   const mutationAddFn = useCallback(
     async (formData: any) => {
       await mutationAddStationFn({
         conn: conn,
         formData: formData,
-      });
+      })
       return {
         stopId: formData.stopId,
         lat: parseFloat(formData.lat),
         lon: parseFloat(formData.lon),
-      };
+      }
     },
-    [conn]
-  );
+    [conn],
+  )
 
   const mutationEditFn = useCallback(
     async (formData: any) => {
@@ -188,102 +203,102 @@ export function useStopStationForm({
         conn: conn,
         formData: formData,
         SelectStation: ClickInfo,
-      });
+      })
       return {
         stopId: formData.stopId || ClickInfo?.stop_id,
         lat: parseFloat(formData.lat) || parseFloat(ClickInfo?.stop_lat),
         lon: parseFloat(formData.lon) || parseFloat(ClickInfo?.stop_lon),
-      };
+      }
     },
-    [conn, ClickInfo]
-  );
+    [conn, ClickInfo],
+  )
 
-  const [isFormMutating, setIsFormMutating] = useState(false);
+  const [isFormMutating, setIsFormMutating] = useState(false)
 
   const handleMutationStateChange = useCallback(
     (isPending: boolean) => {
-      setIsFormMutating(isPending);
-      onFormMutatingChange?.(isPending);
+      setIsFormMutating(isPending)
+      onFormMutatingChange?.(isPending)
     },
-    [onFormMutatingChange]
-  );
+    [onFormMutatingChange],
+  )
 
   const upgradeMutation = useMutation({
     mutationFn: async () => {
       await mutationUpgradeToStationFn({
         conn: conn,
         SelectStation: ClickInfo,
-      });
+      })
     },
     onSuccess: async () => {
-      await refreshProcedures();
-      invalidateQueries();
-      onSuccess?.();
+      await refreshProcedures()
+      invalidateQueries()
+      onSuccess?.()
 
-      const stationId = ClickInfo?.stop_id;
-      const lat = parseFloat(ClickInfo?.stop_lat);
-      const lon = parseFloat(ClickInfo?.stop_lon);
+      const stationId = ClickInfo?.stop_id
+      const lat = parseFloat(ClickInfo?.stop_lat)
+      const lon = parseFloat(ClickInfo?.stop_lon)
 
       if (stationId) {
-        const currentPath = routerState.location.pathname;
-        const isMapRoute = currentPath.includes("/map");
-        const isTableRoute = currentPath.includes("/table");
-        const routeSuffix = isMapRoute ? "/map" : isTableRoute ? "/table" : "/map";
+        const currentPath = routerState.location.pathname
+        const isMapRoute = currentPath.includes("/map")
+        const isTableRoute = currentPath.includes("/table")
+        const routeSuffix = isMapRoute ? "/map" : isTableRoute ? "/table" : "/map"
 
-        logger.log(`Navigating to /stations${routeSuffix} with selectedStationId: ${stationId}`);
+        logger.log(`Navigating to /stations${routeSuffix} with selectedStationId: ${stationId}`)
         router.navigate({
           to: `/stations${routeSuffix}`,
           search: (prev) => ({ ...prev, selectedStationId: stationId }),
-        });
+        })
 
         if (isMapRoute && lat && lon && onZoomToLocation) {
           setTimeout(() => {
-            onZoomToLocation(lat, lon);
-          }, 100);
+            onZoomToLocation(lat, lon)
+          }, 100)
         }
       }
     },
-  });
+  })
 
   const downgradeMutation = useMutation({
     mutationFn: async () => {
       await mutationDowngradeToStopFn({
         conn: conn,
         SelectStation: ClickInfo,
-      });
+      })
     },
     onSuccess: async () => {
-      await refreshProcedures();
-      invalidateQueries();
-      onSuccess?.();
+      await refreshProcedures()
+      invalidateQueries()
+      onSuccess?.()
 
-      const stopId = ClickInfo?.stop_id;
-      const lat = parseFloat(ClickInfo?.stop_lat);
-      const lon = parseFloat(ClickInfo?.stop_lon);
+      const stopId = ClickInfo?.stop_id
+      const lat = parseFloat(ClickInfo?.stop_lat)
+      const lon = parseFloat(ClickInfo?.stop_lon)
 
       if (stopId) {
-        const currentPath = routerState.location.pathname;
-        const isMapRoute = currentPath.includes("/map");
-        const isTableRoute = currentPath.includes("/table");
-        const routeSuffix = isMapRoute ? "/map" : isTableRoute ? "/table" : "/map";
+        const currentPath = routerState.location.pathname
+        const isMapRoute = currentPath.includes("/map")
+        const isTableRoute = currentPath.includes("/table")
+        const routeSuffix = isMapRoute ? "/map" : isTableRoute ? "/table" : "/map"
 
-        logger.log(`Navigating to /stops${routeSuffix} with selectedStopId: ${stopId}`);
+        logger.log(`Navigating to /stops${routeSuffix} with selectedStopId: ${stopId}`)
         router.navigate({
           to: `/stops${routeSuffix}`,
           search: (prev) => ({ ...prev, selectedStopId: stopId }),
-        });
+        })
 
         if (isMapRoute && lat && lon && onZoomToLocation) {
           setTimeout(() => {
-            onZoomToLocation(lat, lon);
-          }, 100);
+            onZoomToLocation(lat, lon)
+          }, 100)
         }
       }
     },
-  });
+  })
 
   const inputData = useMemo(() => {
-    const fields = [];
+    const fields = []
 
     if (isAddMode) {
       fields.push({
@@ -311,20 +326,20 @@ export function useStopStationForm({
             validate: {
               checkDuplicate: async (value: string) => {
                 if (!value || !/^[a-zA-Z0-9-_]+$/.test(value)) {
-                  return true;
+                  return true
                 }
                 const queryResult = await validateTableData({
                   conn: conn,
                   table: tableName,
                   column: "stop_id",
                   value: value,
-                });
-                return queryResult || "Stop Id already exists";
+                })
+                return queryResult || "Stop Id already exists"
               },
             },
           },
         },
-      });
+      })
     }
 
     fields.push({
@@ -347,7 +362,7 @@ export function useStopStationForm({
           required: "Name is required",
         },
       },
-    });
+    })
 
     if (showLevelField) {
       fields.push({
@@ -367,7 +382,7 @@ export function useStopStationForm({
             />
           ),
         },
-      });
+      })
     }
 
     fields.push({
@@ -380,7 +395,7 @@ export function useStopStationForm({
           <Select
             value={value || ""}
             onValueChange={(val) => {
-              onChange(val);
+              onChange(val)
             }}
             disabled={disabled}
           >
@@ -399,7 +414,7 @@ export function useStopStationForm({
           required: "Wheelchair accessibility is required",
         },
       },
-    });
+    })
 
     fields.push({
       name: "location",
@@ -449,9 +464,9 @@ export function useStopStationForm({
           },
         },
       },
-    });
+    })
 
-    return fields;
+    return fields
   }, [
     ClickInfo,
     Data,
@@ -462,7 +477,7 @@ export function useStopStationForm({
     isAddMode,
     isEditMode,
     showLevelField,
-  ]);
+  ])
 
   const defaultValues = useMemo(() => {
     if (isAddMode) {
@@ -475,7 +490,7 @@ export function useStopStationForm({
         level_id: "",
         lat: "",
         lon: "",
-      };
+      }
     } else {
       return {
         stopId: ClickInfo?.stop_id || "",
@@ -486,15 +501,15 @@ export function useStopStationForm({
         level_id: ClickInfo?.level_id || "",
         lat: ClickInfo?.stop_lat || "",
         lon: ClickInfo?.stop_lon || "",
-      };
+      }
     }
-  }, [mode, ClickInfo, parentStation, isAddMode, locationTypeConfig]);
+  }, [mode, ClickInfo, parentStation, isAddMode, locationTypeConfig])
 
   const customActions = useMemo(() => {
-    if (!isEditMode || !showConversionActions) return null;
+    if (!isEditMode || !showConversionActions) return null
 
-    const canUpgrade = !isStation && ClickInfo?.location_type_name === "Stop";
-    const canDowngrade = isStation && ClickInfo?.location_type_name === "Station";
+    const canUpgrade = !isStation && ClickInfo?.location_type_name === "Stop"
+    const canDowngrade = isStation && ClickInfo?.location_type_name === "Station"
 
     return (
       <>
@@ -521,7 +536,7 @@ export function useStopStationForm({
           </button>
         )}
       </>
-    );
+    )
   }, [
     isEditMode,
     showConversionActions,
@@ -530,7 +545,7 @@ export function useStopStationForm({
     upgradeMutation,
     downgradeMutation,
     isFormMutating,
-  ]);
+  ])
 
   return {
     inputData,
@@ -545,5 +560,5 @@ export function useStopStationForm({
     locationType: isAddMode ? locationTypeConfig : undefined,
     validationMode: "onChange" as const,
     onMutationStateChange: handleMutationStateChange,
-  };
+  }
 }

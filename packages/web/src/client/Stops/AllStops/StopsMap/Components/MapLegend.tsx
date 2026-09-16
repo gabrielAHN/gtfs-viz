@@ -1,30 +1,32 @@
-import { useState } from "react";
-import { BiChevronDown, BiChevronUp } from "react-icons/bi";
-import { Select, SelectItem, SelectTrigger, SelectValue, SelectContent } from "@/components/ui/select";
+import { useState } from "react"
+import { BiChevronDown, BiChevronUp } from "react-icons/bi"
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
-import { getStopColor, WHEELCHAIR_STATUS } from "@/components/style";
-import { useThemeContext } from "@/context/theme.client";
-import { rgbToHex } from "@/components/colorUtil";
+  Select,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+} from "@/components/ui/select"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { getStopColor, WHEELCHAIR_STATUS } from "@/components/style"
+import { useThemeContext } from "@/context/theme.client"
+import { rgbToHex } from "@/components/colorUtil"
 
 function MapLegend({ TableData, DataColor, setDataColor }) {
-  const [Expanded, setExpanded] = useState(true);
-  const { theme } = useThemeContext();
+  const [Expanded, setExpanded] = useState(true)
+  const { theme } = useThemeContext()
 
   const handleExpandClick = () => {
-    setExpanded(!Expanded);
-  };
+    setExpanded(!Expanded)
+  }
 
   const handleChange = (value) => {
-    setDataColor(value);
-  };
+    setDataColor(value)
+  }
 
   const StatusList = Array.from(
-    new Set(Object.entries(TableData).map(([_, value]) => value[DataColor]))
-  );
+    new Set(Object.entries(TableData).map(([_, value]) => value[DataColor])),
+  )
 
   return (
     <Collapsible
@@ -54,32 +56,29 @@ function MapLegend({ TableData, DataColor, setDataColor }) {
       </div>
       <CollapsibleContent>
         {StatusList.map((status, index) => {
-          let color;
-          let label;
+          let color
+          let label
           if (DataColor === "location_type_name") {
-            color = rgbToHex(getStopColor(status, theme));
-            label = status;
+            color = rgbToHex(getStopColor(status, theme))
+            label = status
           } else if (DataColor === "wheelchair_status") {
-            color = rgbToHex(WHEELCHAIR_STATUS[status]?.color || [128, 128, 128]);
-            label = WHEELCHAIR_STATUS[status]?.name || status;
+            color = rgbToHex(WHEELCHAIR_STATUS[status]?.color || [128, 128, 128])
+            label = WHEELCHAIR_STATUS[status]?.name || status
           } else {
-            color = "#808080";
-            label = status;
+            color = "#808080"
+            label = status
           }
 
           return (
             <div key={index} className="flex items-center mb-2">
-              <div
-                className="w-3 h-3 rounded-full mr-2"
-                style={{ backgroundColor: color }}
-              />
+              <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: color }} />
               <p className="text-sm">{label}</p>
             </div>
-          );
+          )
         })}
       </CollapsibleContent>
-      </Collapsible>
-  );
+    </Collapsible>
+  )
 }
 
-export default MapLegend;
+export default MapLegend

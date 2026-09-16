@@ -1,43 +1,42 @@
-import { useState } from "react";
+import { useState } from "react"
 
-import { useQuery } from "@tanstack/react-query";
-import { useDuckDB } from "@/context/duckdb.client";
+import { useQuery } from "@tanstack/react-query"
+import { useDuckDB } from "@/context/duckdb.client"
 import {
   fetchCheckStationData,
   fetchStationPartTypes,
   fetchStationStopIds,
-} from "@/lib/duckdb/DataFetching/fetchStationInfoData";
+} from "@/lib/duckdb/DataFetching/fetchStationInfoData"
 
-import { BiMap, BiTable } from "react-icons/bi";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BiMap, BiTable } from "react-icons/bi"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-import Header from "./Header";
-import Form from "./Components/Form";
-import MapView from "./MapView";
-import TableView from "./TableView";
+import Header from "./Header"
+import Form from "./Components/Form"
+import MapView from "./MapView"
+import TableView from "./TableView"
 
 export const ToggleTabs = [
   { value: "map", label: "Map", icon: <BiMap className="w-5" /> },
   { value: "table", label: "Table", icon: <BiTable className="w-5" /> },
-];
+]
 
 interface StationPartsProps {
-  StationView: any;
+  StationView: any
 }
 
 function StationParts({ StationView }: StationPartsProps) {
-  const { conn } = useDuckDB();
+  const { conn } = useDuckDB()
 
-  const [StopsID, setStopsID] = useState();
-  const [Open, setOpen] = useState({ formType: null, state: false });
-  const [ClickInfo, setClickInfo] = useState();
-  const [LocationsList, setLocationsList] = useState([]);
+  const [StopsID, setStopsID] = useState()
+  const [Open, setOpen] = useState({ formType: null, state: false })
+  const [ClickInfo, setClickInfo] = useState()
+  const [LocationsList, setLocationsList] = useState([])
 
   const { data: StationPartTypes } = useQuery({
     queryKey: ["fetchStationPartTypes", StopsID],
-    queryFn: () =>
-      fetchStationPartTypes({ conn, table: "StopsView", StationView, StopsID }),
-  });
+    queryFn: () => fetchStationPartTypes({ conn, table: "StopsView", StationView, StopsID }),
+  })
 
   const { data: StationStopIds } = useQuery({
     queryKey: ["fetchStationStopIds", LocationsList],
@@ -48,7 +47,7 @@ function StationParts({ StationView }: StationPartsProps) {
         StationView,
         LocationsList,
       }),
-  });
+  })
 
   const { data } = useQuery({
     queryKey: ["fetchStationData", LocationsList, StopsID],
@@ -60,7 +59,7 @@ function StationParts({ StationView }: StationPartsProps) {
         LocationsList,
         StopsID,
       }),
-  });
+  })
 
   return (
     <div className="relative flex flex-col space-y-4">
@@ -107,6 +106,6 @@ function StationParts({ StationView }: StationPartsProps) {
         </TabsContent>
       </Tabs>
     </div>
-  );
+  )
 }
-export default StationParts;
+export default StationParts

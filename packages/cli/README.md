@@ -25,6 +25,15 @@ npm install -g @gabrielahn/gtfs-viz-cli
 
 Requires [DuckDB CLI](https://duckdb.org/docs/installation) (`duckdb` on PATH or `DUCKDB_BIN`).
 
+Installing or updating the CLI preserves imported feeds, the current session database, and other
+local data by default. To intentionally clear that data during installation, explicitly opt in:
+
+```bash
+GTFS_VIZ_RESET_DATA=1 npm install -g @gabrielahn/gtfs-viz-cli
+```
+
+Only the exact value `1` enables this destructive reset.
+
 DuckDB sessions use a reduced worker count, a host-aware memory limit capped at 4 GB, disabled
 insertion-order preservation, and a persistent spill directory beside the imported database. The
 defaults can be overridden with `GTFS_VIZ_DUCKDB_THREADS`, `GTFS_VIZ_DUCKDB_MEMORY_LIMIT`, and
@@ -53,6 +62,7 @@ gtfs-viz examples                     # See all commands
 | `station <name\|id>` | Station info (dashboard or `--data`) |
 | `stop-info <name\|id>` | Stop map with popup (dashboard or `--data`) |
 | `route <name\|id>` | Route info (dashboard or `--data`) |
+| `route-bands [--status]` | Build parallel route-line bands (Separate Route(s)) |
 | `station_connections <name\|id>` | Connection flow graph |
 | `station_pathways <name\|id>` | Station parts and pathways |
 | `station_routes <name\|id>` | Timed routes between parts |

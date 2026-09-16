@@ -11,7 +11,7 @@ const packageRoot = path.resolve(
 );
 const sourceDir = path.join(packageRoot, "skills", "gtfs-viz");
 
-if (process.env.GTFS_VIZ_PRESERVE_DATA !== "1") {
+if (process.env.GTFS_VIZ_RESET_DATA === "1") {
   const dataRoot = path.join(os.homedir(), ".gtfs-viz-cli");
   const sessionRoot = path.join(os.tmpdir(), "gtfs-viz-cli");
   const daemonFile = path.join(dataRoot, "daemon.json");

@@ -1,27 +1,27 @@
-import Combobox from "@/components/ui/combobox";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { MultiSelect } from "@/components/ui/multiselect";
-import { rgbToHex } from "@/components/colorUtil";
-import { getStopColor } from "@/components/style";
-import { useThemeContext } from "@/context/theme.client";
-import { BiPlus, BiReset } from "react-icons/bi";
+import Combobox from "@/components/ui/combobox"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { MultiSelect } from "@/components/ui/multiselect"
+import { rgbToHex } from "@/components/colorUtil"
+import { getStopColor } from "@/components/style"
+import { useThemeContext } from "@/context/theme.client"
+import { BiPlus, BiReset } from "react-icons/bi"
 
 interface PartsHeaderProps {
-  StationPartTypes?: any[];
-  LocationsList?: string[];
-  setLocationsList?: (value: string[]) => void;
-  StationStopIds?: any[];
-  StopsID?: string;
-  setStopsID?: (value: string | undefined) => void;
-  WheelchairStatusData?: any[];
-  WheelchairStatusList?: string[];
-  setWheelchairStatusList?: (value: string[]) => void;
-  EditStatusList?: string[];
-  setEditStatusList?: (value: string[]) => void;
-  setOpen?: (value: { formType: string; state: boolean }) => void;
-  onReset?: () => void;
-  hasEditedItems?: boolean;
+  StationPartTypes?: any[]
+  LocationsList?: string[]
+  setLocationsList?: (value: string[]) => void
+  StationStopIds?: any[]
+  StopsID?: string
+  setStopsID?: (value: string | undefined) => void
+  WheelchairStatusData?: any[]
+  WheelchairStatusList?: string[]
+  setWheelchairStatusList?: (value: string[]) => void
+  EditStatusList?: string[]
+  setEditStatusList?: (value: string[]) => void
+  setOpen?: (value: { formType: string; state: boolean }) => void
+  onReset?: () => void
+  hasEditedItems?: boolean
 }
 
 function PartsHeader({
@@ -40,24 +40,28 @@ function PartsHeader({
   onReset,
   hasEditedItems = false,
 }: PartsHeaderProps) {
-  const { theme } = useThemeContext();
+  const { theme } = useThemeContext()
 
   const handleReset = () => {
     if (onReset) {
-      onReset();
+      onReset()
     } else {
-      setLocationsList?.([]);
-      setStopsID?.(undefined);
-      setWheelchairStatusList?.([]);
-      setEditStatusList?.([]);
+      setLocationsList?.([])
+      setStopsID?.(undefined)
+      setWheelchairStatusList?.([])
+      setEditStatusList?.([])
     }
-  };
+  }
 
-  const isResetDisabled = LocationsList.length === 0 && !StopsID && WheelchairStatusList.length === 0 && EditStatusList.length === 0;
+  const isResetDisabled =
+    LocationsList.length === 0 &&
+    !StopsID &&
+    WheelchairStatusList.length === 0 &&
+    EditStatusList.length === 0
 
   const handleOpen = ({ formType }: { formType: string }) => {
-    setOpen?.({ formType, state: true });
-  };
+    setOpen?.({ formType, state: true })
+  }
 
   return (
     <div className="flex flex-col w-full p-3 rounded-lg shadow-sm">
@@ -132,7 +136,7 @@ function PartsHeader({
         </div>
       </div>
     </div>
-  );
+  )
 }
 
-export default PartsHeader;
+export default PartsHeader

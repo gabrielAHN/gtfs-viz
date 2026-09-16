@@ -49,6 +49,44 @@ const loadSql = extractRawString(hpp, "GTFS_LOAD_SQL");
 const initSql = extractRawString(hpp, "GTFS_INIT_SQL");
 const rerouteSql = extractRawString(hpp, "GTFS_REROUTE_SQL");
 
+function splitStatements(sql) {
+  return sql
+    .split(";")
+    .map((s) => s.trim())
+    .filter((s) => {
+      if (!s) return false;
+      return s.split("\n").some((l) => {
+        const t = l.trim();
+        return t.length > 0 && !t.startsWith("--");
+      });
+    });
+}
+const SQL_KEYWORDS =
+  /^(CREATE|ALTER|DROP|SET|INSTALL|LOAD|INSERT|UPDATE|DELETE|PRAGMA|BEGIN|COMMIT|WITH|SELECT|CALL|ATTACH|DETACH|USE|COPY|EXPORT|CHECKPOINT)\b/i;
+const badFragments = [];
+for (const [name, sql] of [
+  ["GTFS_LOAD_SQL", loadSql],
+  ["GTFS_INIT_SQL", initSql],
+  ["GTFS_REROUTE_SQL", rerouteSql],
+]) {
+  for (const stmt of splitStatements(sql)) {
+    const firstCode = stmt.split("\n").map((l) => l.trim()).find((l) => l && !l.startsWith("--")) ?? "";
+    if (!SQL_KEYWORDS.test(firstCode)) {
+      badFragments.push(`  [${name}] fragment starts with: ${firstCode.slice(0, 80)}`);
+    }
+  }
+}
+if (badFragments.length > 0) {
+  console.error(
+    "\n❌ SQL split integrity check FAILED — a statement fragment does not start with a\n" +
+      "SQL keyword. This is almost always a ';' inside a '--' comment breaking a statement.\n" +
+      "Remove the semicolon from the offending comment.\n\n" +
+      badFragments.join("\n") +
+      "\n",
+  );
+  process.exit(1);
+}
+
 mkdirSync(outDir, { recursive: true });
 
 writeFileSync(

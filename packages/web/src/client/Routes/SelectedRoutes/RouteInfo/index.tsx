@@ -1,27 +1,27 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "@tanstack/react-router";
-import PopupTable from "@/components/table/PopupTable";
-import { getRouteTypeColor } from "@/client/Routes/routeTypeColors";
-import EntityForm from "@/components/forms/EntityForm";
-import { DeleteButton, EditButton } from "@/components/ui/ActionButtons";
-import { useDuckDB } from "@/context/duckdb.client";
-import { mutationDeleteRouteFn } from "@/lib/duckdb/DataEditing/editRoutes";
-import { refreshRoutesTables } from "@/lib/extensions";
+import { useState } from "react"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useRouter } from "@tanstack/react-router"
+import PopupTable from "@/components/table/PopupTable"
+import { getRouteTypeColor } from "@/client/Routes/routeTypeColors"
+import EntityForm from "@/components/forms/EntityForm"
+import { DeleteButton, EditButton } from "@/components/ui/ActionButtons"
+import { useDuckDB } from "@/context/duckdb.client"
+import { mutationDeleteRouteFn } from "@/lib/duckdb/DataEditing/editRoutes"
+import { refreshRoutesTables } from "@/lib/extensions"
 
 function RouteInfo({ route, routeStops = [] }: { route: any; routeStops?: any[] }) {
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const { conn } = useDuckDB();
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const { conn } = useDuckDB()
   const [Open, setOpen] = useState<{ formType: string | null; state: boolean }>({
     formType: null,
     state: false,
-  });
-  const [isFormMutating, setIsFormMutating] = useState(false);
-  const routeColor = route.route_color_hex || getRouteTypeColor(route.route_type_name);
+  })
+  const [isFormMutating, setIsFormMutating] = useState(false)
+  const routeColor = route.route_color_hex || getRouteTypeColor(route.route_type_name)
 
   const invalidateRouteQueries = () => {
-    [
+    ;[
       "fetchRoutesData",
       "fetchRouteShapes",
       "fetchRouteStops",
@@ -32,22 +32,22 @@ function RouteInfo({ route, routeStops = [] }: { route: any; routeStops?: any[] 
       "routeChips",
       "fetchStationsData",
       "fetchStopsData",
-    ].forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
-  };
+    ].forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }))
+  }
 
   const mutation = useMutation({
     mutationFn: async () => {
       return mutationDeleteRouteFn({
         conn,
         SelectRoute: route,
-      });
+      })
     },
     onSuccess: async () => {
-      await refreshRoutesTables(conn);
-      invalidateRouteQueries();
-      router.navigate({ to: "/routes/map" });
+      await refreshRoutesTables(conn)
+      invalidateRouteQueries()
+      router.navigate({ to: "/routes/map" })
     },
-  });
+  })
 
   return (
     <div className="w-full p-1">
@@ -90,7 +90,7 @@ function RouteInfo({ route, routeStops = [] }: { route: any; routeStops?: any[] 
         ColumnName={["Route ID", "Route Name", "Type", "Stops", "Stations", "Trips"]}
       />
     </div>
-  );
+  )
 }
 
-export default RouteInfo;
+export default RouteInfo

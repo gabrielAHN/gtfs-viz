@@ -69,6 +69,8 @@ DROP VIEW IF EXISTS RoutesView;
 DROP VIEW IF EXISTS pathway_network;
 DROP VIEW IF EXISTS PathwaysView;
 DROP VIEW IF EXISTS StopsView;
+DROP TABLE IF EXISTS RouteShapeBandsTable;
+DROP TABLE IF EXISTS RouteShapeLanesTable;
 DROP TABLE IF EXISTS shapes;
 DROP TABLE IF EXISTS stop_times;
 DROP TABLE IF EXISTS trips;
@@ -611,10 +613,17 @@ export async function importGtfs(
     calendarPath?: string;
     calendarDatesPath?: string;
     skipDrop?: boolean;
+    onCsvImported?: () => Promise<void>;
+    onProgress?: (progress: ImportProgress) => void;
   },
 ): Promise<void> {
+  const report = (phase: ImportProgress["phase"], done: number, total: number, detail?: string) =>
+    opts.onProgress?.({ phase, done, total, detail });
+
   // 1. Install enum macros + edit tables
+  report("macros", 0, 1);
   await installMacros(executor);
+  report("macros", 1, 1);
 
   // 2. Drop existing views/tables
   if (!opts.skipDrop) {
@@ -622,8 +631,9 @@ export async function importGtfs(
       .split(";")
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
-    for (const stmt of dropStmts) {
-      await executor(stmt);
+    for (let i = 0; i < dropStmts.length; i++) {
+      await executor(dropStmts[i]);
+      report("drop", i + 1, dropStmts.length);
     }
   }
 
@@ -640,10 +650,49 @@ export async function importGtfs(
       });
       return lines.length > 0;
     });
-  for (const stmt of stmts) {
-    await executor(stmt);
+  for (let i = 0; i < stmts.length; i++) {
+    report("import", i, stmts.length, importStatementDetail(stmts[i]));
+    await executor(stmts[i]);
+  }
+  report("import", stmts.length, stmts.length);
+
+  if (opts.onCsvImported) {
+    await opts.onCsvImported();
   }
 
-  // 4. Install extension: views, macros, tables, indexes
-  await installInit(executor, { skipIndexes: getInitIndexesToSkip(opts) });
+  await installInit(executor, {
+    skipIndexes: getInitIndexesToSkip(opts),
+    onProgress: (done, total, stmt) => report("init", done, total, initStatementDetail(stmt)),
+  });
+}
+
+export type ImportProgress = {
+  phase: "macros" | "drop" | "import" | "init";
+  done: number;
+  total: number;
+  detail?: string;
+};
+
+function importStatementDetail(stmt: string): string | undefined {
+  const csv = stmt.match(/read_csv_auto\('([^']+)'/i);
+  if (csv) return csv[1].split("/").pop();
+  const table = stmt.match(/CREATE\s+(?:OR\s+REPLACE\s+)?(?:TEMP\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/i);
+  if (table) return table[1].replace(/_(raw|temp)$/, "") + ".txt";
+  const alter = stmt.match(/ALTER\s+TABLE\s+(\w+)/i);
+  if (alter) return alter[1] + ".txt";
+  return undefined;
+}
+
+function initStatementDetail(stmt: string): string | undefined {
+  const first = stmt
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => l.length > 0 && !l.startsWith("--")) ?? "";
+  const m = first.match(
+    /CREATE\s+(?:OR\s+REPLACE\s+)?(?:TEMP(?:ORARY)?\s+)?(VIEW|MACRO|TABLE|INDEX|UNIQUE\s+INDEX)\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)/i,
+  );
+  if (m) return `${m[1].toLowerCase()} ${m[2]}`;
+  const ins = first.match(/INSERT\s+INTO\s+(\w+)/i);
+  if (ins) return `table ${ins[1]}`;
+  return undefined;
 }

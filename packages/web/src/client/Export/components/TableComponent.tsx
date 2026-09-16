@@ -1,26 +1,38 @@
-import { useMemo, useState, useEffect, useCallback, startTransition, Fragment } from "react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useMemo, useState, useEffect, useCallback, startTransition, Fragment } from "react"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import {
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
   useReactTable,
   getPaginationRowModel,
-} from "@tanstack/react-table";
-import { TableBody, TableCell, TableHeader, TableHead, TableRow } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollBar, ScrollArea } from "@/components/ui/scroll-area";
+} from "@tanstack/react-table"
+import { TableBody, TableCell, TableHeader, TableHead, TableRow } from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { ScrollBar, ScrollArea } from "@/components/ui/scroll-area"
 import {
   Select,
   SelectItem,
   SelectValue,
   SelectTrigger,
   SelectContent,
-} from "@/components/ui/select";
-import { BiChevronUp, BiChevronDown, BiCheck, BiRefresh, BiUndo, BiX, BiChevronRight, BiChevronLeft, BiChevronsRight, BiChevronsLeft, BiRightArrow } from "react-icons/bi";
-import { Badge } from "@/components/ui/badge";
-import { useUrlTablePagination } from "@/lib/tablePagination";
+} from "@/components/ui/select"
+import {
+  BiChevronUp,
+  BiChevronDown,
+  BiCheck,
+  BiRefresh,
+  BiUndo,
+  BiX,
+  BiChevronRight,
+  BiChevronLeft,
+  BiChevronsRight,
+  BiChevronsLeft,
+  BiRightArrow,
+} from "react-icons/bi"
+import { Badge } from "@/components/ui/badge"
+import { useUrlTablePagination } from "@/lib/tablePagination"
 
 function EditeTables(props) {
   const {
@@ -46,59 +58,59 @@ function EditeTables(props) {
     renderSelectionActions,
     renderSelectedSupplementaryRows,
     paginationKey = fileTypeKey,
-  } = props;
+  } = props
 
   const getItemId = useCallback(
     (item) => item?.object?.[itemIdKey] ?? item?.[itemIdKey],
     [itemIdKey],
-  );
+  )
 
   const originalData =
     clickInfo && (clickInfo.status === "edit" || clickInfo.status === "new edit")
       ? originalDataMap[getOriginalDataKey(clickInfo)]
-      : null;
+      : null
 
   const buttonClasses = useMemo(() => {
     if (!hasData) {
-      return "flex items-center rounded-sm justify-center w-12 h-12 bg-stone-300 text-stone-400 cursor-not-allowed dark:bg-stone-800";
+      return "flex items-center rounded-sm justify-center w-12 h-12 bg-stone-300 text-stone-400 cursor-not-allowed dark:bg-stone-800"
     }
     return FileTypes[fileTypeKey]
       ? "flex items-center justify-center w-12 h-12 bg-green-500 hover:bg-green-600 rounded-sm"
-      : "flex items-center justify-center w-12 h-12 bg-red-500 hover:bg-red-600 rounded-sm";
-  }, [FileTypes, fileTypeKey, hasData]);
+      : "flex items-center justify-center w-12 h-12 bg-red-500 hover:bg-red-600 rounded-sm"
+  }, [FileTypes, fileTypeKey, hasData])
 
   const triggerClasses = useMemo(() => {
     if (!hasData) {
-      return "flex w-full justify-between items-center px-4 py-2.5 bg-stone-300 text-stone-500 dark:bg-stone-700 dark:text-stone-400 rounded-sm cursor-not-allowed";
+      return "flex w-full justify-between items-center px-4 py-2.5 bg-stone-300 text-stone-500 dark:bg-stone-700 dark:text-stone-400 rounded-sm cursor-not-allowed"
     }
 
     if (FileTypes[fileTypeKey]) {
-      return "flex w-full justify-between items-center px-4 py-2.5 bg-stone-200 dark:bg-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-sm cursor-pointer transition-colors";
+      return "flex w-full justify-between items-center px-4 py-2.5 bg-stone-200 dark:bg-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 rounded-sm cursor-pointer transition-colors"
     }
-    return "flex w-full justify-between items-center px-4 py-2.5 bg-stone-300 dark:bg-stone-600 hover:bg-stone-200 dark:hover:bg-stone-500 rounded-sm cursor-pointer transition-colors";
-  }, [FileTypes, fileTypeKey, hasData]);
+    return "flex w-full justify-between items-center px-4 py-2.5 bg-stone-300 dark:bg-stone-600 hover:bg-stone-200 dark:hover:bg-stone-500 rounded-sm cursor-pointer transition-colors"
+  }, [FileTypes, fileTypeKey, hasData])
 
-  const [sorting, setSorting] = useState([]);
-  const { pagination, onPaginationChange } = useUrlTablePagination(paginationKey);
-  const { pageIndex, pageSize } = pagination;
+  const [sorting, setSorting] = useState([])
+  const { pagination, onPaginationChange } = useUrlTablePagination(paginationKey)
+  const { pageIndex, pageSize } = pagination
 
   useEffect(() => {
     if (!hasData && isExpanded) {
-      setIsExpanded(false);
+      setIsExpanded(false)
     }
-  }, [hasData, isExpanded, setIsExpanded]);
+  }, [hasData, isExpanded, setIsExpanded])
 
   const handleRowClick = useCallback(
     (row) => {
-      if (!setClickInfo) return;
+      if (!setClickInfo) return
 
       startTransition(() => {
-        const isCurrentlySelected = getItemId(clickInfo) === getItemId(row);
-        setClickInfo(isCurrentlySelected ? undefined : row);
-      });
+        const isCurrentlySelected = getItemId(clickInfo) === getItemId(row)
+        setClickInfo(isCurrentlySelected ? undefined : row)
+      })
     },
     [clickInfo, getItemId, setClickInfo],
-  );
+  )
 
   const table = useReactTable({
     data: tableData,
@@ -116,19 +128,19 @@ function EditeTables(props) {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-  });
+  })
 
-  const pageCount = table.getPageCount();
+  const pageCount = table.getPageCount()
   useEffect(() => {
     if (pageCount > 0 && pageIndex >= pageCount) {
-      onPaginationChange({ pageIndex: pageCount - 1, pageSize });
+      onPaginationChange({ pageIndex: pageCount - 1, pageSize })
     }
-  }, [onPaginationChange, pageCount, pageIndex, pageSize]);
+  }, [onPaginationChange, pageCount, pageIndex, pageSize])
 
-  const rows = table.getRowModel().rows;
+  const rows = table.getRowModel().rows
 
-  if (isLoading) return <Skeleton className="w-full h-40" />;
-  if (isError) return <div className="text-red-500">Error: {error.message}</div>;
+  if (isLoading) return <Skeleton className="w-full h-40" />
+  if (isError) return <div className="text-red-500">Error: {error.message}</div>
   const headerContent = (
     <div className="flex items-center w-full">
       <span className="flex items-center">
@@ -138,13 +150,13 @@ function EditeTables(props) {
         </span>
       </span>
     </div>
-  );
+  )
 
   return (
     <Collapsible
       open={hasData && isExpanded}
       onOpenChange={(open) => {
-        if (hasData) setIsExpanded(open);
+        if (hasData) setIsExpanded(open)
       }}
       className="border rounded p-2"
     >
@@ -272,11 +284,11 @@ function EditeTables(props) {
                 <TableBody>
                   {rows.length ? (
                     rows.map((row) => {
-                      const isSelected = getItemId(clickInfo) === getItemId(row.original);
-                      const currentOriginal = originalDataMap[getOriginalDataKey(row.original)];
+                      const isSelected = getItemId(clickInfo) === getItemId(row.original)
+                      const currentOriginal = originalDataMap[getOriginalDataKey(row.original)]
                       const hasOriginal =
                         currentOriginal &&
-                        (row.original.status === "edit" || row.original.status === "new edit");
+                        (row.original.status === "edit" || row.original.status === "new edit")
 
                       return (
                         <Fragment key={row.id}>
@@ -308,20 +320,20 @@ function EditeTables(props) {
                                   ORIGINAL
                                 </TableCell>
                                 {columns.slice(1).map((col: any) => {
-                                  const value = currentOriginal[col.accessorKey];
-                                  const currentValue = row.original[col.accessorKey];
+                                  const value = currentOriginal[col.accessorKey]
+                                  const currentValue = row.original[col.accessorKey]
 
                                   const normalizedOriginal =
                                     value === null || value === undefined || value === ""
                                       ? null
-                                      : value;
+                                      : value
                                   const normalizedCurrent =
                                     currentValue === null ||
                                     currentValue === undefined ||
                                     currentValue === ""
                                       ? null
-                                      : currentValue;
-                                  const hasChanged = normalizedOriginal !== normalizedCurrent;
+                                      : currentValue
+                                  const hasChanged = normalizedOriginal !== normalizedCurrent
 
                                   return (
                                     <TableCell
@@ -347,13 +359,13 @@ function EditeTables(props) {
                                         value || "-"
                                       )}
                                     </TableCell>
-                                  );
+                                  )
                                 })}
                               </TableRow>
                             </>
                           )}
                         </Fragment>
-                      );
+                      )
                     })
                   ) : (
                     <TableRow>
@@ -411,7 +423,7 @@ function EditeTables(props) {
         </CollapsibleContent>
       )}
     </Collapsible>
-  );
+  )
 }
 
-export default EditeTables;
+export default EditeTables

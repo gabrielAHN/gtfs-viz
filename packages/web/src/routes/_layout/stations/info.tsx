@@ -1,33 +1,31 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useDuckDB } from "@/context/duckdb.client";
-import { useQuery } from "@tanstack/react-query";
-import { fetchCheckStationInfo } from "@/lib/duckdb/DataFetching/fetchStationInfoData";
-import { Skeleton } from "@/components/ui/skeleton";
-import { TabHeader } from "@/components/ui/tab-header";
-import PageFooter from "@/components/PageFooter";
-import { BiInfoCircle, BiMap, BiGridAlt } from "react-icons/bi";
-import StationInfo from "@/client/Stations/SelectedStations/StationInfo";
-import { EditIndicator } from "@/components/ui/EditIndicator";
+import { createFileRoute } from "@tanstack/react-router"
+import { useDuckDB } from "@/context/duckdb.client"
+import { useQuery } from "@tanstack/react-query"
+import { fetchCheckStationInfo } from "@/lib/duckdb/DataFetching/fetchStationInfoData"
+import { Skeleton } from "@/components/ui/skeleton"
+import { TabHeader } from "@/components/ui/tab-header"
+import PageFooter from "@/components/PageFooter"
+import { BiInfoCircle, BiMap, BiGridAlt } from "react-icons/bi"
+import StationInfo from "@/client/Stations/SelectedStations/StationInfo"
+import { EditIndicator } from "@/components/ui/EditIndicator"
 
 type StationInfoSearchParams = {
-  selectedStationId?: string;
-};
+  selectedStationId?: string
+}
 
 export const Route = createFileRoute("/_layout/stations/info")({
   component: StationInfoPage,
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): StationInfoSearchParams => {
+  validateSearch: (search: Record<string, unknown>): StationInfoSearchParams => {
     return {
       selectedStationId: search.selectedStationId as string | undefined,
-    };
+    }
   },
-});
+})
 
 function StationInfoPage() {
-  const search = Route.useSearch();
-  const { conn, initialized } = useDuckDB();
-  const stationId = search.selectedStationId;
+  const search = Route.useSearch()
+  const { conn, initialized } = useDuckDB()
+  const stationId = search.selectedStationId
 
   const {
     data: stationData,
@@ -40,11 +38,11 @@ function StationInfoPage() {
         conn,
         table: "StopsView",
         stop_id: stationId!,
-      });
+      })
     },
     enabled: !!conn && !!stationId && initialized,
     retry: false,
-  });
+  })
 
   if (!stationId) {
     return (
@@ -53,7 +51,7 @@ function StationInfoPage() {
           No station selected. Please select a station from the stations list.
         </div>
       </div>
-    );
+    )
   }
 
   if (isLoading) {
@@ -77,17 +75,17 @@ function StationInfoPage() {
         {}
         <Skeleton className="h-64 w-full" />
       </div>
-    );
+    )
   }
 
   if (error || !stationData) {
-    return <div className="p-4">Error loading station information.</div>;
+    return <div className="p-4">Error loading station information.</div>
   }
 
   const pathwayTabPath =
     stationData.pathways_status === "❌"
       ? "/stations/pathways/flow/column"
-      : "/stations/pathways/map/directional";
+      : "/stations/pathways/map/directional"
 
   const ToggleTabs = [
     {
@@ -108,7 +106,7 @@ function StationInfoPage() {
       icon: <BiMap />,
       path: pathwayTabPath,
     },
-  ];
+  ]
 
   return (
     <div className="p-4">
@@ -119,9 +117,7 @@ function StationInfoPage() {
       <TabHeader
         tabs={ToggleTabs}
         searchParams={(prev) => ({ ...prev, selectedStationId: stationId })}
-        customActiveCheck={(pathname, tab) =>
-          pathname.startsWith(`/stations/${tab.value}`)
-        }
+        customActiveCheck={(pathname, tab) => pathname.startsWith(`/stations/${tab.value}`)}
         className="mb-4"
       />
 
@@ -129,5 +125,5 @@ function StationInfoPage() {
 
       <PageFooter />
     </div>
-  );
+  )
 }

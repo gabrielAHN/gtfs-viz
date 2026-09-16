@@ -2,6 +2,52 @@
 
 All notable changes to GTFS Viz will be documented in this file.
 
+## [1.5.3] - 2026-09-15
+
+### Added
+- Render overlapping routes as parallel bands, with stable lane assignment through shared corridors.
+- Render compared trips in lanes using their GTFS shape geometry, with a stop-to-stop fallback.
+- Build route bands on demand with the DuckDB corridor macros and the CLI `route-bands` command.
+- Ship the reusable deck.gl route-shape layer from `@gtfs-viz/duckdb-extension/deckgl`.
+
+### Changed
+- Reduce corridor-processing time and peak memory, shrink persisted band data, defer route cleanup from import, and improve large-feed loading with persistent storage and controlled in-memory fallback.
+
+### Fixed
+- Harden release behavior around CLI-hosted spatial SQL, atomic route-band rebuilds, and safe package installation.
+
+### Build notes
+- Use Node 22.
+- Install dependencies with `yarn install --frozen-lockfile --ignore-engines`.
+- Build all packages with `yarn build`.
+- Run package checks with `yarn run check`.
+- Run the focused CLI tests:
+
+  ```sh
+  node --test \
+    packages/cli/tests/route-bands.test.mjs \
+    packages/cli/tests/route-bands.integration.test.mjs \
+    packages/cli/tests/postinstall.test.mjs \
+    packages/cli/tests/runner.test.mjs \
+    packages/cli/tests/spatial-http.integration.test.mjs
+  ```
+
+- Run the corridor test:
+  `node --test packages/duckdb-extension/tests/corridor-lanes.test.mjs`.
+- Run the DuckDB profile portability test:
+  `node --test packages/duckdb-extension/tests/profile-feed.test.mjs`.
+- Run all route renderer and native bridge tests:
+
+  ```sh
+  node --test \
+    packages/web/tests/route-fan.test.mjs \
+    packages/web/tests/route-render.test.mjs \
+    packages/web/tests/native-route-bands.test.mjs
+  ```
+
+- Native test harnesses require the DuckDB CLI with the spatial extension installed.
+- Verify npm packaging with `npm publish ./packages/cli --dry-run --tag latest`; the explicit tag is required because npm contains an older untagged `2.0.0`, while `latest` remains on the supported `1.5.x` line.
+
 ## [2.2.0] - 2024-02-16
 
 ### Added

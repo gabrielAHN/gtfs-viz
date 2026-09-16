@@ -1,111 +1,111 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react"
 
-import { Button } from "@/components/ui/button";
-import { BiPencil, BiTrash, BiRightArrow, BiReset } from "react-icons/bi";
-import { useDuckDB } from "@/context/duckdb.client";
-import { useRouter } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchStationsMapBounds } from "@/lib/duckdb/DataFetching/fetchRouteData";
-import { mutationDeleteStationFn } from "@/lib/duckdb/DataEditing/editingFn";
+import { Button } from "@/components/ui/button"
+import { BiPencil, BiTrash, BiRightArrow, BiReset } from "react-icons/bi"
+import { useDuckDB } from "@/context/duckdb.client"
+import { useRouter } from "@tanstack/react-router"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { fetchStationsMapBounds } from "@/lib/duckdb/DataFetching/fetchRouteData"
+import { mutationDeleteStationFn } from "@/lib/duckdb/DataEditing/editingFn"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { DATA_STATUS } from "@/components/style";
-import { rgbToHex } from "@/components/colorUtil";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { EditIndicator } from "@/components/ui/EditIndicator";
+} from "@/components/ui/select"
+import { DATA_STATUS } from "@/components/style"
+import { rgbToHex } from "@/components/colorUtil"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { EditIndicator } from "@/components/ui/EditIndicator"
 
-import MapSection from "./Components/MapSection";
-import MapClickPopup from "@/components/maps/MapClickPopup";
-import MapContainer from "@/components/maps/MapContainer";
-import MapLegend from "@/components/maps/MapLegend";
-import { createStationsTable, createStopsView } from "@/lib/extensions";
-import { RouteChipsForStop } from "@/components/routes/RouteChips";
+import MapSection from "./Components/MapSection"
+import MapClickPopup from "@/components/maps/MapClickPopup"
+import MapContainer from "@/components/maps/MapContainer"
+import MapLegend from "@/components/maps/MapLegend"
+import { createStationsTable, createStopsView } from "@/lib/extensions"
+import { RouteChipsForStop } from "@/components/routes/RouteChips"
 
 function StationsMap({ data, setOpen, ClickInfo, setClickInfo, externalViewState }) {
-  const duckDB = useDuckDB();
-  const conn = duckDB?.conn;
-  const hasStopTimes = duckDB?.hasStopTimes ?? false;
-  const router = useRouter();
-  const queryClient = useQueryClient();
+  const duckDB = useDuckDB()
+  const conn = duckDB?.conn
+  const hasStopTimes = duckDB?.hasStopTimes ?? false
+  const router = useRouter()
+  const queryClient = useQueryClient()
 
   const { data: sqlBounds } = useQuery({
     queryKey: ["fetchStationsMapBounds"],
     queryFn: () => fetchStationsMapBounds(conn),
     enabled: !!conn,
     staleTime: Infinity,
-  });
+  })
 
-  const [MapLayers, setMapLayers] = useState([]);
-  const [DataColor, setDataColor] = useState("pathways_status");
-  const [viewState, setViewState] = useState<any>(() => externalViewState || undefined);
-  const [BoundBox, setBoundBox] = useState<any>();
+  const [MapLayers, setMapLayers] = useState([])
+  const [DataColor, setDataColor] = useState("pathways_status")
+  const [viewState, setViewState] = useState<any>(() => externalViewState || undefined)
+  const [BoundBox, setBoundBox] = useState<any>()
 
   useEffect(() => {
-    if (viewState || !sqlBounds) return;
-    setViewState(externalViewState || sqlBounds.viewState);
-    setBoundBox(sqlBounds.boundBox);
-  }, [sqlBounds, externalViewState, viewState]);
+    if (viewState || !sqlBounds) return
+    setViewState(externalViewState || sqlBounds.viewState)
+    setBoundBox(sqlBounds.boundBox)
+  }, [sqlBounds, externalViewState, viewState])
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const clickData = ClickInfo?.object || ClickInfo;
+      const clickData = ClickInfo?.object || ClickInfo
       await mutationDeleteStationFn({
         conn: conn,
         SelectStation: clickData,
-      });
+      })
     },
     onSuccess: async () => {
-      await createStopsView(conn);
-      await createStationsTable(conn);
+      await createStopsView(conn)
+      await createStationsTable(conn)
 
-      queryClient.invalidateQueries({ queryKey: ["createStationTable"] });
-      queryClient.invalidateQueries({ queryKey: ["fetchStationsData"] });
-      queryClient.invalidateQueries({ queryKey: ["fetchStopsIdData"] });
-      queryClient.invalidateQueries({ queryKey: ["fetchStopsNamesData"] });
-      setClickInfo(undefined);
+      queryClient.invalidateQueries({ queryKey: ["createStationTable"] })
+      queryClient.invalidateQueries({ queryKey: ["fetchStationsData"] })
+      queryClient.invalidateQueries({ queryKey: ["fetchStopsIdData"] })
+      queryClient.invalidateQueries({ queryKey: ["fetchStopsNamesData"] })
+      setClickInfo(undefined)
     },
-  });
+  })
 
   useEffect(() => {
     if (externalViewState) {
-      setViewState(externalViewState);
+      setViewState(externalViewState)
     }
-  }, [externalViewState]);
+  }, [externalViewState])
 
   const handleGoToLocation = () => {
-    const clickData = ClickInfo?.object || ClickInfo;
+    const clickData = ClickInfo?.object || ClickInfo
     setViewState({
       longitude: clickData.stop_lon,
       latitude: clickData.stop_lat,
       zoom: 15,
-    });
-  };
+    })
+  }
 
   const legendItems = useMemo(() => {
-    if (!data || data.length === 0) return [];
+    if (!data || data.length === 0) return []
 
-    const statusSet = new Set(data.map((row) => row[DataColor]).filter(Boolean));
+    const statusSet = new Set(data.map((row) => row[DataColor]).filter(Boolean))
 
     return Array.from(statusSet).map((status) => ({
       label: DATA_STATUS[status]?.name || status,
       color: rgbToHex(DATA_STATUS[status]?.color || [128, 128, 128]),
-    }));
-  }, [data, DataColor]);
+    }))
+  }, [data, DataColor])
 
   if (!data || data.length === 0) {
     return (
       <div className="relative h-[74vh] w-full border rounded overflow-hidden flex items-center justify-center">
         <div className="text-sm text-muted-foreground">No station data available.</div>
       </div>
-    );
+    )
   }
 
-  const clickData = ClickInfo?.object || ClickInfo;
+  const clickData = ClickInfo?.object || ClickInfo
 
   return (
     <MapContainer
@@ -163,7 +163,7 @@ function StationsMap({ data, setOpen, ClickInfo, setClickInfo, externalViewState
                       router.navigate({
                         to: "/stations/info",
                         search: { selectedStationId: clickData.stop_id },
-                      });
+                      })
                     }}
                   >
                     <BiRightArrow className="mr-2 h-4 w-4" />
@@ -224,7 +224,7 @@ function StationsMap({ data, setOpen, ClickInfo, setClickInfo, externalViewState
         setBoundBox={setBoundBox}
       />
     </MapContainer>
-  );
+  )
 }
 
-export default StationsMap;
+export default StationsMap

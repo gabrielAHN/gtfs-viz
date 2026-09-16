@@ -13,6 +13,7 @@ import { parseArgs, getFlagString, hasFlag, wantsDataOutput } from "./args.js";
 import type { Args } from "./args.js";
 import { runProcess, queryRows, executeRows, executeSqlFile } from "./duckdb/runner.js";
 import { buildImportSql } from "./duckdb/import-sql.js";
+import { buildRouteShapeBands, readRouteShapeBandsSummary } from "./duckdb/route-bands.js";
 import {
   applyChangeset,
   upsertTrip,
@@ -1655,6 +1656,36 @@ const commandShapes = async (args: Args) => {
     );
     printOrNone(rows, args);
   }
+};
+
+const commandRouteBands = async (args: Args) => {
+  ensureOutputMode(args);
+  const ds = await readDatasetState();
+  const refresh = !hasFlag(args.flags, "status");
+  const summary = refresh
+    ? await buildRouteShapeBands(ds.dbPath)
+    : await readRouteShapeBandsSummary(ds.dbPath);
+  if (wantsDataOutput(args.flags)) {
+    printResult(
+      {
+        columns: ["band_rows", "routes", "widest_bundle"],
+        rows: [
+          {
+            band_rows: summary.bandRows,
+            routes: summary.routes,
+            widest_bundle: summary.widestBundle,
+          },
+        ],
+      },
+      args.flags,
+    );
+    return;
+  }
+  console.log(
+    refresh
+      ? `Built route-line bands: ${summary.bandRows} band rows across ${summary.routes} routes (widest corridor ${summary.widestBundle}).`
+      : `Route-line bands: ${summary.bandRows} band rows across ${summary.routes} routes (widest corridor ${summary.widestBundle}).`,
+  );
 };
 
 const commandStatus = async () => {
@@ -3386,6 +3417,10 @@ const main = async () => {
   }
   if (args.command === "shapes") {
     await commandShapes(args);
+    return;
+  }
+  if (args.command === "route-bands" || args.command === "route_bands") {
+    await commandRouteBands(args);
     return;
   }
   if (args.command === "skill-path") {

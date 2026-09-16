@@ -41,8 +41,8 @@ export const runDuckDb = async (args: string[]) => {
     }
     return result;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("ENOENT") || message.includes("not found")) {
+    const processError = error as NodeJS.ErrnoException;
+    if (processError.code === "ENOENT") {
       throw new Error(
         "DuckDB CLI not found. Install DuckDB or set DUCKDB_BIN to the duckdb executable.",
       );

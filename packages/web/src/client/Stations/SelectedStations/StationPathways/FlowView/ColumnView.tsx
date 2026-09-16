@@ -1,7 +1,7 @@
-import FlowView, { useFlowViewContext } from "./index";
+import FlowView, { useFlowViewContext } from "./index"
 
 export default function ColumnView() {
-  const props = useFlowViewContext();
+  const props = useFlowViewContext()
 
-  return <FlowView {...props} viewMode="column" />;
+  return <FlowView {...props} viewMode="column" />
 }

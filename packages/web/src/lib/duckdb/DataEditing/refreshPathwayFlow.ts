@@ -1,4 +1,4 @@
-import type { QueryClient } from '@tanstack/react-query';
+import type { QueryClient } from "@tanstack/react-query"
 
 import {
   createEditPathwayTable,
@@ -6,61 +6,61 @@ import {
   createStopsTable,
   recreatePathwaysView,
   recreateStopsView,
-} from '@/lib/extensions';
+} from "@/lib/extensions"
 
 export const refreshPathwayFlow = async ({
   conn,
   queryClient,
   refreshStops = false,
 }: {
-  conn: any;
-  queryClient: QueryClient;
-  refreshStops?: boolean;
+  conn: any
+  queryClient: QueryClient
+  refreshStops?: boolean
 }) => {
   if (conn) {
     if (refreshStops) {
-      await recreateStopsView(conn);
-      await createStationsTable(conn);
-      await createStopsTable(conn);
+      await recreateStopsView(conn)
+      await createStationsTable(conn)
+      await createStopsTable(conn)
     }
 
-    await createEditPathwayTable(conn);
-    await recreatePathwaysView(conn);
+    await createEditPathwayTable(conn)
+    await recreatePathwaysView(conn)
   }
 
   if (refreshStops) {
     await queryClient.invalidateQueries({
-      queryKey: ['EditStopTable'],
-      refetchType: 'all',
-    });
+      queryKey: ["EditStopTable"],
+      refetchType: "all",
+    })
     await queryClient.invalidateQueries({
-      queryKey: ['fetchStationInfoData'],
-      refetchType: 'all',
-    });
+      queryKey: ["fetchStationInfoData"],
+      refetchType: "all",
+    })
     await queryClient.invalidateQueries({
-      queryKey: ['fetchStationsData'],
-      refetchType: 'all',
-    });
+      queryKey: ["fetchStationsData"],
+      refetchType: "all",
+    })
     await queryClient.invalidateQueries({
-      queryKey: ['fetchStopsData'],
-      refetchType: 'all',
-    });
+      queryKey: ["fetchStopsData"],
+      refetchType: "all",
+    })
   }
 
   await queryClient.invalidateQueries({
-    queryKey: ['EditPathwayTable'],
-    refetchType: 'all',
-  });
+    queryKey: ["EditPathwayTable"],
+    refetchType: "all",
+  })
   await queryClient.invalidateQueries({
-    queryKey: ['fetchRouteData'],
-    refetchType: 'all',
-  });
+    queryKey: ["fetchRouteData"],
+    refetchType: "all",
+  })
   await queryClient.invalidateQueries({
-    queryKey: ['stationPathwaysComplete'],
-    refetchType: 'all',
-  });
+    queryKey: ["stationPathwaysComplete"],
+    refetchType: "all",
+  })
   await queryClient.refetchQueries({
-    queryKey: ['stationPathwaysComplete'],
-    type: 'all',
-  });
-};
+    queryKey: ["stationPathwaysComplete"],
+    type: "all",
+  })
+}

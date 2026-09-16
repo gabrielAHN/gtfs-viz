@@ -1,20 +1,20 @@
-import { useMemo } from "react";
-import { ColumnDef } from "@tanstack/react-table";
+import { useMemo } from "react"
+import { ColumnDef } from "@tanstack/react-table"
 
-import Header from "./Header";
-import TableComponent from "@/components/table";
-import { DATA_STATUS, WHEELCHAIR_STATUS } from "@/components/style";
+import Header from "./Header"
+import TableComponent from "@/components/table"
+import { DATA_STATUS, WHEELCHAIR_STATUS } from "@/components/style"
 
 interface Station {
-  row_id: number;
-  stop_id: string;
-  stop_name: string;
-  stop_lat?: number;
-  stop_lon?: number;
-  exit_count?: number;
-  pathways_status?: string;
-  wheelchair_status?: string;
-  status?: string;
+  row_id: number
+  stop_id: string
+  stop_name: string
+  stop_lat?: number
+  stop_lon?: number
+  exit_count?: number
+  pathways_status?: string
+  wheelchair_status?: string
+  status?: string
 }
 
 function StationTable({
@@ -28,19 +28,19 @@ function StationTable({
   clearSortingTrigger,
 }) {
   const getPathwaysStatusLabel = (emoji: string): string => {
-    const baseName = DATA_STATUS[emoji]?.name;
-    if (!baseName) return emoji;
+    const baseName = DATA_STATUS[emoji]?.name
+    if (!baseName) return emoji
 
-    if (emoji === "✅") return "Complete Pathways";
-    if (emoji === "❌") return "No Pathways";
-    if (emoji === "🟡") return "Some Pathways";
+    if (emoji === "✅") return "Complete Pathways"
+    if (emoji === "❌") return "No Pathways"
+    if (emoji === "🟡") return "Some Pathways"
 
-    return baseName;
-  };
+    return baseName
+  }
 
   const getWheelchairStatusLabel = (emoji: string): string => {
-    return WHEELCHAIR_STATUS[emoji]?.name || emoji;
-  };
+    return WHEELCHAIR_STATUS[emoji]?.name || emoji
+  }
 
   const columns = useMemo<ColumnDef<Station>[]>(
     () => [
@@ -68,8 +68,8 @@ function StationTable({
         accessorKey: "pathways_status",
         header: "Pathways",
         cell: ({ row }) => {
-          const emoji = row.original.pathways_status || "";
-          const label = getPathwaysStatusLabel(emoji);
+          const emoji = row.original.pathways_status || ""
+          const label = getPathwaysStatusLabel(emoji)
           return (
             <span className="inline-block relative group">
               {emoji}
@@ -77,15 +77,15 @@ function StationTable({
                 {label}
               </span>
             </span>
-          );
+          )
         },
       },
       {
         accessorKey: "wheelchair_status",
         header: "Wheelchair",
         cell: ({ row }) => {
-          const emoji = row.original.wheelchair_status || "";
-          const label = getWheelchairStatusLabel(emoji);
+          const emoji = row.original.wheelchair_status || ""
+          const label = getWheelchairStatusLabel(emoji)
           return (
             <span className="inline-block relative group">
               {emoji}
@@ -93,12 +93,12 @@ function StationTable({
                 {label}
               </span>
             </span>
-          );
+          )
         },
       },
     ],
     [ClickInfo, setClickInfo],
-  );
+  )
 
   return (
     <TableComponent
@@ -113,7 +113,7 @@ function StationTable({
     >
       <Header ClickInfo={ClickInfo} setClickInfo={setClickInfo} setOpen={setOpen} />
     </TableComponent>
-  );
+  )
 }
 
-export default StationTable;
+export default StationTable
