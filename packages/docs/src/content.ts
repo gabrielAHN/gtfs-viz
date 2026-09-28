@@ -3,100 +3,11 @@ export const repos = {
   extension: "https://github.com/gabrielAHN/gtfs-duckdb-extension",
   app: "https://gtfs-viz-production-f1a4.up.railway.app",
   npm: "https://www.npmjs.com/package/@gabrielahn/gtfs-viz-cli",
+  functions: "https://github.com/gabrielAHN/gtfs-duckdb-extension/blob/main/docs/functions.md",
 }
 
-export type Part = {
-  id: string
-  name: string
-  tagline: string
-  description: string
-  features: string[]
-  repo: string
-  repoLabel: string
-  path?: string
-  install: string
-}
-
-export const parts: Part[] = [
-  {
-    id: "web",
-    name: "Web App",
-    tagline: "Browse, edit and export a feed in the browser",
-    description:
-      "A React app that loads a GTFS zip into DuckDB-WASM on the user's machine. Nothing is uploaded; maps, tables and editors query the feed locally.",
-    features: [
-      "Stations, stops, pathways, routes and trips on maps and tables",
-      "Shape editor, trip compare, stop-time editing and rerouting",
-      "Edits & Export review that writes changes back to GTFS CSV",
-    ],
-    repo: repos.viz,
-    repoLabel: "gabrielAHN/gtfs-viz",
-    path: "packages/web",
-    install: "yarn install --ignore-engines && yarn dev",
-  },
-  {
-    id: "cli",
-    name: "CLI and Agent Skill",
-    tagline: "The same feed from a terminal or an AI agent",
-    description:
-      "`@gabrielahn/gtfs-viz-cli` imports a feed into a local DuckDB database, answers queries as tables or JSON, applies edits and opens the dashboard. The bundled `gtfs-viz` Agent Skill teaches coding agents the commands, tables and edit workflows.",
-    features: [
-      "Queries as tables or `--format json` for scripts and agents",
-      "Pathway, trip, stop-time and calendar edits with batch `apply`",
-      "`install-skill` for Claude Code, Codex, Gemini CLI and Agent Skills",
-    ],
-    repo: repos.viz,
-    repoLabel: "gabrielAHN/gtfs-viz",
-    path: "packages/cli",
-    install: "npm install -g @gabrielahn/gtfs-viz-cli",
-  },
-  {
-    id: "extension",
-    name: "GTFS DuckDB Extension",
-    tagline: "The GTFS toolbox as a loadable DuckDB extension",
-    description:
-      "`gtfs` owns every GTFS database function: normalization, station and route analysis, pathway shortest paths, trip editing and route-shape lane geometry. It is built from the DuckDB extension template for native DuckDB and for DuckDB-WASM.",
-    features: [
-      "65 functions registered at `LOAD`, without touching tables",
-      "Explicit lifecycle: `gtfs_prepare`, `gtfs_init`, `gtfs_refresh`",
-      "Native DuckDB 1.5.4 and DuckDB-WASM 1.4.3 builds",
-    ],
-    repo: repos.extension,
-    repoLabel: "gabrielAHN/gtfs-duckdb-extension",
-    install: "INSTALL gtfs FROM '<repository>';\nLOAD gtfs;",
-  },
-  {
-    id: "client",
-    name: "@gtfs-viz/duckdb-client",
-    tagline: "Downloads, loads and calls the extension",
-    description:
-      "A thin client shared by the web app and CLI. It installs the extension from a configured repository, runs the lifecycle pragmas and moves raw GTFS files into DuckDB. It contains no SQL of its own and has no fallback.",
-    features: [
-      "`GTFS_EXTENSION_REPOSITORY` for the CLI, `VITE_GTFS_EXTENSION_REPOSITORY` for the web",
-      "Repository saved with native datasets for reopening",
-      "Clear error when no compatible extension is configured",
-    ],
-    repo: repos.viz,
-    repoLabel: "gabrielAHN/gtfs-viz",
-    path: "packages/duckdb-client",
-    install: "yarn build:client",
-  },
-  {
-    id: "lib",
-    name: "@gtfs-viz/lib",
-    tagline: "Rendering layers without a database",
-    description:
-      "Dependency-free route rendering: parallel route bands, compared-trip lanes and the deck.gl route-shape layer. It reads rows produced by the extension and can be reused by any map.",
-    features: [
-      "Parallel route bands and compared-trip lanes",
-      "`@gtfs-viz/lib/deckgl` for the route-shape layer",
-    ],
-    repo: repos.viz,
-    repoLabel: "gabrielAHN/gtfs-viz",
-    path: "packages/lib",
-    install: "yarn build:lib",
-  },
-]
+export const intro =
+  "GTFS Viz is an open-source toolkit for looking at, fixing and publishing GTFS transit feeds. It has two parts: GTFS Viz, a web app and CLI for people and AI agents, and the GTFS DuckDB Extension, the toolbox of GTFS functions both of them call. The same station, pathway, route and trip logic runs from one operator's laptop up to a cloud pipeline."
 
 export const goals = [
   {
@@ -109,12 +20,163 @@ export const goals = [
   },
   {
     title: "Easy for operators",
-    body: "A no-install web app: drop in a GTFS zip, see stations and pathways on a map, fix what is wrong and export CSV. Data stays on the operator's machine.",
+    body: "A no-install web app: upload a GTFS zip, see stations and pathways on a map, fix what is wrong and export CSV. Data stays on the operator's machine.",
+  },
+]
+
+export type Step = { title: string; body: string; code?: string; lang?: string }
+
+export type Part = {
+  id: "gtfs-viz" | "gtfs-duckdb-extension"
+  name: string
+  tagline: string
+  repo: string
+  summary: string
+  components: { name: string; path: string; body: string }[]
+  features: string[]
+  howTo: Step[]
+}
+
+export const parts: Part[] = [
+  {
+    id: "gtfs-viz",
+    name: "GTFS Viz",
+    tagline: "Web app and CLI for operators and AI agents",
+    repo: repos.viz,
+    summary:
+      "The web app and the CLI are two views of the same dataset. The CLI imports a feed into a local DuckDB database and can open the web dashboard on it; the hosted web app loads a feed into DuckDB-WASM in the browser. Both download the GTFS DuckDB Extension and call its functions.",
+    components: [
+      {
+        name: "Web app",
+        path: "packages/web",
+        body: "Maps and tables for stations, pathways, routes and trips, with editors and GTFS export. Runs in the browser; nothing is uploaded.",
+      },
+      {
+        name: "CLI and Agent Skill",
+        path: "packages/cli",
+        body: "`@gabrielahn/gtfs-viz-cli`: queries, edits, export and the local dashboard. The bundled `gtfs-viz` skill teaches AI agents the commands.",
+      },
+      {
+        name: "Extension client",
+        path: "packages/duckdb-client",
+        body: "Installs and loads the extension and runs its lifecycle for both the web app and the CLI. No SQL of its own.",
+      },
+      {
+        name: "Rendering library",
+        path: "packages/lib",
+        body: "Route bands, compared-trip lanes and the deck.gl route-shape layer.",
+      },
+    ],
+    features: [
+      "Stations, stops, pathways, routes and trips on maps and tables",
+      "Shape editor, trip compare, stop-time editing and rerouting",
+      "Edits & Export review that writes changes back to GTFS CSV",
+      "Every view available as a CLI command with `--format json`",
+    ],
+    howTo: [
+      {
+        title: "Open a feed in the browser",
+        body: "Open the web app and choose **Upload GTFS Zip File**, or pick one from **Example Datasets**. Everything stays on your machine.",
+      },
+      {
+        title: "Install the CLI and import a feed",
+        body: "Needs Node 22 and the DuckDB CLI with the `spatial` extension.",
+        code: "npm install -g @gabrielahn/gtfs-viz-cli\ngtfs-viz import ./feed.zip\ngtfs-viz status",
+        lang: "bash",
+      },
+      {
+        title: "Query stations, routes and trips",
+        body: "`--data` prints a table instead of opening the dashboard; `--format json` is for scripts and agents.",
+        code: 'gtfs-viz stations --name "Park" --data\ngtfs-viz station "Park Street" --data\ngtfs-viz routes --type Subway --format json',
+        lang: "bash",
+      },
+      {
+        title: "Open the dashboard on the same data",
+        body: "Starts a local session and opens the web app on the imported feed.",
+        code: "gtfs-viz view --view stations/map\ngtfs-viz stop",
+        lang: "bash",
+      },
+      {
+        title: "Review edits and export GTFS",
+        body: "Export merges pending edits with the original feed and writes GTFS CSV files.",
+        code: "gtfs-viz edits\ngtfs-viz export --output ./edited-feed",
+        lang: "bash",
+      },
+      {
+        title: "Give an AI agent the skill",
+        body: "Installs the `gtfs-viz` Agent Skill for `anthropic`, `openai`, `google` or `generic` agents.",
+        code: "gtfs-viz install-skill anthropic\ngtfs-viz install-skill --list-providers",
+        lang: "bash",
+      },
+    ],
+  },
+  {
+    id: "gtfs-duckdb-extension",
+    name: "GTFS DuckDB Extension",
+    tagline: "The GTFS toolbox as a loadable DuckDB extension",
+    repo: repos.extension,
+    summary:
+      "`gtfs` holds every GTFS database function: normalization, station and route analysis, pathway shortest paths, trip editing and route-shape lane geometry. It is built from the DuckDB extension template for native DuckDB and DuckDB-WASM, so any DuckDB client can use it without GTFS Viz.",
+    components: [
+      {
+        name: "Functions",
+        path: "sql",
+        body: "65 functions registered at `LOAD`, from `get_station_info` to `find_shortest_path`. See the function reference.",
+      },
+      {
+        name: "Lifecycle",
+        path: "src/gtfs_extension.cpp",
+        body: "`LOAD` never creates or resets tables. Datasets use `gtfs_prepare`, `gtfs_init` and `gtfs_refresh`.",
+      },
+      {
+        name: "Builds",
+        path: ".github/workflows",
+        body: "Native DuckDB 1.5.4 for Linux, macOS and Windows; DuckDB-WASM 1.4.3 `wasm_eh` and `wasm_mvp`.",
+      },
+    ],
+    features: [
+      "Raw GTFS CSV normalization with `gtfs_normalize_<table>`",
+      "Station, pathway, route and trip query functions",
+      "Pathway shortest paths and reachable stops",
+      "Route-shape lane geometry for parallel route bands",
+    ],
+    howTo: [
+      {
+        title: "Install and load",
+        body: "Until it is in the DuckDB community repository, install from a repository URL. The `spatial` extension is required.",
+        code: "INSTALL spatial;\nLOAD spatial;\nINSTALL gtfs FROM '<repository>';\nLOAD gtfs;",
+        lang: "sql",
+      },
+      {
+        title: "Import a feed",
+        body: "Load each GTFS file into a `<table>_raw` table and normalize it. Use `PRAGMA gtfs_empty_<table>` for missing optional files.",
+        code: "PRAGMA gtfs_prepare;\nCREATE TEMP TABLE stops_raw AS\n  SELECT * FROM read_csv_auto('feed/stops.txt', all_varchar=true);\nPRAGMA gtfs_normalize_stops;\n-- repeat for pathways, routes, trips, stop_times, shapes, calendar, calendar_dates\nPRAGMA gtfs_init;",
+        lang: "sql",
+      },
+      {
+        title: "Query stations and pathways",
+        body: "Station summaries and reachable pathway nodes, shown with the MBTA feed.",
+        code: "SELECT * FROM get_gtfs_data_availability();\nSELECT stop_name, exit_count, pathways_status\n  FROM get_station_info('place-pktrm');\nSELECT reachable_stop, min_time, min_hops\n  FROM find_reachable_stops('place-pktrm', 'door-pktrm-elevatorwb', 120, 3);",
+        lang: "sql",
+      },
+      {
+        title: "Edit and refresh",
+        body: "Write edits to the `Edit*Table` tables, then refresh. Pending edits are kept and the originals stay untouched.",
+        code: "INSERT INTO EditStopTable BY NAME\n  SELECT row_id, stop_id, 'Park Street Station' AS stop_name, stop_lat, stop_lon,\n    location_type_name, parent_station, '' AS level_id, wheelchair_status, 'edit' AS status\n  FROM StationsTable WHERE stop_id = 'place-pktrm';\nPRAGMA gtfs_refresh;\nSELECT stop_name FROM StationsTable WHERE stop_id = 'place-pktrm';",
+        lang: "sql",
+      },
+      {
+        title: "Build from source",
+        body: "Uses the DuckDB extension template Makefile.",
+        code: "git clone --recurse-submodules https://github.com/gabrielAHN/gtfs-duckdb-extension\ncd gtfs-duckdb-extension\nGEN=ninja make\nmake test",
+        lang: "bash",
+      },
+    ],
   },
 ]
 
 export type Release = {
-  repo: "gtfs-viz" | "gtfs-duckdb-extension"
+  repo: Part["id"]
   version: string
   title: string
   date: string
@@ -280,3 +342,5 @@ export const buildLink = (release: Release) =>
         href: `${repoUrl(release.repo)}/releases/tag/v${release.version}`,
         label: `v${release.version}`,
       }
+
+export const releasesFor = (id: Part["id"]) => releases.filter((release) => release.repo === id)

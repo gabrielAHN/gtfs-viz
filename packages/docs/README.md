@@ -10,7 +10,9 @@ yarn build:docs    # packages/docs/dist
 yarn start:docs    # serves dist on $PORT (default 4173)
 ```
 
-Page content lives in `src/content.ts`: project parts, goals and the release list. Each release has at most three highlights, each tagged with an area, and links to the PR it shipped in.
+Page content lives in `src/content.ts`. There are two parts, GTFS Viz (web app and CLI) and the GTFS DuckDB Extension, and each has Overview, How to, Releases and Markdown tabs. Each release has at most three area-tagged highlights and links to the PR it shipped in.
+
+`src/markdown.ts` renders the same content as markdown for agents. The build writes `llms.txt`, `llms-full.txt`, `index.md`, `gtfs-viz.md` and `gtfs-duckdb-extension.md` next to `index.html`, and the dev server serves them too.
 
 ## Railway
 

@@ -16,6 +16,8 @@ const types = {
   ".png": "image/png",
   ".ttf": "font/ttf",
   ".json": "application/json",
+  ".md": "text/markdown; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
 }
 
 async function resolveFile(pathname) {

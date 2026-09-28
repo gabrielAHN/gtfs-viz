@@ -1,12 +1,13 @@
 import { useState } from "react"
 import { BiLogoGithub } from "react-icons/bi"
-import { ArrowUpRight, Boxes, Bot, Cloud, History, TrainFront } from "lucide-react"
+import { ArrowUpRight, Bot, Check, Cloud, Copy, FileText, History, TrainFront } from "lucide-react"
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { buildLink, goals, parts, releases, repos, repoUrl } from "./content"
+import { buildLink, goals, intro, parts, releasesFor, repos } from "./content"
 import type { Part, Release } from "./content"
+import { docsBase, fullMarkdown, partMarkdown } from "./markdown"
 
 const goalIcons = [Cloud, Bot, TrainFront]
 const visibleReleases = 4
@@ -14,20 +15,17 @@ const visibleReleases = 4
 const nav = [
   { id: "intro", label: "Intro" },
   { id: "goals", label: "Goals" },
-  { id: "parts", label: "Parts" },
-  { id: "releases", label: "Releases" },
-]
-
-const releaseRepos: { repo: Release["repo"]; label: string }[] = [
-  { repo: "gtfs-viz", label: "gtfs-viz" },
-  { repo: "gtfs-duckdb-extension", label: "gtfs-duckdb-extension" },
+  ...parts.map((part) => ({ id: part.id, label: part.name })),
+  { id: "agents", label: "Agent docs" },
 ]
 
 function Inline({ text }: { text: string }) {
   return (
     <>
-      {text.split(/(`[^`]+`)/g).map((piece, index) =>
-        piece.startsWith("`") ? (
+      {text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g).map((piece, index) =>
+        piece.startsWith("**") ? (
+          <strong key={index}>{piece.slice(2, -2)}</strong>
+        ) : piece.startsWith("`") ? (
           <code key={index} className="rounded bg-muted px-1 text-[0.95em]">
             {piece.slice(1, -1)}
           </code>
@@ -39,11 +37,21 @@ function Inline({ text }: { text: string }) {
   )
 }
 
-function RepoLink({ href, label }: { href: string; label: string }) {
+function ExternalButton({
+  href,
+  label,
+  github,
+  variant = "outline",
+}: {
+  href: string
+  label: string
+  github?: boolean
+  variant?: "outline" | "default" | "ghost"
+}) {
   return (
-    <Button variant="outline" size="sm" asChild>
+    <Button variant={variant} size="sm" asChild>
       <a href={href} target="_blank" rel="noopener noreferrer">
-        <BiLogoGithub />
+        {github && <BiLogoGithub />}
         {label}
         <ArrowUpRight />
       </a>
@@ -51,52 +59,116 @@ function RepoLink({ href, label }: { href: string; label: string }) {
   )
 }
 
-function SectionTitle({
-  id,
-  title,
-  subtitle,
-  icon: Icon,
-}: {
-  id: string
-  title: string
-  subtitle: string
-  icon?: typeof Boxes
-}) {
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false)
   return (
-    <div id={id} className="scroll-mt-6">
-      <h2 className="flex items-center gap-2 text-4xl font-bold">
-        {Icon && <Icon className="h-8 w-8" />}
-        {title}
-      </h2>
-      <p className="text-lg text-muted-foreground">{subtitle}</p>
-    </div>
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={async () => {
+        await navigator.clipboard.writeText(text)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      }}
+    >
+      {copied ? <Check /> : <Copy />}
+      {copied ? "Copied" : label}
+    </Button>
   )
 }
 
-function PartPanel({ part }: { part: Part }) {
-  const href = part.path ? `${part.repo}/tree/main/${part.path}` : part.repo
+function CodeBlock({ code }: { code: string }) {
   return (
-    <div className="flex h-full flex-col gap-3 rounded-lg border bg-card p-5">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h3 className="text-3xl font-bold">{part.name}</h3>
-          <p className="text-lg text-muted-foreground">{part.tagline}</p>
-        </div>
-        <RepoLink href={href} label={part.path ?? part.repoLabel} />
-      </div>
+    <pre className="overflow-x-auto rounded-lg border bg-background px-4 py-2 text-base">
+      <code>{code}</code>
+    </pre>
+  )
+}
+
+function Overview({ part }: { part: Part }) {
+  return (
+    <div className="space-y-4">
       <p className="text-lg">
-        <Inline text={part.description} />
+        <Inline text={part.summary} />
       </p>
-      <ul className="list-disc space-y-1 pl-6 text-lg">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {part.components.map((component) => (
+          <a
+            key={component.name}
+            href={`${part.repo}/tree/main/${component.path}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg border bg-background p-4 hover:bg-accent hover:text-accent-foreground"
+          >
+            <p className="flex items-center justify-between gap-2 text-xl font-bold">
+              {component.name}
+              <ArrowUpRight className="h-4 w-4 shrink-0" />
+            </p>
+            <p className="text-sm text-muted-foreground">{component.path}</p>
+            <p className="mt-1 text-lg">
+              <Inline text={component.body} />
+            </p>
+          </a>
+        ))}
+      </div>
+      <ul className="grid list-disc gap-x-8 gap-y-1 pl-6 text-lg sm:grid-cols-2">
         {part.features.map((feature) => (
           <li key={feature}>
             <Inline text={feature} />
           </li>
         ))}
       </ul>
-      <pre className="mt-auto overflow-x-auto rounded-lg border bg-background px-4 py-2 text-base">
-        <code>{part.install}</code>
-      </pre>
+    </div>
+  )
+}
+
+function HowTo({ part }: { part: Part }) {
+  const [active, setActive] = useState(0)
+  const step = part.howTo[active]
+  return (
+    <div className="grid gap-4 md:grid-cols-[16rem_1fr]">
+      <ol className="flex gap-1 overflow-x-auto md:flex-col">
+        {part.howTo.map((item, index) => (
+          <li key={item.title} className="shrink-0">
+            <button
+              type="button"
+              onClick={() => setActive(index)}
+              aria-current={index === active ? "step" : undefined}
+              className={`flex w-full items-start gap-2 rounded-md px-3 py-2 text-left text-lg hover:bg-accent hover:text-accent-foreground ${index === active ? "bg-accent text-accent-foreground font-bold" : ""}`}
+            >
+              <span className="w-5 shrink-0 text-muted-foreground">{index + 1}.</span>
+              <span className="whitespace-nowrap md:whitespace-normal">{item.title}</span>
+            </button>
+          </li>
+        ))}
+      </ol>
+      <div className="space-y-3">
+        <h4 className="text-2xl font-bold">
+          {active + 1}. {step.title}
+        </h4>
+        <p className="text-lg">
+          <Inline text={step.body} />
+        </p>
+        {step.code && <CodeBlock code={step.code} />}
+        <div className="flex justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={active === 0}
+            onClick={() => setActive(active - 1)}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={active === part.howTo.length - 1}
+            onClick={() => setActive(active + 1)}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -104,7 +176,7 @@ function PartPanel({ part }: { part: Part }) {
 function ReleaseRow({ release }: { release: Release }) {
   const link = buildLink(release)
   return (
-    <li className="grid gap-x-6 gap-y-2 px-5 py-4 sm:grid-cols-[9rem_1fr_auto]">
+    <li className="grid gap-x-6 gap-y-2 py-4 sm:grid-cols-[9rem_1fr_auto]">
       <div>
         <p className="text-2xl font-bold">
           {release.version === "Unreleased" ? release.version : `v${release.version}`}
@@ -130,29 +202,24 @@ function ReleaseRow({ release }: { release: Release }) {
         <Badge variant={release.status === "Released" ? "default" : "secondary"}>
           {release.status}
         </Badge>
-        <Button variant="outline" size="sm" asChild>
-          <a href={link.href} target="_blank" rel="noopener noreferrer">
-            {link.label}
-            <ArrowUpRight />
-          </a>
-        </Button>
+        <ExternalButton href={link.href} label={link.label} />
       </div>
     </li>
   )
 }
 
-function ReleaseList({ repo }: { repo: Release["repo"] }) {
+function Releases({ part }: { part: Part }) {
   const [expanded, setExpanded] = useState(false)
-  const list = releases.filter((release) => release.repo === repo)
+  const list = releasesFor(part.id)
   const shown = expanded ? list : list.slice(0, visibleReleases)
   return (
-    <div className="rounded-lg border bg-card">
+    <div>
       <ul className="divide-y">
         {shown.map((release) => (
           <ReleaseRow key={release.version} release={release} />
         ))}
       </ul>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t px-5 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
         {list.length > visibleReleases ? (
           <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)}>
             <History />
@@ -163,9 +230,71 @@ function ReleaseList({ repo }: { repo: Release["repo"] }) {
         ) : (
           <span />
         )}
-        <RepoLink href={`${repoUrl(repo)}/releases`} label="All releases" />
+        <ExternalButton href={`${part.repo}/releases`} label="All releases" github />
       </div>
     </div>
+  )
+}
+
+function Markdown({ part }: { part: Part }) {
+  const text = partMarkdown(part)
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        <CopyButton text={text} label="Copy markdown" />
+        <ExternalButton href={`${docsBase}${part.id}.md`} label={`${part.id}.md`} />
+      </div>
+      <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap rounded-lg border bg-background px-4 py-3 text-base">
+        {text}
+      </pre>
+    </div>
+  )
+}
+
+function PartSection({ part }: { part: Part }) {
+  return (
+    <section id={part.id} className="scroll-mt-6 rounded-lg border bg-card p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-4xl font-bold">{part.name}</h2>
+          <p className="text-lg text-muted-foreground">{part.tagline}</p>
+        </div>
+        <ExternalButton
+          href={part.repo}
+          label={part.repo.replace("https://github.com/", "")}
+          github
+        />
+      </div>
+      <Tabs defaultValue="overview" className="mt-4">
+        <TabsList className="h-auto flex-wrap justify-start">
+          <TabsTrigger value="overview" className="text-base">
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="how-to" className="text-base">
+            How to
+          </TabsTrigger>
+          <TabsTrigger value="releases" className="text-base">
+            Releases
+          </TabsTrigger>
+          <TabsTrigger value="markdown" className="text-base">
+            <FileText className="mr-1 h-4 w-4" />
+            Markdown
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview" className="mt-4">
+          <Overview part={part} />
+        </TabsContent>
+        <TabsContent value="how-to" className="mt-4">
+          <HowTo part={part} />
+        </TabsContent>
+        <TabsContent value="releases" className="mt-2">
+          <Releases part={part} />
+        </TabsContent>
+        <TabsContent value="markdown" className="mt-4">
+          <Markdown part={part} />
+        </TabsContent>
+      </Tabs>
+    </section>
   )
 }
 
@@ -200,27 +329,33 @@ export default function App() {
             </Button>
             <ThemeSwitcher />
           </div>
-          <p className="mx-auto max-w-3xl text-xl">
-            GTFS Viz is an open-source toolkit for looking at, fixing and publishing GTFS transit
-            feeds. A browser app, a command-line tool with an AI agent skill, and a DuckDB extension
-            share one set of GTFS functions, so the same station, pathway, route and trip logic runs
-            from a single operator's laptop up to a cloud pipeline.
-          </p>
+          <p className="mx-auto max-w-3xl text-xl">{intro}</p>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
             <Button asChild>
               <a href={repos.app}>Open the web app</a>
             </Button>
-            <RepoLink href={repos.viz} label="gtfs-viz" />
-            <RepoLink href={repos.extension} label="gtfs-duckdb-extension" />
+            {parts.map((part) => (
+              <Button key={part.id} variant="outline" asChild>
+                <a href={`#${part.id}`}>{part.name}</a>
+              </Button>
+            ))}
+            <Button variant="outline" asChild>
+              <a href="#agents">
+                <Bot />
+                Agent docs
+              </a>
+            </Button>
           </div>
         </header>
 
-        <section className="space-y-4">
-          <SectionTitle
-            id="goals"
-            title="Goals"
-            subtitle="Make GTFS data scale in the cloud and with AI, without losing the simple workflow operators rely on."
-          />
+        <section id="goals" className="scroll-mt-6 space-y-4">
+          <div>
+            <h2 className="text-4xl font-bold">Goals</h2>
+            <p className="text-lg text-muted-foreground">
+              Make GTFS data scale in the cloud and with AI, without losing the simple workflow
+              operators rely on.
+            </p>
+          </div>
           <div className="grid gap-4 md:grid-cols-3">
             {goals.map((goal, index) => {
               const Icon = goalIcons[index]
@@ -237,60 +372,32 @@ export default function App() {
           </div>
         </section>
 
-        <section className="space-y-4">
-          <SectionTitle
-            id="parts"
-            icon={Boxes}
-            title="Parts"
-            subtitle="The GTFS DuckDB Extension holds the database logic; everything in GTFS Viz calls it."
-          />
-          <Tabs
-            defaultValue={parts[0].id}
-            orientation="vertical"
-            className="grid gap-4 md:grid-cols-[14rem_1fr]"
-          >
-            <TabsList className="flex h-auto flex-row justify-start gap-1 overflow-x-auto md:flex-col md:items-stretch">
-              {parts.map((part) => (
-                <TabsTrigger
-                  key={part.id}
-                  value={part.id}
-                  className="shrink-0 flex-col items-start px-3 py-2 text-left md:whitespace-normal"
-                >
-                  <span className="text-lg font-bold">{part.name}</span>
-                  <span className="hidden text-sm text-muted-foreground md:block">
-                    {part.repoLabel.replace("gabrielAHN/", "")}
-                  </span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            {parts.map((part) => (
-              <TabsContent key={part.id} value={part.id} className="mt-0">
-                <PartPanel part={part} />
-              </TabsContent>
-            ))}
-          </Tabs>
-        </section>
+        {parts.map((part) => (
+          <PartSection key={part.id} part={part} />
+        ))}
 
-        <section className="space-y-4">
-          <SectionTitle
-            id="releases"
-            title="Releases"
-            subtitle="Build version of each repository, its key features and the pull request it shipped in."
-          />
-          <Tabs defaultValue={releaseRepos[0].repo}>
-            <TabsList>
-              {releaseRepos.map((item) => (
-                <TabsTrigger key={item.repo} value={item.repo} className="text-base">
-                  {item.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            {releaseRepos.map((item) => (
-              <TabsContent key={item.repo} value={item.repo}>
-                <ReleaseList repo={item.repo} />
-              </TabsContent>
+        <section id="agents" className="scroll-mt-6 rounded-lg border bg-card p-5">
+          <h2 className="flex items-center gap-2 text-4xl font-bold">
+            <Bot className="h-8 w-8" />
+            Agent docs
+          </h2>
+          <p className="text-lg text-muted-foreground">
+            The same docs as plain markdown for AI agents. Point an agent at{" "}
+            <code className="rounded bg-muted px-1">{docsBase}llms.txt</code> or paste the full file
+            into its context.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <CopyButton text={fullMarkdown()} label="Copy all docs" />
+            <ExternalButton href={`${docsBase}llms.txt`} label="llms.txt" />
+            <ExternalButton href={`${docsBase}llms-full.txt`} label="llms-full.txt" />
+            {parts.map((part) => (
+              <ExternalButton
+                key={part.id}
+                href={`${docsBase}${part.id}.md`}
+                label={`${part.id}.md`}
+              />
             ))}
-          </Tabs>
+          </div>
         </section>
 
         <footer className="flex items-center justify-center gap-2 pb-6">
