@@ -21,6 +21,14 @@ test('browser adapter loads on reopening and refreshes edits without embedded SQ
   assert.equal(queries.filter(sql => sql === 'LOAD gtfs').length, 2);
 });
 
+test('reopening only loads the extension and never rebuilds a partially persisted dataset', async () => {
+  const api = await adapter();
+  const queries = [];
+  const conn = { query: async sql => { queries.push(sql); if (sql === 'PRAGMA gtfs_refresh') throw new Error('Table with name shapes does not exist'); return { toArray: () => [{ n: 1 }] }; } };
+  await api.reinstallMacros(conn);
+  assert.deepEqual(queries, ["INSTALL gtfs FROM 'https://example.test/ext'", 'LOAD gtfs']);
+});
+
 test('rerouting does not execute embedded macro definitions in downloaded mode', async () => {
   const api = await adapter('https://example.test/ext', 'packages/web/src/lib/duckdb/DataEditing/rerouteTrip.ts');
   const queries = [];

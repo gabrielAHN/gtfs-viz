@@ -31,12 +31,7 @@ export const installGtfsExtension = async (conn: any): Promise<void> => {
 }
 
 export const reinstallMacros = async (conn: any): Promise<void> => {
-  const client = await downloaded(conn)
-  const res = await conn.query(
-    "SELECT COUNT(*) AS n FROM information_schema.tables WHERE table_name = 'stops'",
-  )
-  if (Number(res.toArray()[0]?.n ?? 0) === 0) return
-  if (client) await client.refresh()
+  await downloaded(conn)
 }
 
 export const installEnumsAndEditTables = async (conn: any): Promise<void> => {
