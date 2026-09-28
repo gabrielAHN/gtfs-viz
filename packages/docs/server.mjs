@@ -28,7 +28,7 @@ async function resolveFile(pathname) {
     const info = await stat(file)
     if (info.isFile()) return file
   } catch {
-    return path.extname(file) ? null : path.join(root, "index.html")
+    return types[path.extname(file)] ? null : path.join(root, "index.html")
   }
   return path.join(root, "index.html")
 }

@@ -335,12 +335,34 @@ export const releases: Release[] = [
 export const repoUrl = (repo: Release["repo"]) =>
   repo === "gtfs-viz" ? repos.viz : repos.extension
 
-export const buildLink = (release: Release) =>
+export const releasesFor = (id: Part["id"]) => releases.filter((release) => release.repo === id)
+
+export const docsBase = "/docs/"
+
+export const releaseSlug = (release: Release) =>
+  release.version === "Unreleased" ? "unreleased" : `v${release.version}`
+
+export const versionLabel = (release: Release) =>
+  release.version === "Unreleased" ? "Unreleased" : `v${release.version}`
+
+export const partById = (id: string) => parts.find((part) => part.id === id)
+
+export const partPath = (id: Part["id"]) => `${docsBase}${id}/`
+
+export const releasesPath = (id: Part["id"]) => `${docsBase}${id}/releases/`
+
+export const releasePath = (release: Release) =>
+  `${releasesPath(release.repo)}${releaseSlug(release)}/`
+
+export const releaseFile = (release: Release) =>
+  `${release.repo}/releases/${releaseSlug(release)}.md`
+
+export const pullRequest = (release: Release) =>
   release.pr
     ? { href: `${repoUrl(release.repo)}/pull/${release.pr}`, label: `PR #${release.pr}` }
-    : {
-        href: `${repoUrl(release.repo)}/releases/tag/v${release.version}`,
-        label: `v${release.version}`,
-      }
+    : undefined
 
-export const releasesFor = (id: Part["id"]) => releases.filter((release) => release.repo === id)
+export const githubRelease = (release: Release) =>
+  release.status === "Released"
+    ? `${repoUrl(release.repo)}/releases/tag/v${release.version}`
+    : undefined

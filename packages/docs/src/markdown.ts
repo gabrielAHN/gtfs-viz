@@ -1,19 +1,39 @@
-import { buildLink, goals, intro, parts, releasesFor, repos } from "./content"
+import {
+  docsBase,
+  githubRelease,
+  goals,
+  intro,
+  parts,
+  pullRequest,
+  releaseFile,
+  releasePath,
+  releases,
+  releasesFor,
+  repos,
+  versionLabel,
+} from "./content"
 import type { Part, Release } from "./content"
 
-export const docsBase = "/docs/"
+export { docsBase }
 
-const versionLabel = (release: Release) =>
-  release.version === "Unreleased" ? "Unreleased" : `v${release.version}`
-
-function releaseMarkdown(release: Release) {
-  const link = buildLink(release)
+export function releaseMarkdown(release: Release) {
+  const part = parts.find((item) => item.id === release.repo)!
+  const pr = pullRequest(release)
+  const tag = githubRelease(release)
   return [
-    `### ${versionLabel(release)} — ${release.title}`,
+    `# ${part.name} ${versionLabel(release)}: ${release.title}`,
     "",
-    `${release.date} · ${release.status} · [${link.label}](${link.href})`,
+    `- Repository: ${part.repo}`,
+    `- Date: ${release.date}`,
+    `- Status: ${release.status}`,
+    ...(pr ? [`- Build: [${pr.label}](${pr.href})`] : []),
+    ...(tag ? [`- GitHub release: ${tag}`] : []),
+    `- Page: ${releasePath(release)}`,
+    "",
+    "## Highlights",
     "",
     ...release.highlights.map((item) => `- **${item.area}:** ${item.text}`),
+    "",
   ].join("\n")
 }
 
@@ -44,7 +64,13 @@ export function partMarkdown(part: Part) {
     ]),
     "## Releases",
     "",
-    ...releasesFor(part.id).flatMap((release) => [releaseMarkdown(release), ""]),
+    "Each release has its own page.",
+    "",
+    ...releasesFor(part.id).map(
+      (release) =>
+        `- [${versionLabel(release)}: ${release.title}](${docsBase}${releaseFile(release)}) (${release.date}, ${release.status})`,
+    ),
+    "",
   ].join("\n")
 }
 
@@ -85,6 +111,13 @@ export function llmsTxt() {
     `- [Overview](${docsBase}index.md): goals and parts`,
     ...parts.map((part) => `- [${part.name}](${docsBase}${part.id}.md): ${part.tagline}`),
     "",
+    "## Releases",
+    "",
+    ...releases.map(
+      (release) =>
+        `- [${parts.find((part) => part.id === release.repo)!.name} ${versionLabel(release)}](${docsBase}${releaseFile(release)}): ${release.title}`,
+    ),
+    "",
     "## Optional",
     "",
     `- [Extension function reference](${repos.functions})`,
@@ -94,7 +127,10 @@ export function llmsTxt() {
 }
 
 export const fullMarkdown = () =>
-  [overviewMarkdown(), ...parts.map((part) => partMarkdown(part))].join("\n---\n\n")
+  [
+    overviewMarkdown(),
+    ...parts.flatMap((part) => [partMarkdown(part), ...releasesFor(part.id).map(releaseMarkdown)]),
+  ].join("\n---\n\n")
 
 export function markdownFiles(): Record<string, string> {
   return {
@@ -102,5 +138,8 @@ export function markdownFiles(): Record<string, string> {
     "llms-full.txt": fullMarkdown(),
     "index.md": overviewMarkdown(),
     ...Object.fromEntries(parts.map((part) => [`${part.id}.md`, partMarkdown(part)])),
+    ...Object.fromEntries(
+      releases.map((release) => [releaseFile(release), releaseMarkdown(release)]),
+    ),
   }
 }
