@@ -1,0 +1,41 @@
+{
+  "name": "@gtfs-viz/docs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Documentation site for GTFS Viz and the GTFS DuckDB Extension",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "vp build",
+    "check": "vp check && tsc -p tsconfig.json --noEmit",
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.2.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.563.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-icons": "^5.5.0",
+    "tailwind-merge": "^2.6.0",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^6.0.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "~5.6.2",
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.1.8",
+    "vite-plus": "0.1.8"
+  },
+  "resolutions": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.1.8",
+    "vitest": "npm:@voidzero-dev/vite-plus-test@0.1.8"
+  }
+}

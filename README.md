@@ -68,6 +68,7 @@ packages/
   lib/              Rendering layers and visual adapters (no DuckDB dependency)
   web/              React web application (DuckDB WASM, Deck.gl, TanStack)
   cli/              CLI tool (npm: @gabrielahn/gtfs-viz-cli)
+  docs/             Documentation site, deployed separately (see packages/docs/README.md)
 ```
 
 ## Development
@@ -76,6 +77,7 @@ packages/
 yarn install --ignore-engines
 yarn build              # Build all (client -> lib -> web -> cli)
 yarn dev                # Web dev server at localhost:5173
+yarn dev:docs           # Docs dev server at localhost:5173/docs/
 yarn build:client       # Build the thin extension client
 yarn build:lib          # Build standalone rendering library
 yarn build:cli          # Build CLI only

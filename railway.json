@@ -8,7 +8,8 @@
       "package.json",
       "yarn.lock",
       "railway.json",
-      "railpack.json"
+      "railpack.json",
+      "!packages/docs/**"
     ]
   },
   "deploy": {
