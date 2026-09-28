@@ -1,0 +1,148 @@
+import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { createServer } from 'node:http';
+import { gzipSync } from 'node:zlib';
+import { mkdtemp, readFile, writeFile, chmod, mkdir, cp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { resolve, join } from 'node:path';
+import { build } from 'esbuild';
+import JSZip from 'jszip';
+import { chromium } from '@playwright/test';
+
+const exec = promisify(execFile);
+const root = resolve(import.meta.dirname, '../../../..');
+const extensionRoot = resolve(root, '../gtfs-duck-tools');
+const binary = process.env.DUCKDB_BIN;
+assert.ok(binary, 'DUCKDB_BIN must select the matching native engine');
+const version = JSON.parse((await exec(binary, ['-json', ':memory:', '-c', 'SELECT version() AS v'])).stdout)[0].v;
+const platform = JSON.parse((await exec(binary, ['-json', ':memory:', '-c', 'PRAGMA platform'])).stdout)[0].platform;
+const data = gzipSync(await readFile(resolve(extensionRoot, 'build/release/extension/gtfs_duck_tools/gtfs_duck_tools.duckdb_extension')));
+const requests = [];
+const server = createServer((req, res) => {
+  requests.push(req.url);
+  if (req.url === `/${version}/${platform}/gtfs_duck_tools.duckdb_extension.gz`) { res.writeHead(200); res.end(data); }
+  else { res.writeHead(404); res.end(); }
+});
+await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+const repository = `http://127.0.0.1:${server.address().port}`;
+const dir = await mkdtemp(join(tmpdir(), 'gtfs-consumer-native-'));
+let daemon;
+let browser;
+try {
+  const wrapper = join(dir, 'duckdb-test.cjs');
+  await writeFile(wrapper, `#!/usr/bin/env node\nconst {spawnSync}=require('node:child_process'); const home=process.env.GTFS_TEST_HOME; const r=spawnSync(${JSON.stringify(binary)},[...(process.env.GTFS_TEST_UNSIGNED==='1'?['-unsigned']:[]),'-cmd',"SET home_directory='"+home+"'; SET extension_directory='"+home+"/extensions'",...process.argv.slice(2)],{stdio:'inherit'}); process.exit(r.status??1);\n`);
+  await chmod(wrapper, 0o700);
+  process.env.DUCKDB_BIN = wrapper;
+  process.env.GTFS_TEST_HOME = join(dir, 'positive');
+  process.env.GTFS_TEST_UNSIGNED = '1';
+  process.env.GTFS_EXTENSION_REPOSITORY = repository;
+  await mkdir(process.env.GTFS_TEST_HOME, { recursive: true });
+  if (process.env.GTFS_DEPENDENCY_CACHE) await cp(process.env.GTFS_DEPENDENCY_CACHE, join(process.env.GTFS_TEST_HOME, 'extensions'), { recursive: true });
+  for (const name of ['runner', 'import-sql', 'edits']) await build({ entryPoints: [resolve(root, `packages/cli/src/duckdb/${name}.ts`)], bundle: true, platform: 'node', format: 'esm', outfile: join(dir, `${name}.mjs`) });
+  const runner = await import(join(dir, 'runner.mjs'));
+  const { buildImportSteps } = await import(join(dir, 'import-sql.mjs'));
+  const stopsPath = join(dir, 'stops.txt');
+  await writeFile(stopsPath, 'stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\nS,Station,35,139,1,\nP,Platform,35.001,139,0,S\n');
+  const dbPath = join(dir, 'positive', 'data.duckdb');
+  const steps = await buildImportSteps({ databasePath: dbPath, stopsPath });
+  const sql = steps.join("\n");
+  assert.equal(/CREATE\s+(OR REPLACE\s+)?MACRO/i.test(sql), false);
+  const sqlPath = join(dir, 'import.sql');
+  await writeFile(sqlPath, sql);
+  console.log('STAGE import');
+  await runner.executeSqlFile(dbPath, sqlPath, steps);
+  console.log('STAGE imported');
+  delete process.env.GTFS_EXTENSION_REPOSITORY;
+  assert.equal(await runner.getNativeExtensionRepository(dbPath), repository);
+  assert.deepEqual(await runner.queryRows(dbPath, "SELECT stop_name FROM StationsTable"), [{ stop_name: 'Station' }]);
+  assert.equal(typeof runner.refreshDownloadedDataset, 'function');
+  assert.equal(await runner.refreshDownloadedDataset(dbPath), true);
+  await runner.executeRows(dbPath, "INSERT INTO EditStopTable (row_id,stop_id,stop_name,stop_lat,stop_lon,location_type_name,parent_station,level_id,wheelchair_status,status) VALUES ('1','S','Edited',35,139,'Station','','','🔵','edit')");
+  await runner.executeRows(dbPath, 'PRAGMA gtfs_refresh');
+  assert.deepEqual(await runner.queryRows(dbPath, 'SELECT stop_name,(SELECT count(*) FROM EditStopTable) AS pending FROM StationsTable'), [{ stop_name: 'Edited', pending: 1 }]);
+  console.log('STAGE import');
+  await runner.executeSqlFile(dbPath, sqlPath, steps);
+  console.log('STAGE imported');
+  assert.deepEqual(await runner.queryRows(dbPath, 'SELECT stop_name,(SELECT count(*) FROM EditStopTable) AS pending FROM StationsTable'), [{ stop_name: 'Edited', pending: 1 }]);
+  const edits = await import(join(dir, 'edits.mjs'));
+  await assert.rejects(edits.removeStops(dbPath, 'missing', ['missing']), /would leave trip/);
+  assert.deepEqual(await runner.queryRows(dbPath, "SELECT count(*) AS n FROM duckdb_functions() WHERE database_name = 'data' AND function_type IN ('macro', 'table_macro')"), [{ n: 0 }]);
+  if (process.argv.includes('--cli-e2e')) {
+    const home = join(dir, 'cli-home');
+    const temp = join(dir, 'cli-temp');
+    await mkdir(home); await mkdir(temp);
+    const env = { ...process.env, HOME: home, TMPDIR: temp, GTFS_EXTENSION_REPOSITORY: repository };
+    const zip = new JSZip();
+    zip.file('stops.txt', await readFile(stopsPath));
+    const zipPath = join(dir, 'feed.zip');
+    await writeFile(zipPath, await zip.generateAsync({ type: 'nodebuffer' }));
+    const cli = resolve(root, 'packages/cli/dist/index.js');
+    const imported = await exec(process.execPath, [cli, 'import', zipPath], { env, timeout: 60000 });
+    assert.match(imported.stdout, /Stations: 1/);
+    daemon = JSON.parse(await readFile(join(home, '.gtfs-viz-cli/daemon.json'), 'utf8'));
+    delete env.GTFS_EXTENSION_REPOSITORY;
+    const stations = await exec(process.execPath, [cli, 'stations', '--format', 'json'], { env, timeout: 60000 });
+    assert.match(stations.stdout, /Station/);
+    const origin = `http://127.0.0.1:${daemon.port}`;
+    const dataset = await (await fetch(origin + '/__gtfs_viz/api/dataset')).json();
+    assert.equal(dataset.extensionRepository, repository);
+    const post = async sql => {
+      const response = await fetch(origin + '/__gtfs_viz/api/sql', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sessionId: daemon.sessionId, sql }) });
+      const body = await response.json(); assert.equal(response.status, 200, JSON.stringify(body)); return body.rows;
+    };
+    assert.deepEqual(await post("SELECT route_type_to_name(3) AS name"), [{ name: 'Bus' }]);
+    await post("INSERT INTO EditStopTable (row_id,stop_id,stop_name,stop_lat,stop_lon,location_type_name,parent_station,level_id,wheelchair_status,status) VALUES ('1','S','Dashboard Edited',35,139,'Station','','','🔵','edit')");
+    await post('PRAGMA gtfs_refresh');
+    assert.deepEqual(await post('SELECT stop_name FROM StationsTable'), [{ stop_name: 'Dashboard Edited' }]);
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+    page.on('console', message => { if (message.type() === 'error') console.log('DASHBOARD_CONSOLE', message.text()); });
+    page.on('pageerror', error => console.log('DASHBOARD_PAGE_ERROR', error.stack));
+    const url = new URL(daemon.dashboardUrl); url.pathname = '/stations/table';
+    url.searchParams.set('gtfsSource', '/__gtfs_viz/feed.zip');
+    url.searchParams.set('cliSession', daemon.sessionId);
+    url.searchParams.set('cliApi', '/__gtfs_viz/api');
+    url.searchParams.set('cliView', 'stations/table');
+    await page.goto(url.href);
+    await page.getByText('Dashboard Edited', { exact: true }).first().waitFor({ timeout: 10000 }).catch(async error => {
+      const showError = page.getByRole('button', { name: 'Show Error', exact: true });
+      if (await showError.isVisible()) await showError.click();
+      console.log(JSON.stringify({ scope: 'dashboard-ui-blocker', url: page.url(), body: await page.locator('body').innerText() }));
+      await page.screenshot({ path: resolve(root, '.hermes/plans/consumer-native-dashboard-blocker.png'), fullPage: true });
+      throw error;
+    });
+    await page.reload();
+    await page.getByText('Dashboard Edited', { exact: true }).first().waitFor({ timeout: 10000 }).catch(async error => {
+      const showError = page.getByRole('button', { name: 'Show Error', exact: true });
+      if (await showError.isVisible()) await showError.click();
+      console.log(JSON.stringify({ scope: 'dashboard-ui-blocker', url: page.url(), body: await page.locator('body').innerText() }));
+      await page.screenshot({ path: resolve(root, '.hermes/plans/consumer-native-dashboard-blocker.png'), fullPage: true });
+      throw error;
+    });
+    await page.getByText('Select a station row to view actions', { exact: true }).waitFor();
+    await page.getByRole('row').filter({ hasText: 'Dashboard Edited' }).click();
+    await page.getByRole('button', { name: 'Select Station', exact: true }).waitFor();
+    assert.equal(new URL(page.url()).searchParams.get('selectedStationId'), 'S');
+    await page.screenshot({ path: resolve(root, '.hermes/plans/consumer-native-dashboard.png'), fullPage: true });
+    url.pathname = '/stops/table';
+    await page.goto(url.href);
+    await page.getByText('Select a stop row to view actions', { exact: true }).waitFor({ timeout: 10000 });
+    await page.reload();
+    await page.getByText('Select a stop row to view actions', { exact: true }).waitFor({ timeout: 10000 });
+    console.log(JSON.stringify({ status: 'PASS', scope: 'built CLI zip import, command reopening without env, daemon repository propagation, HTTP edit/refresh, actual browser dashboard and reload', counts: dataset.counts }));
+    await browser.close(); browser = undefined;
+    process.kill(daemon.pid, 'SIGTERM'); daemon = undefined;
+  }
+  process.env.GTFS_TEST_UNSIGNED = '0';
+  process.env.GTFS_TEST_HOME = join(dir, 'strict');
+  await mkdir(process.env.GTFS_TEST_HOME);
+  process.env.GTFS_EXTENSION_REPOSITORY = repository;
+  await assert.rejects(runner.executeRows(join(dir, 'strict', 'data.duckdb'), 'PRAGMA gtfs_prepare'), /unsigned|signature/i);
+  console.log(JSON.stringify({ status: 'PASS', version, platform, scope: 'actual CLI import builder, subprocess runner, CSV import, persisted repository, reopen, edit/refresh, repeated import, default signature rejection', requests }));
+} finally {
+  await browser?.close();
+  if (daemon) { try { process.kill(daemon.pid, 'SIGTERM'); } catch {} }
+  await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });
+  await rm(dir, { recursive: true, force: true });
+}

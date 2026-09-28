@@ -13,8 +13,10 @@ import {
   addGeomColumnsSql,
 } from "@gtfs-viz/duckdb-extension";
 import { buildDuckDbSessionSql } from "./config.js";
+import { getNativeExtensionRepository } from "./runner.js";
+import { createExtensionClient } from "@gtfs-viz/duckdb-extension/client";
 
-export async function buildImportSql(opts: {
+export type ImportOptions = {
   databasePath: string;
   stopsPath: string;
   pathwaysPath?: string;
@@ -24,8 +26,25 @@ export async function buildImportSql(opts: {
   shapesPath?: string;
   calendarPath?: string;
   calendarDatesPath?: string;
-}): Promise<string> {
+};
+
+export async function buildImportSteps(opts: ImportOptions): Promise<string[]> {
+  const repository = await getNativeExtensionRepository(opts.databasePath);
+  if (repository === undefined) return [await buildImportSql(opts)];
+  const steps = ["INSTALL spatial; LOAD spatial;"];
+  const client = createExtensionClient({ query: async sql => { steps.push(sql + ";"); } }, { repository });
+  await client.prepare();
+  steps.push(dropExistingSql() + "\n" + buildIngestionSql(opts));
+  await client.init();
+  steps.push("LOAD spatial;\n" + addGeomColumnsSql());
+  return steps;
+}
+
+export async function buildImportSql(opts: ImportOptions): Promise<string> {
   const spatial = "INSTALL spatial; LOAD spatial;\n";
+  if (await getNativeExtensionRepository(opts.databasePath) !== undefined) {
+    return (await buildImportSteps(opts)).join("\n");
+  }
   return [
     buildDuckDbSessionSql(opts.databasePath),
     spatial,

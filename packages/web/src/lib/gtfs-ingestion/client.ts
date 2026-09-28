@@ -2,6 +2,7 @@ import JSZip from "jszip"
 import pako from "pako"
 import { AsyncDuckDB, AsyncDuckDBConnection } from "@duckdb/duckdb-wasm"
 import { logger } from "@/lib/logger"
+import { getExtensionRepository } from "@/lib/extensions"
 import { importGtfs } from "@gtfs-viz/duckdb-extension"
 import type { SqlExecutor } from "@gtfs-viz/duckdb-extension"
 import { fetchGTFSDataAvailability } from "./availability"
@@ -740,6 +741,7 @@ export async function runIngestion(
     }
 
     await importGtfs(executor, {
+      extensionRepository: getExtensionRepository(conn),
       stopsPath: "stops.txt",
       pathwaysPath: hasPathwaysFile ? "pathways.txt" : undefined,
       routesPath: hasRoutesFile ? "routes.txt" : undefined,

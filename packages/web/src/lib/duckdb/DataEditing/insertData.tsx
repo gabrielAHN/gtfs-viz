@@ -1,5 +1,6 @@
 import { formFormat, executeQuery, buildUpdateClause, formatSqlValue } from "../QueryHelper"
 import { logger } from "@/lib/logger"
+import { downloaded } from "@/lib/extensions"
 
 export const editTableRow = async (props) => {
   const { conn, table, formData } = props
@@ -112,6 +113,11 @@ export const refreshMaterializedTable = async (conn, tableName) => {
   }
   const macro = macroMap[tableName]
   if (!macro) return
+  const client = await downloaded(conn)
+  if (client) {
+    await client.refresh()
+    return
+  }
   try {
     await executeQuery(conn, `CREATE OR REPLACE TABLE ${tableName} AS SELECT * FROM ${macro}()`)
   } catch (error) {

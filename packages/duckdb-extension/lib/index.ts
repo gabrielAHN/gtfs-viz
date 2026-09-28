@@ -38,5 +38,3 @@ export {
 
 export { sqlForNamedQuery, isNamedQuery, dashboardViewForNamedQuery } from "./named-queries.js";
 export type { NamedQueryName } from "./named-queries.js";
-
-export * from "./deckgl/index.js";

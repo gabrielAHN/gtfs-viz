@@ -1,3 +1,4 @@
+import { downloaded } from "@/lib/extensions"
 import { GTFS_REROUTE_SQL } from "@gtfs-viz/duckdb-extension"
 import { executeQuery } from "@/lib/duckdb/QueryHelper"
 import {
@@ -56,6 +57,7 @@ const escapeSql = (value: string) => value.replace(/'/g, "''")
 let installedConnection: any
 
 const ensureRerouteMacros = async (conn: any) => {
+  if (await downloaded(conn)) return
   if (installedConnection === conn) return
   const statements = GTFS_REROUTE_SQL.split(";")
     .map((statement) => statement.trim())

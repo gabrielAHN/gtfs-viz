@@ -6,6 +6,7 @@
  * Requires enum macros from GTFS_LOAD_SQL to be loaded first.
  */
 
+import { createExtensionClient } from "./client.js";
 import type { SqlExecutor } from "./installer.js";
 import { installMacros, installInit } from "./installer.js";
 
@@ -613,6 +614,7 @@ export async function importGtfs(
     calendarPath?: string;
     calendarDatesPath?: string;
     skipDrop?: boolean;
+    extensionRepository?: string;
     onCsvImported?: () => Promise<void>;
     onProgress?: (progress: ImportProgress) => void;
   },
@@ -622,7 +624,16 @@ export async function importGtfs(
 
   // 1. Install enum macros + edit tables
   report("macros", 0, 1);
-  await installMacros(executor);
+  const client = opts.extensionRepository === undefined ? undefined : createExtensionClient({ query: executor }, { repository: opts.extensionRepository });
+  if (client) {
+    const skipped = getInitIndexesToSkip(opts);
+    if (skipped.length) throw new Error(`Downloaded extension does not support skipping indexes (${skipped.join(", ")}). Import all related files or use the unconfigured legacy importer; no fallback was attempted.`);
+    await client.install();
+    await client.load();
+    await client.prepare();
+  } else {
+    await installMacros(executor);
+  }
   report("macros", 1, 1);
 
   // 2. Drop existing views/tables
@@ -660,10 +671,16 @@ export async function importGtfs(
     await opts.onCsvImported();
   }
 
-  await installInit(executor, {
-    skipIndexes: getInitIndexesToSkip(opts),
-    onProgress: (done, total, stmt) => report("init", done, total, initStatementDetail(stmt)),
-  });
+  if (client) {
+    report("init", 0, 1);
+    await client.init();
+    report("init", 1, 1);
+  } else {
+    await installInit(executor, {
+      skipIndexes: getInitIndexesToSkip(opts),
+      onProgress: (done, total, stmt) => report("init", done, total, initStatementDetail(stmt)),
+    });
+  }
 }
 
 export type ImportProgress = {

@@ -17,6 +17,32 @@ import {
 } from "@gtfs-viz/duckdb-extension";
 ```
 
+## Downloaded-extension client (opt-in)
+
+`@gtfs-viz/duckdb-extension/client` is a separate, dependency-free entry point. It imports neither the embedded SQL root nor rendering code, and importing or constructing it executes no queries. Existing app/CLI installers are unchanged. **No public/community artifact is assumed available.**
+
+```typescript
+import { createExtensionClient, type SqlExecutor } from '@gtfs-viz/duckdb-extension/client';
+
+async function initialize(executor: SqlExecutor, repository: string, importNormalizedTables: () => Promise<void>) {
+  const client = createExtensionClient(executor, { repository });
+  await client.install();
+  await client.load();
+  await client.prepare();
+  await importNormalizedTables();
+  await client.init();
+  return client;
+}
+```
+
+Pass a WASM connection directly, or a native adapter with `query(sql: string): Promise<unknown>`. The adapter must reject SQL errors and execute queries against the intended database. Each method returns `Promise<void>`. Await operations sequentially: `load()` is its own query before any pragma; the client does not install/load implicitly, queue concurrent calls, or manage connections. Later call `await client.refresh()` after edits. Prepare creates missing edit tables; init/refresh materialize the normalized dataset and preserve pending edits. File ingestion and spatial-extension setup remain consumer responsibilities.
+
+The repository is required and captured at construction. Only explicit HTTP(S) URLs without credentials, whitespace/control characters, backslashes, query strings, or fragments are accepted. Apostrophes are SQL-escaped, not interpolated as SQL syntax. Use a trusted HTTPS repository in production; HTTP permits isolated loopback development. DuckDB selects the engine/platform artifact path. Normal `INSTALL` cache semantics apply; this API does not force upgrades or replace cached artifacts.
+
+Errors preserve the engine exception in `cause`, include operation-specific recovery guidance, and propagate without retry or embedded-SQL fallback. Signature policy is never modified. Do not enable unsigned extensions in consumers to bypass distribution failures.
+
+See [downloaded-client verification](docs/downloaded-client.md) for commands, measured native/browser results, and the still-failing MVP signature gate.
+
 ## Registered Macros
 
 ### Enum Helpers
@@ -59,12 +85,14 @@ import {
 
 ## deck.gl route layer
 
-`@gtfs-viz/duckdb-extension/deckgl` renders `RouteShapeBandsTable` (or plain `shapes`) as one path layer that merges shared corridors into a trunk at low zoom and fans them into parallel lanes as you zoom in, with the fan-in staged by how many routes share the corridor and scaled to the widest corridor in the feed. The lane offset lives in the vertex shader, so zooming never re-fetches or re-tesselates.
+Rendering now lives in the separate [rendering library](../lib). This database wrapper no longer exports rendering symbols or a `/deckgl` entry point.
+
+`@gtfs-viz/lib/deckgl` renders `RouteShapeBandsTable` (or plain `shapes`) as one path layer that merges shared corridors into a trunk at low zoom and fans them into parallel lanes as you zoom in, with the fan-in staged by how many routes share the corridor and scaled to the widest corridor in the feed. The lane offset lives in the vertex shader, so zooming never re-fetches or re-tesselates.
 
 ```typescript
 import { PathLayer } from "@deck.gl/layers"
 import { _mergeShaders as mergeShaders } from "@deck.gl/core"
-import { createRouteShapeLayer } from "@gtfs-viz/duckdb-extension/deckgl"
+import { createRouteShapeLayer } from "@gtfs-viz/lib/deckgl"
 
 const { RouteShapeLayer } = createRouteShapeLayer({ PathLayer, mergeShaders })
 

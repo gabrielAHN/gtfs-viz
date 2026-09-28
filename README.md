@@ -25,7 +25,7 @@ Lightweight GTFS data visualizer and editor. Import, browse, edit, and export tr
 Visit [gtfs-viz-production-f1a4.up.railway.app](https://gtfs-viz-production-f1a4.up.railway.app) or run locally:
 
 ```bash
-yarn install --ignore-engines && yarn build:extension && yarn dev
+yarn install --ignore-engines && yarn dev
 ```
 
 ### CLI
@@ -60,11 +60,14 @@ yarn cli import /path/to/feed.zip    # Uses node packages/cli/dist/index.js
 
 The CLI and web app use the GTFS DuckDB extension for all station analysis, pathway queries, and pathfinding. See the [extension docs](packages/duckdb-extension#readme) for standalone usage.
 
+Downloaded-extension migration is opt-in: configure `GTFS_EXTENSION_REPOSITORY` for native CLI imports or `VITE_GTFS_EXTENSION_REPOSITORY` before serving/building the browser app. Unconfigured consumers temporarily retain embedded SQL; configured failures never fall back. Signed distribution is not available from this work. See [configuration, lifecycle, selective-import limitations, and verification](packages/duckdb-extension/docs/downloaded-consumers.md).
+
 ## Project Structure
 
 ```
 packages/
   duckdb-extension/ DuckDB extension (C++ native + TypeScript API + SQL)
+  lib/              Rendering layers and visual adapters (no DuckDB dependency)
   web/              React web application (DuckDB WASM, Deck.gl, TanStack)
   cli/              CLI tool (npm: @gabrielahn/gtfs-viz-cli)
 ```
@@ -73,11 +76,13 @@ packages/
 
 ```bash
 yarn install --ignore-engines
-yarn build              # Build all (extension -> web -> cli)
+yarn build              # Build all (extension -> lib -> web -> cli)
 yarn dev                # Web dev server at localhost:5173
 yarn build:extension    # Build DuckDB extension TS layer
+yarn build:lib          # Build standalone rendering library
 yarn build:cli          # Build CLI only
-yarn check              # Type-check all packages
+yarn run check          # Check all packages
+yarn test               # SQL corridor, rendering, and import-boundary regressions
 ```
 
 ## Deploy

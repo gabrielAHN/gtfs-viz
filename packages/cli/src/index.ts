@@ -11,8 +11,8 @@ import { dashboardViewForNamedQuery, sqlForNamedQuery } from "@gtfs-viz/duckdb-e
 
 import { parseArgs, getFlagString, hasFlag, wantsDataOutput } from "./args.js";
 import type { Args } from "./args.js";
-import { runProcess, queryRows, executeRows, executeSqlFile } from "./duckdb/runner.js";
-import { buildImportSql } from "./duckdb/import-sql.js";
+import { runProcess, queryRows, executeRows, executeSqlFile, refreshDownloadedDataset } from "./duckdb/runner.js";
+import { buildImportSteps } from "./duckdb/import-sql.js";
 import { buildRouteShapeBands, readRouteShapeBandsSummary } from "./duckdb/route-bands.js";
 import {
   applyChangeset,
@@ -175,6 +175,7 @@ const escapeSql = (value: string) => value.replace(/'/g, "''");
 const sqlString = (value: string) => `'${escapeSql(value)}'`;
 
 const refreshPathwayNetwork = async (dbPath: string) => {
+  if (await refreshDownloadedDataset(dbPath)) return;
   await executeRows(
     dbPath,
     `DROP VIEW IF EXISTS pathway_network;
@@ -511,7 +512,7 @@ const importDataset = async (feedArg: string) => {
   if (calendarDatesEntry && calendarDatesPath)
     await extractZipEntry(feedPath, calendarDatesEntry, calendarDatesPath);
 
-  const importSqlContent = await buildImportSql({
+  const importSteps = await buildImportSteps({
     databasePath: currentDbPath,
     stopsPath,
     pathwaysPath,
@@ -523,8 +524,8 @@ const importDataset = async (feedArg: string) => {
     calendarDatesPath,
   });
   const importSqlPath = path.join(currentDataDir, "import.sql");
-  await writeFile(importSqlPath, importSqlContent);
-  await executeSqlFile(currentDbPath, importSqlPath);
+  await writeFile(importSqlPath, importSteps.join("\n"));
+  await executeSqlFile(currentDbPath, importSqlPath, importSteps);
 
   const [counts] = await queryRows(
     currentDbPath,

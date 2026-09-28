@@ -39,7 +39,7 @@ function Header({ setOpen, ClickInfo, setClickInfo }) {
       onClose={() => setClickInfo(undefined)}
       emptyMessage="Select a stop row to view actions"
     >
-      {hasStopTimes && (
+      {hasStopTimes && ClickInfo?.stop_id && (
         <div className="rounded-md border p-2">
           <div className="mb-2 text-xs font-medium text-muted-foreground">Routes</div>
           <RouteChipsForStop stopId={ClickInfo.stop_id} collapsible />
