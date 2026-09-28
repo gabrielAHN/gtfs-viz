@@ -25,7 +25,7 @@ test('consumers and built artifacts contain no database toolbox implementation',
 });
 
 test('docs site is separate from the web application', () => {
-  const allowed = new Set(['@/components/ui/button', '@/components/ui/badge', '@/components/ui/ThemeSwitcher', '@/context/theme.client', '@/styles/index.css']);
+  const allowed = new Set(['@/components/ui/button', '@/components/ui/badge', '@/components/ui/ThemeSwitcher', '@/components/ui/tabs', '@/lib/utils', '@/context/theme.client', '@/styles/index.css']);
   const imports = files(resolve(root, 'packages/docs/src')).flatMap(path => [...readFileSync(path, 'utf8').matchAll(/from\s+["']([^"']+)["']|import\s+["']([^"']+)["']/g)].map(match => match[1] || match[2]));
   assert.deepEqual(imports.filter(spec => spec.startsWith('@/') && !allowed.has(spec)), []);
   assert.deepEqual(imports.filter(spec => /(^|\/)web\//.test(spec) || spec.startsWith('..')), []);

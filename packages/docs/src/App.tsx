@@ -1,47 +1,27 @@
-import { Fragment } from "react"
+import { useState } from "react"
 import { BiLogoGithub } from "react-icons/bi"
-import { ArrowUpRight, Boxes, Cloud, Bot, TrainFront } from "lucide-react"
+import { ArrowUpRight, Boxes, Bot, Cloud, History, TrainFront } from "lucide-react"
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { goals, parts, releases, repos, repoUrl } from "./content"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { buildLink, goals, parts, releases, repos, repoUrl } from "./content"
 import type { Part, Release } from "./content"
 
 const goalIcons = [Cloud, Bot, TrainFront]
-
-const layout: { repo: string; href: string; rows: [{ id: string; label: string }, string][] }[] = [
-  {
-    repo: "gtfs-duckdb-extension",
-    href: repos.extension,
-    rows: [[{ id: "extension", label: "gtfs" }, "GTFS functions for DuckDB and DuckDB-WASM"]],
-  },
-  {
-    repo: "gtfs-viz",
-    href: repos.viz,
-    rows: [
-      [{ id: "web", label: "packages/web" }, "Browser app on DuckDB-WASM"],
-      [{ id: "cli", label: "packages/cli" }, "CLI, dashboard and Agent Skill on DuckDB"],
-      [{ id: "client", label: "packages/duckdb-client" }, "Downloads and loads the extension"],
-      [{ id: "lib", label: "packages/lib" }, "Rendering layers"],
-    ],
-  },
-]
+const visibleReleases = 4
 
 const nav = [
   { id: "intro", label: "Intro" },
   { id: "goals", label: "Goals" },
   { id: "parts", label: "Parts" },
-  ...parts.map((part) => ({ id: part.id, label: part.name, nested: true })),
   { id: "releases", label: "Releases" },
 ]
 
-function Code({ children }: { children: string }) {
-  return (
-    <pre className="overflow-x-auto rounded-lg border bg-card px-4 py-3 text-left font-mono text-base">
-      <code>{children}</code>
-    </pre>
-  )
-}
+const releaseRepos: { repo: Release["repo"]; label: string }[] = [
+  { repo: "gtfs-viz", label: "gtfs-viz" },
+  { repo: "gtfs-duckdb-extension", label: "gtfs-duckdb-extension" },
+]
 
 function Inline({ text }: { text: string }) {
   return (
@@ -71,81 +51,128 @@ function RepoLink({ href, label }: { href: string; label: string }) {
   )
 }
 
-function PartSection({ part }: { part: Part }) {
+function SectionTitle({
+  id,
+  title,
+  subtitle,
+  icon: Icon,
+}: {
+  id: string
+  title: string
+  subtitle: string
+  icon?: typeof Boxes
+}) {
+  return (
+    <div id={id} className="scroll-mt-6">
+      <h2 className="flex items-center gap-2 text-4xl font-bold">
+        {Icon && <Icon className="h-8 w-8" />}
+        {title}
+      </h2>
+      <p className="text-lg text-muted-foreground">{subtitle}</p>
+    </div>
+  )
+}
+
+function PartPanel({ part }: { part: Part }) {
   const href = part.path ? `${part.repo}/tree/main/${part.path}` : part.repo
   return (
-    <section id={part.id} className="scroll-mt-6 rounded-lg border bg-card p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="flex h-full flex-col gap-3 rounded-lg border bg-card p-5">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="text-3xl font-bold">{part.name}</h3>
           <p className="text-lg text-muted-foreground">{part.tagline}</p>
         </div>
-        <RepoLink
-          href={href}
-          label={part.path ? `${part.repoLabel}/${part.path}` : part.repoLabel}
-        />
+        <RepoLink href={href} label={part.path ?? part.repoLabel} />
       </div>
-      <p className="mt-4 text-lg">
+      <p className="text-lg">
         <Inline text={part.description} />
       </p>
-      <ul className="mt-3 list-disc space-y-1 pl-6 text-lg">
+      <ul className="list-disc space-y-1 pl-6 text-lg">
         {part.features.map((feature) => (
           <li key={feature}>
             <Inline text={feature} />
           </li>
         ))}
       </ul>
-      <div className="mt-4">
-        <Code>{part.install}</Code>
-      </div>
-    </section>
+      <pre className="mt-auto overflow-x-auto rounded-lg border bg-background px-4 py-2 text-base">
+        <code>{part.install}</code>
+      </pre>
+    </div>
   )
 }
 
-function ReleaseCard({ release }: { release: Release }) {
-  const base = repoUrl(release.repo)
+function ReleaseRow({ release }: { release: Release }) {
+  const link = buildLink(release)
   return (
-    <article className="rounded-lg border bg-card p-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-3xl font-bold">
+    <li className="grid gap-x-6 gap-y-2 px-5 py-4 sm:grid-cols-[9rem_1fr_auto]">
+      <div>
+        <p className="text-2xl font-bold">
           {release.version === "Unreleased" ? release.version : `v${release.version}`}
-        </h3>
-        <Badge variant="outline">{release.repo}</Badge>
+        </p>
+        <p className="text-muted-foreground">{release.date}</p>
+      </div>
+      <div>
+        <p className="text-xl font-bold">{release.title}</p>
+        <ul className="mt-1 space-y-1">
+          {release.highlights.map((item) => (
+            <li key={item.text} className="flex items-start gap-2 text-lg">
+              <Badge variant="outline" className="mt-0.5 w-24 shrink-0 justify-center">
+                {item.area}
+              </Badge>
+              <span>
+                <Inline text={item.text} />
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="flex items-start gap-2 sm:flex-col sm:items-end">
         <Badge variant={release.status === "Released" ? "default" : "secondary"}>
           {release.status}
         </Badge>
+        <Button variant="outline" size="sm" asChild>
+          <a href={link.href} target="_blank" rel="noopener noreferrer">
+            {link.label}
+            <ArrowUpRight />
+          </a>
+        </Button>
       </div>
-      <p className="text-lg text-muted-foreground">
-        {release.title} · {release.date} ·{" "}
-        <a
-          className="underline underline-offset-4"
-          href={`${base}/pull/${release.pr}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          PR #{release.pr}
-        </a>
-      </p>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        {release.sections.map((section) => (
-          <div key={section.heading}>
-            <h4 className="text-xl font-bold">{section.heading}</h4>
-            <ul className="mt-1 list-disc space-y-1 pl-6 text-lg">
-              {section.items.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </div>
+    </li>
+  )
+}
+
+function ReleaseList({ repo }: { repo: Release["repo"] }) {
+  const [expanded, setExpanded] = useState(false)
+  const list = releases.filter((release) => release.repo === repo)
+  const shown = expanded ? list : list.slice(0, visibleReleases)
+  return (
+    <div className="rounded-lg border bg-card">
+      <ul className="divide-y">
+        {shown.map((release) => (
+          <ReleaseRow key={release.version} release={release} />
         ))}
+      </ul>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t px-5 py-3">
+        {list.length > visibleReleases ? (
+          <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)}>
+            <History />
+            {expanded
+              ? "Show recent releases"
+              : `Show ${list.length - visibleReleases} older releases`}
+          </Button>
+        ) : (
+          <span />
+        )}
+        <RepoLink href={`${repoUrl(repo)}/releases`} label="All releases" />
       </div>
-    </article>
+    </div>
   )
 }
 
 export default function App() {
   return (
     <div className="mx-auto flex min-h-screen max-w-6xl gap-10 px-4 py-6">
-      <aside className="sticky top-6 hidden h-fit w-56 shrink-0 lg:block">
+      <aside className="sticky top-6 hidden h-fit w-44 shrink-0 lg:block">
         <a href={repos.app} className="text-3xl font-bold">
           GTFS 🚉 Viz
         </a>
@@ -155,17 +182,17 @@ export default function App() {
             <a
               key={item.id}
               href={`#${item.id}`}
-              className={`rounded-2xl px-3 py-1 hover:bg-accent hover:text-accent-foreground ${"nested" in item ? "pl-6 text-base text-muted-foreground" : ""}`}
+              className="rounded-2xl px-3 py-1 hover:bg-accent hover:text-accent-foreground"
             >
               {item.label}
             </a>
           ))}
         </nav>
       </aside>
-      <main className="min-w-0 flex-1 space-y-12">
+      <main className="min-w-0 flex-1 space-y-10">
         <header id="intro" className="scroll-mt-6 text-center">
-          <h1 className="text-6xl sm:text-[12vh]">GTFS 🚉 Viz</h1>
-          <div className="mb-4 flex justify-center gap-2">
+          <h1 className="text-6xl sm:text-8xl">GTFS 🚉 Viz</h1>
+          <div className="mb-3 flex justify-center gap-2">
             <Button variant="icon" asChild>
               <a href={repos.viz} target="_blank" rel="noopener noreferrer" aria-label="GitHub">
                 <BiLogoGithub />
@@ -188,19 +215,21 @@ export default function App() {
           </div>
         </header>
 
-        <section id="goals" className="scroll-mt-6">
-          <h2 className="text-4xl font-bold">Goals</h2>
-          <p className="text-lg text-muted-foreground">
-            Make GTFS data scale in the cloud and with AI, without losing the simple workflow
-            operators rely on.
-          </p>
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <section className="space-y-4">
+          <SectionTitle
+            id="goals"
+            title="Goals"
+            subtitle="Make GTFS data scale in the cloud and with AI, without losing the simple workflow operators rely on."
+          />
+          <div className="grid gap-4 md:grid-cols-3">
             {goals.map((goal, index) => {
               const Icon = goalIcons[index]
               return (
                 <div key={goal.title} className="rounded-lg border bg-card p-5">
-                  <Icon className="h-6 w-6 text-primary" />
-                  <h3 className="mt-2 text-2xl font-bold">{goal.title}</h3>
+                  <h3 className="flex items-center gap-2 text-2xl font-bold">
+                    <Icon className="h-6 w-6 shrink-0 text-primary" />
+                    {goal.title}
+                  </h3>
                   <p className="mt-1 text-lg">{goal.body}</p>
                 </div>
               )
@@ -208,61 +237,60 @@ export default function App() {
           </div>
         </section>
 
-        <section id="parts" className="scroll-mt-6 space-y-4">
-          <div>
-            <h2 className="flex items-center gap-2 text-4xl font-bold">
-              <Boxes className="h-8 w-8" />
-              Parts
-            </h2>
-            <p className="text-lg text-muted-foreground">
-              The GTFS DuckDB Extension holds the database logic; everything else in GTFS Viz calls
-              it.
-            </p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            {layout.map((group) => (
-              <div key={group.repo} className="rounded-lg border bg-card p-5">
-                <a
-                  href={group.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-2xl font-bold underline-offset-4 hover:underline"
+        <section className="space-y-4">
+          <SectionTitle
+            id="parts"
+            icon={Boxes}
+            title="Parts"
+            subtitle="The GTFS DuckDB Extension holds the database logic; everything in GTFS Viz calls it."
+          />
+          <Tabs
+            defaultValue={parts[0].id}
+            orientation="vertical"
+            className="grid gap-4 md:grid-cols-[14rem_1fr]"
+          >
+            <TabsList className="flex h-auto flex-row justify-start gap-1 overflow-x-auto md:flex-col md:items-stretch">
+              {parts.map((part) => (
+                <TabsTrigger
+                  key={part.id}
+                  value={part.id}
+                  className="shrink-0 flex-col items-start px-3 py-2 text-left md:whitespace-normal"
                 >
-                  {group.repo}
-                </a>
-                <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-lg">
-                  {group.rows.map(([name, role]) => (
-                    <Fragment key={name.id}>
-                      <dt>
-                        <a
-                          href={`#${name.id}`}
-                          className="font-bold underline-offset-4 hover:underline"
-                        >
-                          {name.label}
-                        </a>
-                      </dt>
-                      <dd className="text-muted-foreground">{role}</dd>
-                    </Fragment>
-                  ))}
-                </dl>
-              </div>
+                  <span className="text-lg font-bold">{part.name}</span>
+                  <span className="hidden text-sm text-muted-foreground md:block">
+                    {part.repoLabel.replace("gabrielAHN/", "")}
+                  </span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {parts.map((part) => (
+              <TabsContent key={part.id} value={part.id} className="mt-0">
+                <PartPanel part={part} />
+              </TabsContent>
             ))}
-          </div>
-          {parts.map((part) => (
-            <PartSection key={part.id} part={part} />
-          ))}
+          </Tabs>
         </section>
 
-        <section id="releases" className="scroll-mt-6 space-y-4">
-          <div>
-            <h2 className="text-4xl font-bold">Releases</h2>
-            <p className="text-lg text-muted-foreground">
-              Build version of each repository and the features in each pull request.
-            </p>
-          </div>
-          {releases.map((release) => (
-            <ReleaseCard key={`${release.repo}-${release.version}`} release={release} />
-          ))}
+        <section className="space-y-4">
+          <SectionTitle
+            id="releases"
+            title="Releases"
+            subtitle="Build version of each repository, its key features and the pull request it shipped in."
+          />
+          <Tabs defaultValue={releaseRepos[0].repo}>
+            <TabsList>
+              {releaseRepos.map((item) => (
+                <TabsTrigger key={item.repo} value={item.repo} className="text-base">
+                  {item.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {releaseRepos.map((item) => (
+              <TabsContent key={item.repo} value={item.repo}>
+                <ReleaseList repo={item.repo} />
+              </TabsContent>
+            ))}
+          </Tabs>
         </section>
 
         <footer className="flex items-center justify-center gap-2 pb-6">

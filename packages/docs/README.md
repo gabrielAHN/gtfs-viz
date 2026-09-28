@@ -10,7 +10,7 @@ yarn build:docs    # packages/docs/dist
 yarn start:docs    # serves dist on $PORT (default 4173)
 ```
 
-Page content lives in `src/content.ts`: project parts, goals and the release list.
+Page content lives in `src/content.ts`: project parts, goals and the release list. Each release has at most three highlights, each tagged with an area, and links to the PR it shipped in.
 
 ## Railway
 
