@@ -13,12 +13,12 @@ test('browser adapter loads on reopening and refreshes edits without embedded SQ
   const conn = { query: async sql => { queries.push(sql); return { toArray: () => [{ n: 1 }] }; } };
   await api.reinstallMacros(conn);
   await api.recreateStopsView(conn);
-  assert.ok(queries.includes("INSTALL gtfs_duck_tools FROM 'https://example.test/ext'"));
-  assert.ok(queries.indexOf('LOAD gtfs_duck_tools') < queries.indexOf('PRAGMA gtfs_refresh'));
+  assert.ok(queries.includes("INSTALL gtfs FROM 'https://example.test/ext'"));
+  assert.ok(queries.indexOf('LOAD gtfs') < queries.indexOf('PRAGMA gtfs_refresh'));
   assert.equal(queries.some(sql => /CREATE\s+(OR REPLACE\s+)?MACRO/i.test(sql)), false);
   const second = { query: conn.query };
   await api.refreshRoutesTables(second);
-  assert.equal(queries.filter(sql => sql === 'LOAD gtfs_duck_tools').length, 2);
+  assert.equal(queries.filter(sql => sql === 'LOAD gtfs').length, 2);
 });
 
 test('rerouting does not execute embedded macro definitions in downloaded mode', async () => {

@@ -39,14 +39,14 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node scripts/bundle.mjs && chmod +x dist/index.js && node scripts/copy-dashboard.mjs",
+    "build": "rm -rf dist .tsc-out && tsc -p tsconfig.json && node scripts/bundle.mjs && chmod +x dist/index.js && node scripts/copy-dashboard.mjs",
     "check": "tsc -p tsconfig.json --noEmit",
     "postinstall": "node scripts/postinstall.mjs",
     "preuninstall": "node scripts/preuninstall.mjs",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
-    "@gtfs-viz/duckdb-extension": "*",
+    "@gtfs-viz/duckdb-client": "*",
     "@types/node": "^22.10.5",
     "esbuild": "^0.28.0",
     "typescript": "~5.6.2"

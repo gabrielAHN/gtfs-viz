@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createServer } from 'node:http';
-import { gzipSync } from 'node:zlib';
 import { mkdtemp, readFile, writeFile, chmod, mkdir, cp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
@@ -12,16 +11,17 @@ import { chromium } from '@playwright/test';
 
 const exec = promisify(execFile);
 const root = resolve(import.meta.dirname, '../../../..');
-const extensionRoot = resolve(root, '../gtfs-duck-tools');
+const staged = process.env.GTFS_STAGED_REPOSITORY;
+assert.ok(staged, 'GTFS_STAGED_REPOSITORY must point to a staged gtfs extension repository directory');
 const binary = process.env.DUCKDB_BIN;
 assert.ok(binary, 'DUCKDB_BIN must select the matching native engine');
 const version = JSON.parse((await exec(binary, ['-json', ':memory:', '-c', 'SELECT version() AS v'])).stdout)[0].v;
 const platform = JSON.parse((await exec(binary, ['-json', ':memory:', '-c', 'PRAGMA platform'])).stdout)[0].platform;
-const data = gzipSync(await readFile(resolve(extensionRoot, 'build/release/extension/gtfs_duck_tools/gtfs_duck_tools.duckdb_extension')));
+const data = await readFile(resolve(staged, version, platform, 'gtfs.duckdb_extension.gz'));
 const requests = [];
 const server = createServer((req, res) => {
   requests.push(req.url);
-  if (req.url === `/${version}/${platform}/gtfs_duck_tools.duckdb_extension.gz`) { res.writeHead(200); res.end(data); }
+  if (req.url === `/${version}/${platform}/gtfs.duckdb_extension.gz`) { res.writeHead(200); res.end(data); }
   else { res.writeHead(404); res.end(); }
 });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -53,6 +53,7 @@ try {
   console.log('STAGE import');
   await runner.executeSqlFile(dbPath, sqlPath, steps);
   console.log('STAGE imported');
+  assert.deepEqual(await runner.queryRows(dbPath, 'LOAD spatial; SELECT count(*) AS n FROM stops WHERE geom IS NOT NULL'), [{ n: 2 }]);
   delete process.env.GTFS_EXTENSION_REPOSITORY;
   assert.equal(await runner.getNativeExtensionRepository(dbPath), repository);
   assert.deepEqual(await runner.queryRows(dbPath, "SELECT stop_name FROM StationsTable"), [{ stop_name: 'Station' }]);
@@ -98,7 +99,8 @@ try {
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
     page.on('console', message => { if (message.type() === 'error') console.log('DASHBOARD_CONSOLE', message.text()); });
-    page.on('pageerror', error => console.log('DASHBOARD_PAGE_ERROR', error.stack));
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.stack));
     const url = new URL(daemon.dashboardUrl); url.pathname = '/stations/table';
     url.searchParams.set('gtfsSource', '/__gtfs_viz/feed.zip');
     url.searchParams.set('cliSession', daemon.sessionId);
@@ -109,7 +111,7 @@ try {
       const showError = page.getByRole('button', { name: 'Show Error', exact: true });
       if (await showError.isVisible()) await showError.click();
       console.log(JSON.stringify({ scope: 'dashboard-ui-blocker', url: page.url(), body: await page.locator('body').innerText() }));
-      await page.screenshot({ path: resolve(root, '.hermes/plans/consumer-native-dashboard-blocker.png'), fullPage: true });
+      await page.screenshot({ path: join(dir, 'consumer-native-dashboard-blocker.png'), fullPage: true });
       throw error;
     });
     await page.reload();
@@ -117,26 +119,29 @@ try {
       const showError = page.getByRole('button', { name: 'Show Error', exact: true });
       if (await showError.isVisible()) await showError.click();
       console.log(JSON.stringify({ scope: 'dashboard-ui-blocker', url: page.url(), body: await page.locator('body').innerText() }));
-      await page.screenshot({ path: resolve(root, '.hermes/plans/consumer-native-dashboard-blocker.png'), fullPage: true });
+      await page.screenshot({ path: join(dir, 'consumer-native-dashboard-blocker.png'), fullPage: true });
       throw error;
     });
     await page.getByText('Select a station row to view actions', { exact: true }).waitFor();
     await page.getByRole('row').filter({ hasText: 'Dashboard Edited' }).click();
     await page.getByRole('button', { name: 'Select Station', exact: true }).waitFor();
     assert.equal(new URL(page.url()).searchParams.get('selectedStationId'), 'S');
-    await page.screenshot({ path: resolve(root, '.hermes/plans/consumer-native-dashboard.png'), fullPage: true });
+    await page.screenshot({ path: join(dir, 'consumer-native-dashboard.png'), fullPage: true });
     url.pathname = '/stops/table';
     await page.goto(url.href);
     await page.getByText('Select a stop row to view actions', { exact: true }).waitFor({ timeout: 10000 });
     await page.reload();
     await page.getByText('Select a stop row to view actions', { exact: true }).waitFor({ timeout: 10000 });
     console.log(JSON.stringify({ status: 'PASS', scope: 'built CLI zip import, command reopening without env, daemon repository propagation, HTTP edit/refresh, actual browser dashboard and reload', counts: dataset.counts }));
+    assert.deepEqual(pageErrors, []);
     await browser.close(); browser = undefined;
     process.kill(daemon.pid, 'SIGTERM'); daemon = undefined;
   }
   process.env.GTFS_TEST_UNSIGNED = '0';
   process.env.GTFS_TEST_HOME = join(dir, 'strict');
   await mkdir(process.env.GTFS_TEST_HOME);
+  delete process.env.GTFS_EXTENSION_REPOSITORY;
+  await assert.rejects(runner.executeRows(join(dir, 'strict', 'missing.duckdb'), 'PRAGMA gtfs_prepare'), /Configure GTFS_EXTENSION_REPOSITORY/);
   process.env.GTFS_EXTENSION_REPOSITORY = repository;
   await assert.rejects(runner.executeRows(join(dir, 'strict', 'data.duckdb'), 'PRAGMA gtfs_prepare'), /unsigned|signature/i);
   console.log(JSON.stringify({ status: 'PASS', version, platform, scope: 'actual CLI import builder, subprocess runner, CSV import, persisted repository, reopen, edit/refresh, repeated import, default signature rejection', requests }));

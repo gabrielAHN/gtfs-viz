@@ -9,8 +9,7 @@
  * batch via {@link refreshTrips} / {@link refreshCalendar} (mirrors the web's refreshMaterializedTable,
  * packages/web/src/lib/duckdb/DataEditing/insertData.tsx:110).
  */
-import { GTFS_REROUTE_SQL } from "@gtfs-viz/duckdb-extension";
-import { executeRows, queryRows, getNativeExtensionRepository, refreshDownloadedDataset } from "./runner.js";
+import { executeRows, queryRows, refreshDownloadedDataset } from "./runner.js";
 
 // ── SQL value helpers (mirror index.ts escapeSql/sqlString) ──────────────────
 const esc = (v: string) => String(v).replace(/'/g, "''");
@@ -37,12 +36,10 @@ const nextStatus = (prev: string | null): "edit" | "new edit" =>
 
 // ── Materialized-table refresh (call after a batch of edits) ─────────────────
 export const refreshTrips = async (dbPath: string) => {
-  if (await refreshDownloadedDataset(dbPath)) return;
-  await executeRows(dbPath, `CREATE OR REPLACE TABLE TripsTable AS SELECT * FROM get_trips_table_data()`);
+  await refreshDownloadedDataset(dbPath);
 };
 export const refreshCalendar = async (dbPath: string) => {
-  if (await refreshDownloadedDataset(dbPath)) return;
-  await executeRows(dbPath, `CREATE OR REPLACE TABLE CalendarTable AS SELECT * FROM get_calendar_table_data()`);
+  await refreshDownloadedDataset(dbPath);
 };
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -77,14 +74,7 @@ export type CalendarData = {
 };
 export type CalendarDateData = { service_id: string; date: string; exception_type: number };
 
-export const ensureStopTimeEditMetadata = (dbPath: string) =>
-  executeRows(
-    dbPath,
-    `ALTER TABLE EditStopTimesTable ADD COLUMN IF NOT EXISTS edit_type TEXT;
-     ALTER TABLE EditStopTimesTable ADD COLUMN IF NOT EXISTS edit_source_trip_id TEXT;
-     ALTER TABLE EditStopTimesTable ADD COLUMN IF NOT EXISTS edit_from_stop_name TEXT;
-     ALTER TABLE EditStopTimesTable ADD COLUMN IF NOT EXISTS edit_to_stop_name TEXT;`,
-  );
+export const ensureStopTimeEditMetadata = (dbPath: string) => executeRows(dbPath, "PRAGMA gtfs_prepare");
 
 // ── Trips (EditTripsTable) — ports saveTripEdit/deleteTrip ────────────────────
 /** Insert/update a trip edit. isNew=true → status 'new'; else merges missing fields from TripsView. */
@@ -272,7 +262,6 @@ export async function rerouteViaDonor(
   if (!tripId || !donorTripId || !fromName || !toName)
     throw new Error("reroute requires trip, donor trip, and the two boundary stop names");
   // Idempotently ensure the reroute macros exist (self-heals older imports).
-  if (await getNativeExtensionRepository(dbPath) === undefined) await executeRows(dbPath, GTFS_REROUTE_SQL);
   const rows = await queryRows(
     dbPath,
     `SELECT stop_sequence, stop_id, arrival_time, departure_time
@@ -318,7 +307,6 @@ async function selectTripStops(
   firstName?: string,
   lastName?: string,
 ): Promise<Record<string, unknown>[]> {
-  if (await getNativeExtensionRepository(dbPath) === undefined) await executeRows(dbPath, GTFS_REROUTE_SQL);
   const list = `[${removeNames.map((n) => qReq(n)).join(", ")}]`;
   return queryRows(
     dbPath,

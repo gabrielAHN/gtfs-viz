@@ -58,15 +58,13 @@ yarn cli import /path/to/feed.zip    # Uses node packages/cli/dist/index.js
 
 ### DuckDB Extension
 
-The CLI and web app use the GTFS DuckDB extension for all station analysis, pathway queries, and pathfinding. See the [extension docs](packages/duckdb-extension#readme) for standalone usage.
-
-Downloaded-extension migration is opt-in: configure `GTFS_EXTENSION_REPOSITORY` for native CLI imports or `VITE_GTFS_EXTENSION_REPOSITORY` before serving/building the browser app. Unconfigured consumers temporarily retain embedded SQL; configured failures never fall back. Signed distribution is not available from this work. See [configuration, lifecycle, selective-import limitations, and verification](packages/duckdb-extension/docs/downloaded-consumers.md).
+Database functions come from the separate [GTFS DuckDB Extension](https://github.com/gabrielAHN/gtfs-duckdb-extension), which the web app and CLI download and load (`INSTALL gtfs FROM <repository>; LOAD gtfs;`). Configure `GTFS_EXTENSION_REPOSITORY` for the CLI or `VITE_GTFS_EXTENSION_REPOSITORY` for the web app. Without configuration, an already-installed compatible extension is required. See [configuration](packages/duckdb-client/README.md).
 
 ## Project Structure
 
 ```
 packages/
-  duckdb-extension/ DuckDB extension (C++ native + TypeScript API + SQL)
+  duckdb-client/     Thin extension client and raw-file transport
   lib/              Rendering layers and visual adapters (no DuckDB dependency)
   web/              React web application (DuckDB WASM, Deck.gl, TanStack)
   cli/              CLI tool (npm: @gabrielahn/gtfs-viz-cli)
@@ -76,13 +74,13 @@ packages/
 
 ```bash
 yarn install --ignore-engines
-yarn build              # Build all (extension -> lib -> web -> cli)
+yarn build              # Build all (client -> lib -> web -> cli)
 yarn dev                # Web dev server at localhost:5173
-yarn build:extension    # Build DuckDB extension TS layer
+yarn build:client       # Build the thin extension client
 yarn build:lib          # Build standalone rendering library
 yarn build:cli          # Build CLI only
 yarn run check          # Check all packages
-yarn test               # SQL corridor, rendering, and import-boundary regressions
+yarn test               # Consumer, rendering, and source/bundle boundary regressions
 ```
 
 ## Deploy
@@ -93,5 +91,5 @@ Railway via [railpack.json](railpack.json): `yarn build` outputs to `dist/`, ser
 
 - [CLI on npm](https://www.npmjs.com/package/@gabrielahn/gtfs-viz-cli)
 - [CLI docs](packages/cli#readme)
-- [DuckDB extension](packages/duckdb-extension#readme)
+- [DuckDB extension](packages/duckdb-client#readme)
 - [Agent skills](packages/cli/skills/gtfs-viz)

@@ -1,11 +1,10 @@
-import { ROUTE_SHAPE_MACRO_VERSION } from "@gtfs-viz/duckdb-extension";
 import { executeRows, queryRows } from "./runner.js";
 
 const escapeSql = (value: string): string => value.replace(/'/g, "''");
 
-const PREPARE_LANES_SQL = `LOAD spatial;
+const prepareLanesSql = (version: string) => `LOAD spatial;
 BEGIN TRANSACTION;
-CREATE TABLE IF NOT EXISTS RouteShapeMacroVersion (version VARCHAR);
+PRAGMA gtfs_prepare_route_cache;
 DELETE FROM RouteShapeLanesTable;
 DELETE FROM RouteShapeBandsTable;
 DELETE FROM RouteShapeMacroVersion;
@@ -13,7 +12,7 @@ INSERT INTO RouteShapeLanesTable SELECT * FROM prepare_route_shape_lanes_rail();
 INSERT INTO RouteShapeLanesTable SELECT * FROM prepare_route_shape_lanes_bus();
 INSERT INTO RouteShapeLanesTable SELECT * FROM prepare_route_shape_lanes_other();
 INSERT INTO RouteShapeBandsTable SELECT * FROM refresh_route_shape_bands();
-INSERT INTO RouteShapeMacroVersion VALUES ('${escapeSql(ROUTE_SHAPE_MACRO_VERSION)}');
+INSERT INTO RouteShapeMacroVersion VALUES ('${escapeSql(version)}');
 COMMIT;`;
 
 export type RouteBandsSummary = {
@@ -23,7 +22,8 @@ export type RouteBandsSummary = {
 };
 
 export const buildRouteShapeBands = async (dbPath: string): Promise<RouteBandsSummary> => {
-  await executeRows(dbPath, PREPARE_LANES_SQL);
+  const [metadata] = await queryRows(dbPath, "PRAGMA gtfs_route_cache_version");
+  await executeRows(dbPath, prepareLanesSql(String(metadata.version)));
   const [summary] = await queryRows(
     dbPath,
     `SELECT count(*) AS band_rows,

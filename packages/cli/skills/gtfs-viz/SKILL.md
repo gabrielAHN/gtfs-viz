@@ -19,7 +19,7 @@ Read these when you need exact column names, SQL syntax, or flag details:
 - [references/commands.md](references/commands.md) — All CLI commands with flags and examples
 - [references/edits.md](references/edits.md) — Apply trip / schedule / service edits and the changeset format for feeding service changes to the CLI
 - [references/tables.md](references/tables.md) — Table and view schemas with column types
-- [references/procedures.md](references/procedures.md) — SQL macros, named queries, and pathfinding functions
+- [GTFS DuckDB Extension function reference](https://github.com/gabrielAHN/gtfs-duckdb-extension/blob/main/docs/functions.md) — SQL macros and pathfinding functions
 - [references/gtfs-schedule-reference.md](references/gtfs-schedule-reference.md) — GTFS Schedule field reference focused on station parts, pathways, and missing-connection audits
 - [references/examples.sql](references/examples.sql) — Practical SQL query examples
 
@@ -345,11 +345,11 @@ gtfs-viz query --name station-info --args-json '{"stationId":"place-pktrm"}' --d
 gtfs-viz query --name stations --data
 ```
 
-See [references/procedures.md](references/procedures.md) for all available macros and [references/examples.sql](references/examples.sql) for practical queries.
+See the [function reference](https://github.com/gabrielAHN/gtfs-duckdb-extension/blob/main/docs/functions.md) for all available macros and [references/examples.sql](references/examples.sql) for practical queries.
 
 ## DuckDB Extension
 
-The CLI uses the GTFS DuckDB extension (embedded SQL) for all station analysis, pathway queries, and pathfinding. The extension is bundled — no separate install needed.
+The CLI loads the separate [GTFS DuckDB Extension](https://github.com/gabrielAHN/gtfs-duckdb-extension) for station analysis, pathway queries, and pathfinding.
 
 Every CLI DuckDB session reduces its worker count, uses a host-aware memory limit capped at 4 GB,
 disables insertion-order preservation, and can spill beside the persistent database. Override these
@@ -371,3 +371,7 @@ defaults with `GTFS_VIZ_DUCKDB_THREADS`, `GTFS_VIZ_DUCKDB_MEMORY_LIMIT`, or
   `gtfs-viz reroute --trip <id> --via <donor> --from <station> --to <station>` opens the edited trip
   after applying the splice; add `--url-only` for a link without browser navigation or `--data` for
   terminal-only operation.
+
+## Extension prerequisite
+
+Configure `GTFS_EXTENSION_REPOSITORY` to a repository serving a compatible signed `gtfs` extension artifact, or install it beforehand. Missing configuration or artifacts fail with guidance.

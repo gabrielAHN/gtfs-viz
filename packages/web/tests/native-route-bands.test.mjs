@@ -43,7 +43,7 @@ const routeData = transpile("../src/lib/duckdb/DataFetching/fetchRouteData.tsx",
     executeQuery,
     escapeSql: (value) => value.replaceAll("'", "''"),
   },
-  "@gtfs-viz/duckdb-extension": {
+  "@gtfs-viz/duckdb-client": {
     ROUTE_SHAPE_MACRO_VERSION: "v2-test-version",
   },
   "@/lib/duckdb/DataEditing/insertData": {},
@@ -60,6 +60,7 @@ const processPerQueryConnection = (respond = () => result()) => {
     calls,
     async query(sql) {
       calls.push(sql)
+      if (sql === "PRAGMA gtfs_route_cache_version") return result([{ version: "v2-test-version" }])
       if (spatialSql.test(sql) && !/LOAD spatial/i.test(sql)) {
         throw new Error("ST_Simplify exists in the spatial extension")
       }

@@ -3,8 +3,8 @@ import pako from "pako"
 import { AsyncDuckDB, AsyncDuckDBConnection } from "@duckdb/duckdb-wasm"
 import { logger } from "@/lib/logger"
 import { getExtensionRepository } from "@/lib/extensions"
-import { importGtfs } from "@gtfs-viz/duckdb-extension"
-import type { SqlExecutor } from "@gtfs-viz/duckdb-extension"
+import { importGtfs } from "@gtfs-viz/duckdb-client"
+import type { SqlExecutor } from "@gtfs-viz/duckdb-client"
 import { fetchGTFSDataAvailability } from "./availability"
 
 export interface GTFSFile {
@@ -789,7 +789,7 @@ export async function runIngestion(
     // Add geom columns if spatial extension is available
     try {
       await conn.query(`SELECT ST_Point(0, 0)`)
-      const { addGeomColumnsSql } = await import("@gtfs-viz/duckdb-extension")
+      const { addGeomColumnsSql } = await import("@gtfs-viz/duckdb-client")
       await conn.query(addGeomColumnsSql())
     } catch {
       // spatial not available — skip geom columns

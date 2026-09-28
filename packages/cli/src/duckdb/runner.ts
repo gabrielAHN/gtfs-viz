@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
-import { createExtensionClient } from "@gtfs-viz/duckdb-extension/client";
+import { createExtensionClient } from "@gtfs-viz/duckdb-client/client";
 import { buildDuckDbSessionSql } from "./config.js";
 
 const duckdbBin = process.env.DUCKDB_BIN || "duckdb";
@@ -18,10 +18,9 @@ export const getNativeExtensionRepository = async (dbPath: string): Promise<stri
 
 export const extensionStartupArgs = async (dbPath: string): Promise<string[]> => {
   const repository = await getNativeExtensionRepository(dbPath);
-  if (repository === undefined) return [];
   const args: string[] = [];
   const client = createExtensionClient({ query: async sql => { args.push("-cmd", sql); } }, { repository });
-  await client.install();
+  if (repository !== undefined) await client.install();
   await client.load();
   return args;
 };
@@ -70,7 +69,8 @@ export const runDuckDb = async (args: string[]) => {
         "DuckDB CLI not found. Install DuckDB or set DUCKDB_BIN to the duckdb executable.",
       );
     }
-    throw error;
+    if (!/gtfs/i.test(processError.message)) throw error;
+    throw new Error(`gtfs execution failed: ${processError.message}. Configure GTFS_EXTENSION_REPOSITORY with a matching signed repository or install a compatible extension. No fallback was attempted.`, { cause: error });
   }
 };
 
@@ -94,20 +94,15 @@ export const executeRows = async (dbPath: string, sql: string) => {
   }
 };
 
-export const executeSqlFile = async (dbPath: string, sqlPath: string, importSteps?: string[]) => {
+export const executeSqlFile = async (dbPath: string, _sqlPath: string, importSteps?: string[]) => {
   const repository = await getNativeExtensionRepository(dbPath);
-  if (repository === undefined) {
-    await runDuckDb([dbPath, "-bail", "-f", sqlPath]);
-  } else {
-    if (!importSteps) throw new Error("Downloaded import requires explicit prepare/import/init stages");
-    for (const step of importSteps) await executeRows(dbPath, step);
-  }
+  if (!importSteps) throw new Error("Downloaded import requires explicit prepare/import/init stages");
+  for (const step of importSteps) await executeRows(dbPath, step);
   if (repository !== undefined) await writeFile(`${dbPath}.extension.json`, JSON.stringify({ repository }));
 };
 
 export const refreshDownloadedDataset = async (dbPath: string): Promise<boolean> => {
   const repository = await getNativeExtensionRepository(dbPath);
-  if (repository === undefined) return false;
   const client = createExtensionClient({ query: sql => executeRows(dbPath, sql) }, { repository });
   await client.refresh();
   return true;

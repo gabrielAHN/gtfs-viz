@@ -8,7 +8,7 @@ All notable changes to GTFS Viz will be documented in this file.
 - Render overlapping routes as parallel bands, with stable lane assignment through shared corridors.
 - Render compared trips in lanes using their GTFS shape geometry, with a stop-to-stop fallback.
 - Build route bands on demand with the DuckDB corridor macros and the CLI `route-bands` command.
-- Ship the reusable deck.gl route-shape layer from `@gtfs-viz/duckdb-extension/deckgl`.
+- Ship the reusable deck.gl route-shape layer from `@gtfs-viz/lib/deckgl`.
 
 ### Changed
 - Reduce corridor-processing time and peak memory, shrink persisted band data, defer route cleanup from import, and improve large-feed loading with persistent storage and controlled in-memory fallback.
@@ -32,10 +32,7 @@ All notable changes to GTFS Viz will be documented in this file.
     packages/cli/tests/spatial-http.integration.test.mjs
   ```
 
-- Run the corridor test:
-  `node --test packages/duckdb-extension/tests/corridor-lanes.test.mjs`.
-- Run the DuckDB profile portability test:
-  `node --test packages/duckdb-extension/tests/profile-feed.test.mjs`.
+- Corridor and DuckDB profile tests live in the [GTFS DuckDB Extension](https://github.com/gabrielAHN/gtfs-duckdb-extension) repository.
 - Run all route renderer and native bridge tests:
 
   ```sh

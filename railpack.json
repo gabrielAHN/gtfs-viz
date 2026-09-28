@@ -17,7 +17,7 @@
         }
       ],
       "commands": [
-        "yarn build:extension && yarn build:web && rm -rf dist && cp -r packages/web/dist dist"
+        "yarn build:client && yarn build:web && rm -rf dist && cp -r packages/web/dist dist"
       ]
     }
   }

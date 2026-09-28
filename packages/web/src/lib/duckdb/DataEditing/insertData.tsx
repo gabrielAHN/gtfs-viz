@@ -113,14 +113,5 @@ export const refreshMaterializedTable = async (conn, tableName) => {
   }
   const macro = macroMap[tableName]
   if (!macro) return
-  const client = await downloaded(conn)
-  if (client) {
-    await client.refresh()
-    return
-  }
-  try {
-    await executeQuery(conn, `CREATE OR REPLACE TABLE ${tableName} AS SELECT * FROM ${macro}()`)
-  } catch (error) {
-    logger.error(`Error refreshing ${tableName}:`, error)
-  }
+  await (await downloaded(conn)).refresh()
 }

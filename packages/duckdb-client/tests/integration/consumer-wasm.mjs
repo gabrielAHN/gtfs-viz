@@ -6,7 +6,8 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const vizRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
-const root = resolve(process.env.GTFS_DUCK_TOOLS_ROOT || resolve(vizRoot, '../gtfs-duck-tools'));
+const staged = process.env.GTFS_STAGED_REPOSITORY;
+assert.ok(staged || process.argv.includes('--baseline-errors'), 'GTFS_STAGED_REPOSITORY must point to a staged gtfs extension repository directory');
 const require = createRequire(resolve(vizRoot, 'package.json'));
 const { chromium } = require('@playwright/test');
 const wasmDist = dirname(require.resolve('@duckdb/duckdb-wasm/dist/duckdb-browser.mjs'));
@@ -14,8 +15,7 @@ const { build } = require('esbuild');
 const browserModule = (await build({ entryPoints: [resolve(wasmDist, 'duckdb-browser.mjs')], bundle: true, format: 'esm', platform: 'browser', write: false })).outputFiles[0].contents;
 const clientModule = (await build({ stdin: { contents: `export * from './packages/web/src/lib/extensions.ts'; export { runIngestion } from './packages/web/src/lib/gtfs-ingestion/client.ts';`, resolveDir: vizRoot }, bundle: true, format: 'esm', platform: 'browser', write: false, alias: { '@': resolve(vizRoot, 'packages/web/src') }, define: { 'import.meta.env.VITE_GTFS_EXTENSION_REPOSITORY': 'globalThis.__GTFS_EXTENSION_REPOSITORY', 'import.meta.env.DEV': 'false' } })).outputFiles[0].contents;
 const requests = [];
-const fixture = await readFile(resolve(root, 'test/fixtures/normalized.sql'), 'utf8');
-const macroNames = (await Promise.all(['load', 'init', 'reroute'].map(name => readFile(resolve(root, `sql/${name}.sql`), 'utf8')))).flatMap(sql => [...sql.matchAll(/CREATE OR REPLACE MACRO\s+(\w+)/g)].map(match => match[1])).sort();
+const macroNames = ['find_shortest_path', 'get_gtfs_data_availability', 'gtfs_time_to_seconds', 'route_type_to_name', 'seconds_to_gtfs_time'];
 const baselineErrors = process.argv.includes('--baseline-errors');
 const unsignedOnly = process.argv.includes('--unsigned-only');
 const types = { wasm: 'application/wasm', js: 'text/javascript', mjs: 'text/javascript' };
@@ -46,10 +46,10 @@ const origin = `http://127.0.0.1:${app.address().port}`;
 const repo = createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', origin);
   requests.push(req.url);
-  const match = /^\/(?:duckdb-wasm\/)?v1\.4\.3\/wasm_(eh|mvp)\/gtfs_duck_tools\.duckdb_extension\.wasm$/.exec(req.url);
+  const match = /^\/(?:duckdb-wasm\/)?v1\.4\.3\/wasm_(eh|mvp)\/gtfs\.duckdb_extension\.wasm$/.exec(req.url);
   try {
     if (!match) { res.writeHead(404); res.end(); return; }
-    await serveFile(res, resolve(root, `build/wasm_${match[1]}/extension/gtfs_duck_tools/gtfs_duck_tools.duckdb_extension.wasm`));
+    await serveFile(res, resolve(staged, `v1.4.3/wasm_${match[1]}/gtfs.duckdb_extension.wasm`));
   } catch (error) { res.writeHead(500); res.end(String(error)); }
 });
 await new Promise(resolve => repo.listen(0, '127.0.0.1', resolve));
@@ -77,7 +77,7 @@ try {
     for (const allowUnsignedExtensions of (baselineErrors ? [false] : unsignedOnly ? [true] : [true, false])) {
       const page = await browser.newPage();
       await page.goto(origin);
-      const result = await evaluateCase(page, async ({ variant, allowUnsignedExtensions, repository, baselineErrors, fixture, macroNames }) => {
+      const result = await evaluateCase(page, async ({ variant, allowUnsignedExtensions, repository, baselineErrors, macroNames }) => {
         const duckdb = await import('/duckdb/duckdb-browser.mjs');
         const worker = new Worker(`/duckdb/duckdb-browser-${variant}.worker.js`);
         const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
@@ -139,7 +139,7 @@ try {
           await second.close();
           return { variant, allowUnsignedExtensions, engine, missingBeforeLoad, values, tables, preserved, newConnection, registered, availability, path, afterMidnight, refreshed, embeddedMacros: queries.filter(sql => /CREATE\s+(OR REPLACE\s+)?MACRO/i.test(sql)), elapsedMs: performance.now() - started };
         } finally { console.log('GTFS_STAGE:terminate'); await db.terminate(); worker.terminate(); }
-      }, { variant, allowUnsignedExtensions, repository, baselineErrors, fixture, macroNames });
+      }, { variant, allowUnsignedExtensions, repository, baselineErrors, macroNames });
       results.push(result);
       console.log(JSON.stringify(result));
       assert.deepEqual(result.engine, [{ version: 'v1.4.3' }]);

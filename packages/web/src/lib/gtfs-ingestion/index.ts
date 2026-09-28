@@ -39,12 +39,7 @@ import {
   writeGTFSAvailabilityToStorage,
   type GTFSDataAvailability,
 } from "./availability"
-import {
-  requiredFiles,
-  keepColumnsFromCSV,
-  mapArrowTypeToSQL,
-  generateCreateTableQuery,
-} from "./schema"
+import { requiredFiles } from "./schema"
 
 export {
   ingestGTFS,
@@ -84,9 +79,6 @@ export {
   writeGTFSAvailabilityToStorage,
   type GTFSDataAvailability,
   requiredFiles,
-  keepColumnsFromCSV,
-  mapArrowTypeToSQL,
-  generateCreateTableQuery,
 }
 
 export async function importGTFSFromZip(

@@ -1,5 +1,5 @@
 import { executeQuery, escapeSql } from "@/lib/duckdb/QueryHelper"
-import { ROUTE_SHAPE_MACRO_VERSION } from "@gtfs-viz/duckdb-extension"
+
 import {
   insertTableRow,
   deleteEditRow,
@@ -42,18 +42,6 @@ const routeIdListSql = (routeIds: string[]) => {
   return `[${routeIds.map((id) => `'${escapeSql(id)}'`).join(", ")}]`
 }
 
-const BANDS_TABLE_DDL = `CREATE TABLE IF NOT EXISTS RouteShapeBandsTable (
-  route_id VARCHAR, route_name VARCHAR, route_color_hex VARCHAR, route_text_color_hex VARCHAR,
-  shape_id VARCHAR, shape_pt_sequence DOUBLE, shape_pt_lat DOUBLE, shape_pt_lon DOUBLE,
-  band_index SMALLINT, band_count SMALLINT, slot FLOAT, turn_radius FLOAT)`
-const LANES_TABLE_DDL = `CREATE TABLE IF NOT EXISTS RouteShapeLanesTable (
-  route_id VARCHAR, shape_id VARCHAR, shape_pt_sequence DOUBLE, lat DOUBLE, lon DOUBLE,
-  coslat DOUBLE, ux DOUBLE, uy DOUBLE, band_index BIGINT, band_count BIGINT,
-  shift_s DOUBLE, slot_s DOUBLE, plat DOUBLE, plon DOUBLE, nlat DOUBLE, nlon DOUBLE)`
-
-const MACRO_VERSION_TABLE_DDL =
-  "CREATE TABLE IF NOT EXISTS RouteShapeMacroVersion (version VARCHAR)"
-
 const tableExists = async (conn: any, tableName: string): Promise<boolean> => {
   const rows = await executeQuery(
     conn,
@@ -73,12 +61,11 @@ const loadSpatial = async (conn: any): Promise<void> => {
 
 const resetCleanupTables = async (conn: any): Promise<void> => {
   try {
-    await conn.query("DROP TABLE IF EXISTS RouteShapeBandsTable")
-    await conn.query("DROP TABLE IF EXISTS RouteShapeLanesTable")
-    await conn.query("DROP TABLE IF EXISTS RouteShapeMacroVersion")
-    await conn.query(BANDS_TABLE_DDL)
-    await conn.query(LANES_TABLE_DDL)
-    await conn.query(MACRO_VERSION_TABLE_DDL)
+    const [{ version: ROUTE_SHAPE_MACRO_VERSION }] = await executeQuery(
+      conn,
+      "PRAGMA gtfs_route_cache_version",
+    )
+    await conn.query("PRAGMA gtfs_reset_route_cache")
     await conn.query(
       `INSERT INTO RouteShapeMacroVersion VALUES ('${ROUTE_SHAPE_MACRO_VERSION.replace(/'/g, "")}')`,
     )
@@ -87,6 +74,10 @@ const resetCleanupTables = async (conn: any): Promise<void> => {
 
 export const bandedRouteIds = async (conn: any): Promise<Set<string>> => {
   try {
+    const [{ version: ROUTE_SHAPE_MACRO_VERSION }] = await executeQuery(
+      conn,
+      "PRAGMA gtfs_route_cache_version",
+    )
     if (await tableExists(conn, "RouteShapeMacroVersion")) {
       const v = await executeQuery(conn, "SELECT version FROM RouteShapeMacroVersion LIMIT 1")
       if (String(v[0]?.version ?? "") !== ROUTE_SHAPE_MACRO_VERSION) {
@@ -102,7 +93,7 @@ export const bandedRouteIds = async (conn: any): Promise<Set<string>> => {
         conn,
         "SELECT route_id, MIN(turn_radius) AS r FROM RouteShapeBandsTable GROUP BY route_id",
       )
-      await conn.query(MACRO_VERSION_TABLE_DDL)
+      await conn.query("PRAGMA gtfs_prepare_route_cache")
       await conn.query(
         `INSERT INTO RouteShapeMacroVersion VALUES ('${ROUTE_SHAPE_MACRO_VERSION.replace(/'/g, "")}')`,
       )
@@ -134,9 +125,11 @@ export const prepareRouteShapeLanes = async (
 ): Promise<boolean> => {
   try {
     await loadSpatial(conn)
-    await conn.query(LANES_TABLE_DDL)
-    await conn.query(BANDS_TABLE_DDL)
-    await conn.query(MACRO_VERSION_TABLE_DDL)
+    const [{ version: ROUTE_SHAPE_MACRO_VERSION }] = await executeQuery(
+      conn,
+      "PRAGMA gtfs_route_cache_version",
+    )
+    await conn.query("PRAGMA gtfs_prepare_route_cache")
     await conn.query("DELETE FROM RouteShapeLanesTable")
     await conn.query("DELETE FROM RouteShapeBandsTable")
     await conn.query("DELETE FROM RouteShapeMacroVersion")
@@ -191,18 +184,8 @@ export const fetchServiceRouteTripsData = async (conn: any, routeId: string) => 
 }
 
 const ensureServiceTables = async (conn: any) => {
-  await conn.query(`
-    CREATE TABLE IF NOT EXISTS calendar (
-      row_id INTEGER, service_id VARCHAR, monday INTEGER, tuesday INTEGER,
-      wednesday INTEGER, thursday INTEGER, friday INTEGER, saturday INTEGER,
-      sunday INTEGER, start_date VARCHAR, end_date VARCHAR
-    )
-  `)
-  await conn.query(`
-    CREATE TABLE IF NOT EXISTS calendar_dates (
-      row_id INTEGER, service_id VARCHAR, date VARCHAR, exception_type INTEGER
-    )
-  `)
+  await conn.query("PRAGMA gtfs_empty_calendar")
+  await conn.query("PRAGMA gtfs_empty_calendar_dates")
 }
 
 export const fetchServiceRouteServicesData = async (conn: any, routeId: string) => {
@@ -1066,7 +1049,7 @@ export const fetchTripShapeBands = async (
   const prefixed = tripIds.map((id) => `trip:${id}`)
   try {
     await loadSpatial(conn)
-    await conn.query(LANES_TABLE_DDL)
+    await conn.query("PRAGMA gtfs_prepare_route_cache")
     await conn.query("DELETE FROM RouteShapeLanesTable WHERE route_id LIKE 'trip:%'")
     await queryWithSpatial(
       conn,

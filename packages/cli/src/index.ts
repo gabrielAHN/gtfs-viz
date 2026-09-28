@@ -7,7 +7,7 @@ import { spawn } from "node:child_process";
 import { stdin as processStdin, stdout as processStdout } from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { dashboardViewForNamedQuery, sqlForNamedQuery } from "@gtfs-viz/duckdb-extension";
+import { dashboardViewForNamedQuery, sqlForNamedQuery } from "@gtfs-viz/duckdb-client";
 
 import { parseArgs, getFlagString, hasFlag, wantsDataOutput } from "./args.js";
 import type { Args } from "./args.js";
@@ -174,120 +174,7 @@ const openBrowser = (url: string) => {
 const escapeSql = (value: string) => value.replace(/'/g, "''");
 const sqlString = (value: string) => `'${escapeSql(value)}'`;
 
-const refreshPathwayNetwork = async (dbPath: string) => {
-  if (await refreshDownloadedDataset(dbPath)) return;
-  await executeRows(
-    dbPath,
-    `DROP VIEW IF EXISTS pathway_network;
-     CREATE VIEW pathway_network AS
-     SELECT
-       p.row_id,
-       p.pathway_id,
-       p.from_stop_id,
-       p.to_stop_id,
-       p.pathway_mode,
-       p.is_bidirectional,
-       p.length,
-       p.traversal_time,
-       p.stair_count,
-       p.max_slope,
-       p.min_width,
-       p.signposted_as,
-       p.reversed_signposted_as,
-       p.pathway_mode_name,
-       p.direction_type,
-       COALESCE(NULLIF(s1.parent_station, ''), s1.stop_id) AS from_parent_station,
-       s1.stop_lat AS from_lat,
-       s1.stop_lon AS from_lon,
-       s1.location_type_name AS from_location_type_name,
-       COALESCE(NULLIF(s2.parent_station, ''), s2.stop_id) AS to_parent_station,
-       s2.stop_lat AS to_lat,
-       s2.stop_lon AS to_lon,
-       s2.location_type_name AS to_location_type_name,
-       CASE
-         WHEN s1.stop_lat IS NOT NULL AND s1.stop_lon IS NOT NULL
-              AND s2.stop_lat IS NOT NULL AND s2.stop_lon IS NOT NULL
-         THEN DEGREES(
-           ATAN2(
-             s2.stop_lon - s1.stop_lon,
-             s2.stop_lat - s1.stop_lat
-           )
-         )
-         ELSE NULL
-       END AS angle
-     FROM PathwaysView p
-     JOIN StopsView s1 ON p.from_stop_id = s1.stop_id
-     JOIN StopsView s2 ON p.to_stop_id = s2.stop_id;
-     CREATE OR REPLACE MACRO get_station_info(station_id) AS TABLE (
-       WITH station_base AS (
-         SELECT
-           row_id,
-           stop_id,
-           stop_name,
-           stop_lat,
-           stop_lon,
-           '🔵' AS status,
-           location_type_name,
-           parent_station,
-           wheelchair_status
-         FROM StopsView
-         WHERE location_type_name = 'Station'
-           AND stop_id = station_id
-       ),
-       exit_counts AS (
-         SELECT
-           COUNT(*) AS exit_count
-         FROM StopsView
-         WHERE location_type_name = 'Exit/Entrance'
-           AND parent_station = station_id
-       ),
-       pathway_counts AS (
-         SELECT
-           COUNT(DISTINCT p.pathway_id) AS pathway_count
-         FROM PathwaysView p
-         JOIN StopsView s1 ON p.from_stop_id = s1.stop_id
-         JOIN StopsView s2 ON p.to_stop_id = s2.stop_id
-         WHERE (
-           COALESCE(NULLIF(s1.parent_station, ''), s1.stop_id) = station_id
-           AND COALESCE(NULLIF(s2.parent_station, ''), s2.stop_id) = station_id
-         )
-       ),
-       route_counts AS (
-         SELECT
-           COUNT(DISTINCT rsv.route_id) AS route_count,
-           STRING_AGG(DISTINCT rsv.route_id || '|||' || rsv.route_name || '|||' || rsv.route_color_hex || '|||' || rsv.route_text_color_hex, '\n') AS route_links
-         FROM RouteStopsView rsv
-         WHERE rsv.station_id = station_id
-       )
-       SELECT
-         s.row_id,
-         s.stop_id,
-         s.stop_name,
-         s.stop_lat,
-         s.stop_lon,
-         s.status,
-         COALESCE(e.exit_count, 0) AS exit_count,
-         s.location_type_name,
-         s.parent_station,
-         s.wheelchair_status,
-         COALESCE(pc.pathway_count, 0) AS pathway_count,
-         COALESCE(rc.route_count, 0) AS route_count,
-         COALESCE(rc.route_links, '') AS route_links,
-         CASE
-           WHEN COALESCE(pc.pathway_count, 0) = 0 THEN '❌'
-           WHEN COALESCE(pc.pathway_count, 0) > 0 THEN '✅'
-           WHEN COALESCE(pc.pathway_count, 0) = 0
-             AND COALESCE(e.exit_count, 0) > 0
-           THEN '🟡'
-           ELSE '❌'
-         END AS pathways_status
-       FROM station_base s
-       CROSS JOIN exit_counts e
-       CROSS JOIN pathway_counts pc
-       CROSS JOIN route_counts rc
-     )`,
-  );
-};
+const refreshPathwayNetwork = refreshDownloadedDataset;
 
 const extractZipEntry = (zipPath: string, entry: string, targetPath: string) =>
   new Promise<void>((resolve, reject) => {

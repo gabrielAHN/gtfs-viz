@@ -1,13 +1,13 @@
 {
-  "name": "@gtfs-viz/duckdb-extension",
+  "name": "@gtfs-viz/duckdb-client",
   "version": "0.1.0",
-  "description": "GTFS DuckDB extension — SQL macros, views, and TypeScript API for transit data",
+  "description": "Downloads and loads the GTFS DuckDB Extension for GTFS Viz",
   "license": "MIT",
   "author": "Gabriel AHN",
   "repository": {
     "type": "git",
     "url": "https://github.com/gabrielAHN/gtfs-viz.git",
-    "directory": "packages/duckdb-extension"
+    "directory": "packages/duckdb-client"
   },
   "type": "module",
   "exports": {
@@ -21,11 +21,10 @@
     }
   },
   "files": [
-    "dist",
-    "src"
+    "dist"
   ],
   "scripts": {
-    "build": "rm -rf dist && node scripts/extract-sql-to-ts.mjs && tsc -p tsconfig.json",
+    "build": "rm -rf dist && tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

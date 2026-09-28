@@ -5,7 +5,7 @@ Lightweight GTFS data visualizer and editor. Browse, edit, and export transit fe
 [![npm](https://img.shields.io/npm/v/@gabrielahn/gtfs-viz-cli)](https://www.npmjs.com/package/@gabrielahn/gtfs-viz-cli)
 [![GitHub](https://img.shields.io/badge/GitHub-gabrielAHN%2Fgtfs--viz-181717?logo=github)](https://github.com/gabrielAHN/gtfs-viz)
 
-**[GitHub](https://github.com/gabrielAHN/gtfs-viz)** | **[Web App](https://gtfs-viz-production-f1a4.up.railway.app)** | **[DuckDB Extension](https://github.com/gabrielAHN/gtfs-viz/tree/main/packages/duckdb-extension)** | **[Agent Skills](https://github.com/gabrielAHN/gtfs-viz/tree/main/packages/cli/skills/gtfs-viz)**
+**[GitHub](https://github.com/gabrielAHN/gtfs-viz)** | **[Web App](https://gtfs-viz-production-f1a4.up.railway.app)** | **[DuckDB Extension](https://github.com/gabrielAHN/gtfs-viz/tree/main/packages/duckdb-client)** | **[Agent Skills](https://github.com/gabrielAHN/gtfs-viz/tree/main/packages/cli/skills/gtfs-viz)**
 
 ## Features
 
@@ -119,7 +119,7 @@ yarn cli stations
 
 ## DuckDB Extension
 
-The CLI uses the same GTFS DuckDB extension as the web app. See the [extension docs](../duckdb-extension#readme) for the full macro reference.
+The CLI loads the [GTFS DuckDB Extension](https://github.com/gabrielAHN/gtfs-duckdb-extension) like the web app. See its [function reference](https://github.com/gabrielAHN/gtfs-duckdb-extension/blob/main/docs/functions.md).
 
 ## Version and Updates
 
@@ -157,4 +157,8 @@ Default locations:
 | Google / Gemini CLI | `$GEMINI_HOME/skills` or `~/.gemini/skills` |
 | Generic Agent Skills | `~/.agents/skills` |
 
-Installs: [SKILL.md](https://github.com/gabrielAHN/gtfs-viz/blob/main/packages/cli/skills/gtfs-viz/SKILL.md) | [commands.md](https://github.com/gabrielAHN/gtfs-viz/blob/main/packages/cli/skills/gtfs-viz/references/commands.md) | [tables.md](https://github.com/gabrielAHN/gtfs-viz/blob/main/packages/cli/skills/gtfs-viz/references/tables.md) | [procedures.md](https://github.com/gabrielAHN/gtfs-viz/blob/main/packages/cli/skills/gtfs-viz/references/procedures.md) | [gtfs-schedule-reference.md](https://github.com/gabrielAHN/gtfs-viz/blob/main/packages/cli/skills/gtfs-viz/references/gtfs-schedule-reference.md) | [examples.sql](https://github.com/gabrielAHN/gtfs-viz/blob/main/packages/cli/skills/gtfs-viz/references/examples.sql)
+Installs: [SKILL.md](https://github.com/gabrielAHN/gtfs-viz/blob/main/packages/cli/skills/gtfs-viz/SKILL.md) | [commands.md](https://github.com/gabrielAHN/gtfs-viz/blob/main/packages/cli/skills/gtfs-viz/references/commands.md) | [tables.md](https://github.com/gabrielAHN/gtfs-viz/blob/main/packages/cli/skills/gtfs-viz/references/tables.md) | [gtfs-schedule-reference.md](https://github.com/gabrielAHN/gtfs-viz/blob/main/packages/cli/skills/gtfs-viz/references/gtfs-schedule-reference.md) | [examples.sql](https://github.com/gabrielAHN/gtfs-viz/blob/main/packages/cli/skills/gtfs-viz/references/examples.sql)
+
+## Extension prerequisite
+
+Configure `GTFS_EXTENSION_REPOSITORY` to a repository serving a compatible signed [GTFS DuckDB Extension](https://github.com/gabrielAHN/gtfs-duckdb-extension) artifact, or install it beforehand. Missing configuration or artifacts fail with guidance.

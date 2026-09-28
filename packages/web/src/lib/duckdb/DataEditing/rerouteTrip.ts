@@ -1,5 +1,4 @@
 import { downloaded } from "@/lib/extensions"
-import { GTFS_REROUTE_SQL } from "@gtfs-viz/duckdb-extension"
 import { executeQuery } from "@/lib/duckdb/QueryHelper"
 import {
   fetchServiceTripStopTimesData,
@@ -54,17 +53,7 @@ export const REROUTE_QUERY_STALE_TIME = 5 * 60_000
 
 const escapeSql = (value: string) => value.replace(/'/g, "''")
 
-let installedConnection: any
-
-const ensureRerouteMacros = async (conn: any) => {
-  if (await downloaded(conn)) return
-  if (installedConnection === conn) return
-  const statements = GTFS_REROUTE_SQL.split(";")
-    .map((statement) => statement.trim())
-    .filter(Boolean)
-  for (const statement of statements) await conn.query(statement)
-  installedConnection = conn
-}
+const ensureRerouteMacros = downloaded
 
 const normalizeStop = (row: Record<string, any>): RerouteStop => ({
   stop_sequence: Number(row.stop_sequence),
@@ -80,14 +69,7 @@ const normalizeStop = (row: Record<string, any>): RerouteStop => ({
 })
 
 export const ensureRerouteEditColumns = async (conn: any) => {
-  await conn.query("ALTER TABLE EditStopTimesTable ADD COLUMN IF NOT EXISTS edit_type TEXT")
-  await conn.query(
-    "ALTER TABLE EditStopTimesTable ADD COLUMN IF NOT EXISTS edit_source_trip_id TEXT",
-  )
-  await conn.query(
-    "ALTER TABLE EditStopTimesTable ADD COLUMN IF NOT EXISTS edit_from_stop_name TEXT",
-  )
-  await conn.query("ALTER TABLE EditStopTimesTable ADD COLUMN IF NOT EXISTS edit_to_stop_name TEXT")
+  await (await downloaded(conn)).prepare()
 }
 
 const segmentBetween = (stops: RerouteStop[], fromStation: string, toStation: string) => {

@@ -27,7 +27,7 @@ test('native startup submits separate install and load commands for every subpro
   try {
     const runner = await moduleAt('packages/cli/src/duckdb/runner.ts');
     assert.equal(typeof runner.extensionStartupArgs, 'function');
-    assert.deepEqual(await runner.extensionStartupArgs('/nonexistent/test.duckdb'), ['-cmd', "INSTALL gtfs_duck_tools FROM 'https://example.test/ext'", '-cmd', 'LOAD gtfs_duck_tools']);
+    assert.deepEqual(await runner.extensionStartupArgs('/nonexistent/test.duckdb'), ['-cmd', "INSTALL gtfs FROM 'https://example.test/ext'", '-cmd', 'LOAD gtfs']);
   } finally { delete process.env.GTFS_EXTENSION_REPOSITORY; }
 });
 

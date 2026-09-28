@@ -42,20 +42,6 @@ packages/cli/dashboard/
 # Package manager lock files (keep yarn.lock, ignore npm)
 package-lock.json
 
-# Extensions directory (separate project - root level only)
-/extensions/
-
-# GTFS extension build artifact (copied from procedures during build)
-packages/web/public/extensions/gtfs.sql
-
-# GTFS sample data (zip files)
-packages/web/public/extensions/sample-data/*.zip
-
-# DuckDB extension build (cloned at build time, not committed)
-/duckdb/
-/extension-ci-tools/
-/build/
-
 # Python bytecode
 __pycache__/
 *.pyc

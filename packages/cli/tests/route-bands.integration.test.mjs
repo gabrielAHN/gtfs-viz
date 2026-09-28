@@ -25,9 +25,6 @@ const loadRouteBands = ({ executeRows, queryRows }) => {
       exports,
       require: (id) => {
         if (id === "./runner.js") return { executeRows, queryRows }
-        if (id === "@gtfs-viz/duckdb-extension") {
-          return { ROUTE_SHAPE_MACRO_VERSION: "v2-current-test" }
-        }
         assert.fail(`unexpected import: ${id}`)
       },
     },
@@ -37,6 +34,10 @@ const loadRouteBands = ({ executeRows, queryRows }) => {
 
 test("a real DuckDB failure rolls back both route-band tables", async (t) => {
   const duckdb = process.env.DUCKDB_BIN || "duckdb"
+  if (!process.env.GTFS_EXTENSION) {
+    t.skip("Set GTFS_EXTENSION to a downloaded gtfs extension artifact")
+    return
+  }
   try {
     await execFileAsync(duckdb, ["--version"])
   } catch (error) {
@@ -51,7 +52,7 @@ test("a real DuckDB failure rolls back both route-band tables", async (t) => {
   t.after(() => rm(temporaryDirectory, { recursive: true, force: true }))
   const databasePath = path.join(temporaryDirectory, "rollback.duckdb")
   const runDuckDb = (args) =>
-    execFileAsync(duckdb, args, {
+    execFileAsync(duckdb, ["-unsigned", "-cmd", `SET extension_directory='${process.env.GTFS_DEPENDENCY_CACHE}'; LOAD '${process.env.GTFS_EXTENSION}';`, ...args], {
       maxBuffer: 10 * 1024 * 1024,
       env: { ...process.env, HOME: os.homedir() },
     }).then(({ stdout }) => stdout)
@@ -82,7 +83,8 @@ test("a real DuckDB failure rolls back both route-band tables", async (t) => {
       invokedTransactionSql = sql
       await runDuckDb(["-bail", dbPath, "-c", sql])
     },
-    queryRows: async () => {
+    queryRows: async (_db, sql) => {
+      if (sql === "PRAGMA gtfs_route_cache_version") return [{ version: "v2-current-test" }]
       assert.fail("summary query must not run after a real DuckDB failure")
     },
   })
