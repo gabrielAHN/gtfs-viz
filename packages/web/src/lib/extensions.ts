@@ -1,9 +1,14 @@
 import { createExtensionClient } from "@gtfs-viz/duckdb-client/client"
 
+const webRepository = (repository: string | undefined) =>
+  repository && repository.startsWith("/") && typeof location !== "undefined"
+    ? `${location.origin}${repository.replace(/\/$/, "")}`
+    : repository
+
 export const getExtensionRepository = (conn: any): string | undefined =>
   conn.__gtfsVizCliNative
     ? conn.extensionRepository
-    : import.meta.env.VITE_GTFS_EXTENSION_REPOSITORY
+    : webRepository(import.meta.env.VITE_GTFS_EXTENSION_REPOSITORY)
 
 const connections = new WeakMap<object, Promise<ReturnType<typeof createExtensionClient>>>()
 

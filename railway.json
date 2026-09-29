@@ -9,7 +9,7 @@
       "yarn.lock",
       "railway.json",
       "railpack.json",
-      "!packages/docs/**"
+      "Caddyfile"
     ]
   },
   "deploy": {

@@ -159,10 +159,13 @@ export async function cleanupOrphanDatabases(current: string | null): Promise<vo
   } catch {}
 }
 
+const allowUnsignedExtensions = import.meta.env.VITE_GTFS_ALLOW_UNSIGNED_EXTENSIONS === "true"
+
 const openOpfsFile = (db: duckdb.AsyncDuckDB, name: string) =>
   db.open({
     path: `opfs://${name}`,
     accessMode: duckdb.DuckDBAccessMode.READ_WRITE,
+    allowUnsignedExtensions,
   })
 
 async function openSessionDatabase(
@@ -236,6 +239,7 @@ async function spawnInstance(bundle: duckdb.DuckDBBundle, allowReuse: boolean) {
   await db.instantiate(bundle.mainModule, bundle.pthreadWorker)
 
   const sessionFile = await openSessionDatabase(db, allowReuse)
+  if (!sessionFile && allowUnsignedExtensions) await db.open({ allowUnsignedExtensions })
   const conn = await db.connect()
   return { db, conn, sessionFile }
 }

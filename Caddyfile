@@ -5,7 +5,6 @@
 
 :{$PORT:3000} {
 	root * /app/dist
-	file_server
 	encode gzip
 
 	header {
@@ -29,9 +28,19 @@
 	@wasm {
 		path *.wasm
 	}
-	header @wasm {
-		Content-Type "application/wasm"
-		Cache-Control "public, max-age=31536000, immutable"
+	header @wasm Content-Type "application/wasm"
+	@bundledWasm {
+		path *.wasm
+		not path /extensions/*
+	}
+	header @bundledWasm Cache-Control "public, max-age=31536000, immutable"
+
+	@extensions {
+		path /extensions/*
+	}
+	header @extensions Cache-Control "no-cache"
+	handle @extensions {
+		file_server
 	}
 
 	@workers {
@@ -47,5 +56,27 @@
 	}
 	header @html Cache-Control "no-cache, no-store, must-revalidate"
 
-	try_files {path} /index.html
+	@docsText {
+		path_regexp ^/docs/.*\.(md|txt)$
+	}
+	header @docsText Cache-Control "no-cache"
+	@docsMarkdown {
+		path_regexp ^/docs/.*\.md$
+	}
+	header @docsMarkdown Content-Type "text/markdown; charset=utf-8"
+
+	@docs {
+		path /docs /docs/*
+	}
+	handle @docs {
+		redir /docs /docs/ 301
+		@docsPage path_regexp ^/docs/(?:.*/)?[^/.]*$
+		rewrite @docsPage /docs/index.html
+		file_server
+	}
+
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
 }

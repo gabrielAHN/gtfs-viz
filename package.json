@@ -24,8 +24,11 @@
   ],
   "type": "module",
   "scripts": {
-    "dev": "yarn workspace @gtfs-viz/web run dev",
-    "build": "yarn build:client && yarn build:lib && yarn build:web && rm -rf dist && cp -r packages/web/dist dist && yarn build:cli",
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "yarn workspace @gtfs-viz/web run dev",
+    "build": "yarn build:client && yarn build:lib && yarn build:web && yarn build:docs && rm -rf dist && cp -r packages/web/dist dist && cp -r packages/docs/dist dist/docs && yarn build:cli",
+    "build:deploy": "vp run @gtfs-viz/duckdb-client#build && vp run @gtfs-viz/lib#build && VITE_GTFS_EXTENSION_REPOSITORY=/extensions VITE_GTFS_ALLOW_UNSIGNED_EXTENSIONS=true vp run @gtfs-viz/web#build && vp run @gtfs-viz/docs#build && rm -rf dist && cp -r packages/web/dist dist && cp -r packages/docs/dist dist/docs && node scripts/extension-artifacts.mjs --out dist/extensions",
+    "preview:deploy": "node scripts/preview-deploy.mjs",
     "build:client": "yarn workspace @gtfs-viz/duckdb-client run build",
     "build:lib": "yarn workspace @gtfs-viz/lib run build",
     "test": "yarn build:client && node --test tests/*.test.mjs packages/duckdb-client/tests/*.test.mjs packages/lib/tests/*.test.mjs packages/web/tests/*.test.mjs packages/cli/tests/*.test.mjs",

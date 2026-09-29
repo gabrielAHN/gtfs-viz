@@ -2,7 +2,7 @@ import ThemeSwitcher from "@/components/ui/ThemeSwitcher"
 import FileImporter from "./FileImporter"
 import UpcomingFeatures from "@/components/UpcomingFeatures"
 
-import { GithubButton } from "@/components/contact"
+import { DocsButton, GithubButton } from "@/components/contact"
 
 function Intro() {
   return (
@@ -10,6 +10,7 @@ function Intro() {
       <h1 className="text-6xl sm:text-[15vh]">GTFS 🚉 Viz</h1>
       <div className="flex gap-2 mb-[1vh]">
         <GithubButton />
+        <DocsButton />
         <ThemeSwitcher />
       </div>
       <FileImporter />
