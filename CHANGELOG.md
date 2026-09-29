@@ -32,7 +32,7 @@ All notable changes to GTFS Viz will be documented in this file.
     packages/cli/tests/spatial-http.integration.test.mjs
   ```
 
-- Corridor and DuckDB profile tests live in the [GTFS DuckDB Extension](https://github.com/gabrielAHN/gtfs-duckdb-extension) repository.
+- Corridor and DuckDB profile tests live in the [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) repository.
 - Run all route renderer and native bridge tests:
 
   ```sh

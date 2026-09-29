@@ -12,7 +12,10 @@ export function navigate(to: string) {
   window.history.pushState(null, "", url.pathname + url.hash)
   listeners.forEach((listener) => listener())
   if (url.hash) {
-    document.getElementById(url.hash.slice(1))?.scrollIntoView()
+    window.dispatchEvent(new HashChangeEvent("hashchange"))
+    requestAnimationFrame(() =>
+      document.getElementById(decodeURIComponent(url.hash.slice(1)))?.scrollIntoView(),
+    )
   } else {
     window.scrollTo(0, 0)
   }
@@ -32,18 +35,37 @@ export function usePathname() {
   return pathname
 }
 
+export function useHash() {
+  const [hash, setHash] = useState(window.location.hash)
+  useEffect(() => {
+    const update = () => setHash(window.location.hash)
+    listeners.add(update)
+    window.addEventListener("popstate", update)
+    window.addEventListener("hashchange", update)
+    return () => {
+      listeners.delete(update)
+      window.removeEventListener("popstate", update)
+      window.removeEventListener("hashchange", update)
+    }
+  }, [])
+  return decodeURIComponent(hash)
+}
+
 export function Link({
   to,
   className,
   children,
+  onSelect,
   ...rest
 }: {
   to: string
   className?: string
   children: ReactNode
+  onSelect?: () => void
   "aria-current"?: "page"
 }) {
   const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    onSelect?.()
     if (event.defaultPrevented || event.button !== 0) return
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
     event.preventDefault()

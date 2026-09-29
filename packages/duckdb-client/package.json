@@ -1,7 +1,7 @@
 {
   "name": "@gtfs-viz/duckdb-client",
   "version": "0.1.0",
-  "description": "Downloads and loads the GTFS DuckDB Extension for GTFS Viz",
+  "description": "Downloads and loads the GTFS DuckDB extension for GTFS Viz",
   "license": "MIT",
   "author": "Gabriel AHN",
   "repository": {

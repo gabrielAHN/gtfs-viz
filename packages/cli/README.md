@@ -4,8 +4,9 @@ Lightweight GTFS data visualizer and editor. Browse, edit, and export transit fe
 
 [![npm](https://img.shields.io/npm/v/@gabrielahn/gtfs-viz-cli)](https://www.npmjs.com/package/@gabrielahn/gtfs-viz-cli)
 [![GitHub](https://img.shields.io/badge/GitHub-gabrielAHN%2Fgtfs--viz-181717?logo=github)](https://github.com/gabrielAHN/gtfs-viz)
+[![Docs](https://img.shields.io/badge/docs-gtfs--viz-blue)](https://gtfs-viz-production-f1a4.up.railway.app/docs/)
 
-**[GitHub](https://github.com/gabrielAHN/gtfs-viz)** | **[Web App](https://gtfs-viz-production-f1a4.up.railway.app)** | **[DuckDB Extension](https://github.com/gabrielAHN/gtfs-viz/tree/main/packages/duckdb-client)** | **[Agent Skills](https://github.com/gabrielAHN/gtfs-viz/tree/main/packages/cli/skills/gtfs-viz)**
+**[Docs](https://gtfs-viz-production-f1a4.up.railway.app/docs/gtfs-viz/cli/)** | **[GitHub](https://github.com/gabrielAHN/gtfs-viz)** | **[Web App](https://gtfs-viz-production-f1a4.up.railway.app)** | **[DuckDB Extension](https://github.com/gabrielAHN/gtfs-viz/tree/main/packages/duckdb-client)** | **[Agent Skills](https://github.com/gabrielAHN/gtfs-viz/tree/main/packages/cli/skills/gtfs-viz)**
 
 ## Features
 
@@ -119,7 +120,7 @@ yarn cli stations
 
 ## DuckDB Extension
 
-The CLI loads the [GTFS DuckDB Extension](https://github.com/gabrielAHN/gtfs-duckdb-extension) like the web app. See its [function reference](https://github.com/gabrielAHN/gtfs-duckdb-extension/blob/main/docs/functions.md).
+The CLI loads the [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) extension like the web app and imports feeds with its `gtfs_import` pragma. See the [function reference](https://gtfs-viz-production-f1a4.up.railway.app/docs/gtfs-duckdb/functions/).
 
 ## Version and Updates
 
@@ -161,4 +162,4 @@ Installs: [SKILL.md](https://github.com/gabrielAHN/gtfs-viz/blob/main/packages/c
 
 ## Extension prerequisite
 
-Configure `GTFS_EXTENSION_REPOSITORY` to a repository serving a compatible signed [GTFS DuckDB Extension](https://github.com/gabrielAHN/gtfs-duckdb-extension) artifact, or install it beforehand. Missing configuration or artifacts fail with guidance.
+Configure `GTFS_EXTENSION_REPOSITORY` to a repository serving a compatible signed [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) extension artifact, or install it beforehand. Missing configuration or artifacts fail with guidance.

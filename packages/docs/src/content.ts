@@ -1,26 +1,24 @@
 export const repos = {
   viz: "https://github.com/gabrielAHN/gtfs-viz",
-  extension: "https://github.com/gabrielAHN/gtfs-duckdb-extension",
-  app: "https://gtfs-viz-production-f1a4.up.railway.app",
-  npm: "https://www.npmjs.com/package/@gabrielahn/gtfs-viz-cli",
-  functions: "https://github.com/gabrielAHN/gtfs-duckdb-extension/blob/main/docs/functions.md",
+  duckdb: "https://github.com/gabrielAHN/gtfs-duckdb",
+  app: "/",
 }
 
 export const intro =
-  "GTFS Viz is an open-source toolkit for looking at, fixing and publishing GTFS transit feeds. It has two parts: GTFS Viz, a web app, CLI and AI skill for people and agents, and the GTFS DuckDB Extension, the toolbox of GTFS functions they all call. The same station, pathway, route and trip logic runs from one operator's laptop up to a cloud pipeline."
+  "Open-source tools to explore, fix and publish GTFS transit feeds. GTFS Viz is the app you use; GTFS DuckDB is the engine inside it that any DuckDB can load."
 
 export const goals = [
   {
-    title: "Scalable in the cloud",
-    body: "One DuckDB extension holds the GTFS logic, so the same functions run in a browser tab, on a laptop or in a cloud job, for a city feed or a national one.",
+    title: "Easy for operators",
+    body: "Open a GTFS zip in the browser, see stations, pathways, routes and trips on a map, fix what is wrong and export the feed. Nothing to install, and the data stays on your machine.",
   },
   {
     title: "Ready for AI",
-    body: "Every dashboard action is also a CLI command with JSON output and a SQL function. The Agent Skill lets an agent audit a feed, apply edits from a service alert and export the result.",
+    body: "Every action is also a CLI command with JSON output. The agent skill lets an AI agent audit a feed, turn a service alert into edits and export the result.",
   },
   {
-    title: "Easy for operators",
-    body: "A no-install web app: upload a GTFS zip, see stations and pathways on a map, fix what is wrong and export CSV. Data stays on the operator's machine.",
+    title: "Scalable in the cloud",
+    body: "The GTFS logic lives in one DuckDB extension, so the same functions run in a browser tab, on a laptop or in a cloud job, for a city feed or a national one.",
   },
 ]
 
@@ -35,7 +33,7 @@ export type Block =
   | { type: "cards"; items: { title: string; body: string; href?: string }[] }
   | { type: "table"; head: string[]; rows: string[][] }
 
-export type Section = { id: string; title: string; blocks: Block[] }
+export type Section = { id: string; title: string; blocks: Block[]; sub?: Section[] }
 
 export type DocPage = {
   slug: string
@@ -45,30 +43,39 @@ export type DocPage = {
 }
 
 export type Part = {
-  id: "gtfs-viz" | "gtfs-duckdb-extension"
+  id: "gtfs-viz" | "gtfs-duckdb"
   name: string
   tagline: string
   repo: string
   summary: string
+  does: string[]
   pages: DocPage[]
 }
 
-const tree = (path: string) => `${repos.viz}/tree/main/${path}`
-const extTree = (path: string) => `${repos.extension}/tree/main/${path}`
+const doc = (part: string, slug: string, hash = "") => `/docs/${part}/${slug}/${hash}`
+
+export const functionsPath = (group?: string) =>
+  `/docs/gtfs-duckdb/functions/${group ? `${group}/` : ""}`
 
 export const parts: Part[] = [
   {
     id: "gtfs-viz",
     name: "GTFS Viz",
-    tagline: "Web app, CLI and AI skill for GTFS feeds",
+    tagline: "Explore and edit GTFS feeds",
     repo: repos.viz,
-    summary:
-      "Look at, fix and export GTFS feeds in the browser, from a terminal or through an AI agent. All three run the same GTFS DuckDB Extension on the same data.",
+    summary: "A web app and CLI to explore, fix and export GTFS feeds.",
+    does: [
+      "Opens a GTFS zip in the browser or from a terminal",
+      "Shows stations, pathways, routes and trips on maps and tables",
+      "Edits stations, pathways, trips, stop times and calendars",
+      "Exports the edited feed as GTFS files",
+      "Gives AI agents the same commands through the CLI and an agent skill",
+    ],
     pages: [
       {
         slug: "how-it-works",
         title: "How it works",
-        summary: "One dataset, three ways in: the web app, the CLI and the AI skill.",
+        summary: "One dataset, two ways in: the web app and the CLI.",
         sections: [
           {
             id: "overview",
@@ -76,7 +83,7 @@ export const parts: Part[] = [
             blocks: [
               {
                 type: "text",
-                text: "GTFS Viz loads a GTFS zip into DuckDB, calls the GTFS DuckDB Extension to build station, route and trip tables, and shows them as maps and tables. Edits are stored next to the original feed and merged back into GTFS CSV on export.",
+                text: "GTFS Viz loads a GTFS zip into DuckDB, calls GTFS DuckDB to build station, route and trip tables, and shows them as maps and tables. Edits are stored next to the original feed and merged back into GTFS CSV on export.",
               },
               {
                 type: "cards",
@@ -88,10 +95,6 @@ export const parts: Part[] = [
                   {
                     title: "CLI",
                     body: "Native DuckDB on your machine. Import once, then query, edit, export or open the web dashboard on the same database.",
-                  },
-                  {
-                    title: "AI skill",
-                    body: "An Agent Skill that teaches AI agents the CLI, so they can audit a feed, apply service changes and hand back a dashboard link.",
                   },
                 ],
               },
@@ -106,11 +109,11 @@ export const parts: Part[] = [
                 items: [
                   {
                     title: "Import",
-                    body: "Each GTFS file is read into a raw table and normalized by the extension's `gtfs_normalize_<table>` pragmas.",
+                    body: "`PRAGMA gtfs_import` reads every GTFS file in the feed. The CLI passes its extract folder; the web app registers the zip's files and passes `''`.",
                   },
                   {
                     title: "Build",
-                    body: "`PRAGMA gtfs_init` builds `StationsTable`, `RoutesTable`, `TripsTable` and the merged `*View` views.",
+                    body: "The same call builds `StationsTable`, `RoutesTable`, `TripsTable` and the merged `*View` views.",
                   },
                   {
                     title: "Explore",
@@ -138,22 +141,22 @@ export const parts: Part[] = [
                   {
                     title: "packages/web",
                     body: "The web app: maps, tables, editors and export.",
-                    href: tree("packages/web"),
+                    href: doc("gtfs-viz", "web"),
                   },
                   {
                     title: "packages/cli",
-                    body: "`@gabrielahn/gtfs-viz-cli` and the bundled `gtfs-viz` Agent Skill.",
-                    href: tree("packages/cli"),
+                    body: "`@gabrielahn/gtfs-viz-cli` and the bundled `gtfs-viz` agent skill.",
+                    href: doc("gtfs-viz", "cli"),
                   },
                   {
                     title: "packages/duckdb-client",
-                    body: "Installs and loads the extension and runs its lifecycle for the web app and the CLI. It has no SQL of its own.",
-                    href: tree("packages/duckdb-client"),
+                    body: "Installs and loads the extension and imports feeds with `gtfs_import` for the web app and the CLI. It has no SQL of its own.",
+                    href: doc("gtfs-duckdb", "usage", "#install"),
                   },
                   {
                     title: "packages/lib",
                     body: "Rendering: route bands, compared-trip lanes and the deck.gl route-shape layer.",
-                    href: tree("packages/lib"),
+                    href: doc("gtfs-viz", "web", "#pages"),
                   },
                 ],
               },
@@ -177,7 +180,9 @@ export const parts: Part[] = [
               },
               {
                 type: "cards",
-                items: [{ title: "Open the web app", body: repos.app, href: repos.app }],
+                items: [
+                  { title: "Open the web app", body: "Opens GTFS Viz at `/`.", href: repos.app },
+                ],
               },
             ],
           },
@@ -362,147 +367,21 @@ export const parts: Part[] = [
           },
         ],
       },
-      {
-        slug: "ai-skill",
-        title: "AI skill",
-        summary:
-          "The `gtfs-viz` Agent Skill teaches AI agents to work with GTFS feeds through the CLI.",
-        sections: [
-          {
-            id: "install",
-            title: "Install",
-            blocks: [
-              { type: "code", lang: "bash", code: "npx skills add gabrielAHN/gtfs-viz" },
-              { type: "text", text: "Or register it from an installed CLI:" },
-              {
-                type: "code",
-                lang: "bash",
-                code: "gtfs-viz install-skill anthropic\ngtfs-viz install-skill --list-providers\ngtfs-viz skill-path",
-              },
-              {
-                type: "table",
-                head: ["Provider", "Installs to"],
-                rows: [
-                  ["`anthropic`", "`~/.claude/skills`"],
-                  ["`openai`", "`~/.codex/skills`"],
-                  ["`google`", "`~/.gemini/skills`"],
-                  ["`generic`", "`~/.agents/skills`"],
-                ],
-              },
-            ],
-          },
-          {
-            id: "what-agents-can-do",
-            title: "What agents can do",
-            blocks: [
-              {
-                type: "list",
-                items: [
-                  "Import a feed and report what it contains",
-                  "Audit stations for missing pathways or platforms that cannot reach an exit",
-                  "Turn a service alert into trip, stop-time and calendar edits",
-                  "Reroute a trip through another route's stops",
-                  "Review edits, export GTFS and return a dashboard link to check the result",
-                ],
-              },
-            ],
-          },
-          {
-            id: "workflow",
-            title: "Service-change workflow",
-            blocks: [
-              {
-                type: "steps",
-                items: [
-                  {
-                    title: "Import the feed",
-                    body: "",
-                    code: "gtfs-viz import /abs/path/feed.zip",
-                    lang: "bash",
-                  },
-                  {
-                    title: "Read the change",
-                    body: "The agent reads the alert or notice itself; the CLI does not fetch alerts.",
-                  },
-                  {
-                    title: "Check the data",
-                    body: "Query through the merged `*View` tables so pending edits are included.",
-                    code: "gtfs-viz trip <trip_id> --data\ngtfs-viz calendar <service_id> --data",
-                    lang: "bash",
-                  },
-                  {
-                    title: "Apply edits",
-                    body: "Use individual commands or one changeset.",
-                    code: "gtfs-viz apply changeset.json",
-                    lang: "bash",
-                  },
-                  {
-                    title: "Review and export",
-                    body: "",
-                    code: "gtfs-viz edits --url-only\ngtfs-viz export --output ./out",
-                    lang: "bash",
-                  },
-                ],
-              },
-            ],
-          },
-          {
-            id: "changeset",
-            title: "Changeset format",
-            blocks: [
-              {
-                type: "text",
-                text: "Op types: `trip.add`, `trip.update`, `trip.delete`, `stop_times.set`, `calendar.add`, `calendar.update`, `calendar.delete`, `calendar_date.add` and `calendar_date.delete`.",
-              },
-              {
-                type: "code",
-                lang: "json",
-                code: '{\n  "ops": [\n    { "op": "trip.update", "trip_id": "canonical-Red-C1-0", "trip_headsign": "Alewife Express" }\n  ]\n}',
-              },
-            ],
-          },
-          {
-            id: "reference",
-            title: "Skill files",
-            blocks: [
-              {
-                type: "cards",
-                items: [
-                  {
-                    title: "SKILL.md",
-                    body: "Commands, dashboard links and agent rules.",
-                    href: `${repos.viz}/blob/main/packages/cli/skills/gtfs-viz/SKILL.md`,
-                  },
-                  {
-                    title: "references/commands.md",
-                    body: "Every command with flags.",
-                    href: `${repos.viz}/blob/main/packages/cli/skills/gtfs-viz/references/commands.md`,
-                  },
-                  {
-                    title: "references/edits.md",
-                    body: "Changesets and the alert-validation workflow.",
-                    href: `${repos.viz}/blob/main/packages/cli/skills/gtfs-viz/references/edits.md`,
-                  },
-                  {
-                    title: "references/tables.md",
-                    body: "Table and view columns for SQL.",
-                    href: `${repos.viz}/blob/main/packages/cli/skills/gtfs-viz/references/tables.md`,
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
     ],
   },
   {
-    id: "gtfs-duckdb-extension",
-    name: "GTFS DuckDB Extension",
-    tagline: "The GTFS toolbox as a loadable DuckDB extension",
-    repo: repos.extension,
-    summary:
-      "`gtfs` holds every GTFS database function GTFS Viz uses: import, station and route analysis, pathway pathfinding, trip rerouting and route-band geometry. Any DuckDB client can load it.",
+    id: "gtfs-duckdb",
+    name: "GTFS DuckDB",
+    tagline: "GTFS functions for DuckDB",
+    repo: repos.duckdb,
+    summary: "A DuckDB extension that turns a GTFS feed into queryable tables and functions.",
+    does: [
+      "Imports a GTFS folder with one call",
+      "Builds station, stop, route and trip tables",
+      "Answers questions about stations, pathways, routes and trips in SQL",
+      "Finds paths through a station's pathways",
+      "Runs anywhere DuckDB runs: browser, laptop or cloud",
+    ],
     pages: [
       {
         slug: "usage",
@@ -515,7 +394,7 @@ export const parts: Part[] = [
             blocks: [
               {
                 type: "text",
-                text: "A DuckDB extension built from the DuckDB extension template. `LOAD gtfs` registers 88 functions: 23 pragmas, 10 scalar macros and 55 table macros. Loading never creates or resets tables; the lifecycle pragmas do.",
+                text: "A DuckDB extension, `gtfs`, built from the DuckDB extension template. `LOAD gtfs` registers its functions; loading never creates or resets tables, the import and lifecycle pragmas do. These docs cover the 58 functions for working with GTFS data. The other 31 are internal to GTFS Viz's maps, such as route-band caches, map bounds and filter menus.",
               },
               {
                 type: "table",
@@ -550,21 +429,9 @@ export const parts: Part[] = [
                 type: "steps",
                 items: [
                   {
-                    title: "Prepare",
-                    body: "Create the edit tables.",
-                    code: "PRAGMA gtfs_prepare;",
-                    lang: "sql",
-                  },
-                  {
                     title: "Import",
-                    body: "Load each GTFS file into `<table>_raw` and normalize it. Use `PRAGMA gtfs_empty_<table>` for optional files the feed does not have.",
-                    code: "CREATE TEMP TABLE stops_raw AS\n  SELECT * FROM read_csv_auto('feed/stops.txt', all_varchar=true);\nPRAGMA gtfs_normalize_stops;\n-- repeat for pathways, routes, trips, stop_times, shapes, calendar, calendar_dates",
-                    lang: "sql",
-                  },
-                  {
-                    title: "Initialize",
-                    body: "Build the tables and views.",
-                    code: "PRAGMA gtfs_init;",
+                    body: "Read a feed folder and build every table. `stops.txt` is required; missing optional files become empty tables. Run it again to replace the feed; pending edits are kept.",
+                    code: "PRAGMA gtfs_import('feed');",
                     lang: "sql",
                   },
                   {
@@ -596,7 +463,7 @@ export const parts: Part[] = [
                     "`stops`, `pathways`, `routes`, `trips`, `stop_times`, `shapes`, `calendar`, `calendar_dates`",
                   ],
                   [
-                    "Built by `gtfs_init`",
+                    "Built by `gtfs_import`",
                     "`StationsTable`, `StopsTable`, `RoutesTable`, `TripsTable`, `RouteStopsTable`, `CalendarTable`",
                   ],
                   [
@@ -609,7 +476,7 @@ export const parts: Part[] = [
                   ],
                   [
                     "Route bands",
-                    "`RouteShapeLanesTable`, `RouteShapeBandsTable`, `RouteShapeMacroVersion` (from `gtfs_prepare_route_cache`)",
+                    "`RouteShapeLanesTable`, `RouteShapeBandsTable`, `RouteShapeMacroVersion`, built by GTFS Viz for its route maps",
                   ],
                 ],
               },
@@ -622,16 +489,20 @@ export const parts: Part[] = [
               {
                 type: "code",
                 lang: "bash",
-                code: "git clone --recurse-submodules https://github.com/gabrielAHN/gtfs-duckdb-extension\ncd gtfs-duckdb-extension\nGEN=ninja make\nmake test",
+                code: "git clone --recurse-submodules https://github.com/gabrielAHN/gtfs-duckdb\ncd gtfs-duckdb\nGEN=ninja make\nmake test",
               },
               {
                 type: "cards",
                 items: [
-                  { title: "sql/", body: "The SQL behind every function.", href: extTree("sql") },
                   {
-                    title: "src/",
-                    body: "Registration and the lifecycle pragmas.",
-                    href: extTree("src"),
+                    title: "Functions",
+                    body: "Every documented function, with a runnable example.",
+                    href: doc("gtfs-duckdb", "functions"),
+                  },
+                  {
+                    title: "Import",
+                    body: "`gtfs_import`, `gtfs_refresh` and the steps they run.",
+                    href: doc("gtfs-duckdb", "functions/import"),
                   },
                 ],
               },
@@ -643,12 +514,185 @@ export const parts: Part[] = [
         slug: "functions",
         title: "Functions",
         summary:
-          "All 88 functions by category, each with an example that runs on the MBTA subway feed.",
+          "Every function for working with GTFS data, in four groups, each with an example that runs on the MBTA subway feed.",
         sections: [],
       },
     ],
   },
 ]
+
+export const agentPage: DocPage = {
+  slug: "agents",
+  title: "Agent skill",
+  summary:
+    "The `gtfs-viz` agent skill teaches an AI agent to drive the GTFS Viz CLI. Here is what it covers, by category.",
+  sections: [
+    {
+      id: "install",
+      title: "Install",
+      blocks: [
+        { type: "code", lang: "bash", code: "npx skills add gabrielAHN/gtfs-viz" },
+        { type: "text", text: "Or install it from the CLI for one agent:" },
+        {
+          type: "code",
+          lang: "bash",
+          code: "npm install -g @gabrielahn/gtfs-viz-cli\ngtfs-viz install-skill anthropic\ngtfs-viz install-skill --list-providers",
+        },
+        {
+          type: "table",
+          head: ["Provider", "Agents", "Installs to"],
+          rows: [
+            ["`anthropic`", "Claude Code", "`~/.claude/skills/gtfs-viz`"],
+            ["`openai`", "Codex", "`~/.codex/skills/gtfs-viz`"],
+            ["`google`", "Gemini CLI", "`~/.gemini/skills/gtfs-viz`"],
+            ["`generic`", "Agents that read the shared folder", "`~/.agents/skills/gtfs-viz`"],
+          ],
+        },
+      ],
+    },
+    {
+      id: "teaches",
+      title: "What SKILL.md teaches",
+      blocks: [
+        {
+          type: "text",
+          text: "`SKILL.md` loads when a task mentions GTFS data. It groups the CLI into five categories.",
+        },
+      ],
+      sub: [
+        {
+          id: "setup",
+          title: "Setup",
+          blocks: [
+            { type: "text", text: "Load a feed and check what is loaded." },
+            {
+              type: "table",
+              head: ["Task", "Command"],
+              rows: [
+                ["Import a feed", "`gtfs-viz import /abs/path/feed.zip`"],
+                ["Check the loaded feed", "`gtfs-viz status`"],
+                ["Update the CLI", "`gtfs-viz update`"],
+                ["Help for one command", "`gtfs-viz h <command>`"],
+              ],
+            },
+          ],
+        },
+        {
+          id: "explore",
+          title: "Explore",
+          blocks: [
+            { type: "text", text: "Browse stations, stops, routes, trips, calendars and shapes." },
+            {
+              type: "table",
+              head: ["Task", "Command"],
+              rows: [
+                ["Filter stations", "`gtfs-viz stations --pathways no --data`"],
+                ["Look up a station", '`gtfs-viz station "Park Street" --data`'],
+                ["Station pathways", '`gtfs-viz station_pathways "Park Street" --data`'],
+                ["Routes and one route", "`gtfs-viz routes --type Subway --data`"],
+                ["A trip's stop times", "`gtfs-viz trip canonical-Red-C1-0 --data`"],
+                ["Calendars and shapes", "`gtfs-viz calendar --data`"],
+              ],
+            },
+          ],
+        },
+        {
+          id: "analyze",
+          title: "Analyze",
+          blocks: [
+            {
+              type: "text",
+              text: "Pathfinding inside stations, route line bands and SQL against the feed.",
+            },
+            {
+              type: "table",
+              head: ["Task", "Command"],
+              rows: [
+                ["Times between station parts", '`gtfs-viz station_routes "South Station" --data`'],
+                [
+                  "Fastest entrance to exit",
+                  '`gtfs-viz station_shortest_route "South Station" --data`',
+                ],
+                ["Build route line bands", "`gtfs-viz route-bands`"],
+                ["Run SQL", '`gtfs-viz query --sql "SELECT * FROM StationsTable"`'],
+              ],
+            },
+          ],
+        },
+        {
+          id: "edit",
+          title: "Edit",
+          blocks: [
+            {
+              type: "text",
+              text: "Change pathways, station parts, trips, stop times and calendars. For a service alert the agent reads the alert, checks the affected trips, applies edits and reviews them.",
+            },
+            {
+              type: "table",
+              head: ["Task", "Command"],
+              rows: [
+                ["Add a pathway", "`gtfs-viz add_connection --from A --to B --traversal-time 45`"],
+                [
+                  "Add a station part",
+                  "`gtfs-viz add_node --stop-id ID --lat .. --lon .. --parent-station ID`",
+                ],
+                [
+                  "Change a trip",
+                  '`gtfs-viz update_trip --trip-id canonical-Red-C1-0 --headsign "Express"`',
+                ],
+                ["Skip stops", '`gtfs-viz remove_stops --trip ID --stops "Park Street"`'],
+                [
+                  "Run a trip via another route",
+                  "`gtfs-viz reroute --trip ID --via DONOR --from A --to B`",
+                ],
+                ["Many edits at once", "`gtfs-viz apply changeset.json`"],
+              ],
+            },
+            {
+              type: "code",
+              lang: "json",
+              code: '{\n  "ops": [\n    { "op": "trip.update", "trip_id": "canonical-Red-C1-0", "trip_headsign": "Alewife Express" }\n  ]\n}',
+            },
+          ],
+        },
+        {
+          id: "share",
+          title: "Share",
+          blocks: [
+            {
+              type: "text",
+              text: "Open results in the dashboard, review edits and export the feed.",
+            },
+            {
+              type: "table",
+              head: ["Task", "Command"],
+              rows: [
+                ["Dashboard link", "`gtfs-viz view --view stations/map --url-only`"],
+                ["Review pending edits", "`gtfs-viz edits --url-only`"],
+                ["Export GTFS files", "`gtfs-viz export --output ./out`"],
+                ["Remove local data", "`gtfs-viz clean`"],
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: "rules",
+      title: "Agent rules",
+      blocks: [
+        {
+          type: "list",
+          items: [
+            "Use absolute paths and quote paths with spaces.",
+            "Return the printed dashboard link unless the user asked for `--data`.",
+            "Check the loaded feed with `gtfs-viz status`; feeds expire after 7 days.",
+          ],
+        },
+      ],
+    },
+  ],
+}
 
 export type Release = {
   repo: Part["id"]
@@ -662,14 +706,15 @@ export type Release = {
 
 export const releases: Release[] = [
   {
-    repo: "gtfs-duckdb-extension",
+    repo: "gtfs-duckdb",
     version: "1.0.0",
-    title: "GTFS DuckDB Extension",
+    title: "First release",
     date: "2026-09-28",
     status: "In review",
     pr: 4,
     highlights: [
-      { area: "Extension", text: "65 GTFS functions available after `LOAD gtfs`" },
+      { area: "Extension", text: "89 GTFS functions available after `LOAD gtfs`" },
+      { area: "Extension", text: "`gtfs_import` loads a whole feed folder in one call" },
       {
         area: "Extension",
         text: "Explicit `gtfs_prepare`, `gtfs_init` and `gtfs_refresh` lifecycle",
@@ -680,14 +725,15 @@ export const releases: Release[] = [
   {
     repo: "gtfs-viz",
     version: "Unreleased",
-    title: "Consume the GTFS DuckDB Extension",
+    title: "Consume GTFS DuckDB",
     date: "2026-09-28",
     status: "In review",
     pr: 20,
     highlights: [
       { area: "Architecture", text: "Web and CLI call the extension instead of bundling SQL" },
       { area: "Web", text: "Sessions reopen by loading the extension, without a rebuild" },
-      { area: "Docs", text: "Separately deployed docs site" },
+      { area: "Import", text: "Web and CLI import feeds through `gtfs_import`" },
+      { area: "Docs", text: "Docs at `/docs/`, linked from the app header" },
     ],
   },
   {
@@ -807,8 +853,7 @@ export const releases: Release[] = [
   },
 ]
 
-export const repoUrl = (repo: Release["repo"]) =>
-  repo === "gtfs-viz" ? repos.viz : repos.extension
+export const repoUrl = (repo: Release["repo"]) => (repo === "gtfs-viz" ? repos.viz : repos.duckdb)
 
 export const releasesFor = (id: Part["id"]) => releases.filter((release) => release.repo === id)
 
@@ -827,6 +872,52 @@ export const partPath = (id: Part["id"]) => `${docsBase}${id}/`
 export const pagePath = (id: Part["id"], slug: string) => `${docsBase}${id}/${slug}/`
 
 export const pageFile = (id: Part["id"], slug: string) => `${id}/${slug}.md`
+
+export const partFile = (id: Part["id"]) => `${id}.md`
+
+export const groupFile = (group: string) => `gtfs-duckdb/functions/${group}.md`
+
+export const agentPath = `${docsBase}agents/`
+
+export const agentFile = "agent-skill.md"
+
+export const upcomingPath = `${docsBase}upcoming/`
+
+export const upcomingFile = "upcoming.md"
+
+export type UpcomingFeature = { id: string; title: string; description: string; category: string }
+
+export const upcoming = {
+  title: "Upcoming features",
+  summary:
+    "Features planned for future releases. Help us prioritize by voting and discussing in our GitHub repository!",
+  ideas: "Have ideas for new features? Join the discussion and help shape the future of GTFS Viz!",
+  discussions: `${repos.viz}/discussions`,
+  issues: `${repos.viz}/issues/new`,
+  features: [
+    {
+      id: "trip-analysis",
+      title: "Trip Analysis",
+      description:
+        "Compare trips side by side with service diagrams showing local vs express patterns, shared stops, and directional service",
+      category: "Analysis",
+    },
+    {
+      id: "data-editing",
+      title: "Improved Data Editing",
+      description:
+        "Edit stations, pathways, trips, and calendars in bulk with inline validation, undo history, and before and after previews of every change",
+      category: "Editing",
+    },
+    {
+      id: "cloud-integration",
+      title: "Cloud Integration",
+      description:
+        "Open and save GTFS feeds from cloud storage with scheduled imports, shared datasets, and GTFS DuckDB functions running in cloud pipelines",
+      category: "Cloud",
+    },
+  ] as UpcomingFeature[],
+}
 
 export const releasesPath = (id: Part["id"]) => `${docsBase}${id}/releases/`
 

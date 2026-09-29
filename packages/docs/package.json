@@ -2,11 +2,11 @@
   "name": "@gtfs-viz/docs",
   "version": "1.0.0",
   "private": true,
-  "description": "Documentation site for GTFS Viz and the GTFS DuckDB Extension",
+  "description": "Documentation site for GTFS Tools: GTFS Viz and GTFS DuckDB",
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "vp dev",
+    "dev": "vp dev --host 127.0.0.1 --port 4391 --strictPort",
     "build": "vp build",
     "check": "vp check && tsc -p tsconfig.json --noEmit",
     "start": "node server.mjs"

@@ -20,7 +20,7 @@ const layer = new RouteShapeLayer({
 })
 ```
 
-Records carrying `slots`, `turnRadii`, and `bandCounts` support cleaned corridor lanes; raw records remain ordinary paths. Database algorithms live in the separate [GTFS DuckDB Extension](https://github.com/gabrielAHN/gtfs-duckdb-extension); `@gtfs-viz/duckdb-client` only downloads and loads it. Rendering imports formerly taken from that package's root or `/deckgl` entry point must move here; there is no compatibility re-export.
+Records carrying `slots`, `turnRadii`, and `bandCounts` support cleaned corridor lanes; raw records remain ordinary paths. Database algorithms live in the separate [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) extension; `@gtfs-viz/duckdb-client` only downloads and loads it. Rendering imports formerly taken from that package's root or `/deckgl` entry point must move here; there is no compatibility re-export.
 
 From the repository root:
 

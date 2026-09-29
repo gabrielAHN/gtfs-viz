@@ -9,7 +9,7 @@
     "url": "git+https://github.com/gabrielAHN/gtfs-viz.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://github.com/gabrielAHN/gtfs-viz/tree/main/packages/cli#readme",
+  "homepage": "https://gtfs-viz-production-f1a4.up.railway.app/docs/gtfs-viz/cli/",
   "keywords": [
     "gtfs",
     "transit",

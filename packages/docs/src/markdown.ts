@@ -1,10 +1,20 @@
 import {
+  agentFile,
+  agentPage,
+  agentPath,
+  upcoming,
+  upcomingFile,
+  upcomingPath,
   docsBase,
+  functionsPath,
   githubRelease,
+  groupFile,
   goals,
   intro,
   pageFile,
   pagePath,
+  partFile,
+  partPath,
   parts,
   pullRequest,
   releaseFile,
@@ -14,9 +24,9 @@ import {
   repos,
   versionLabel,
 } from "./content"
-import type { Block, DocPage, Part, Release } from "./content"
-import { functionCategories, functions } from "./functions"
-import type { GtfsFunction } from "./functions"
+import type { Block, DocPage, Part, Release, Section } from "./content"
+import { functionGroups, functions, internalCount } from "./functions"
+import type { FunctionGroup, GtfsFunction } from "./functions"
 
 export { docsBase }
 
@@ -33,7 +43,14 @@ function blockMarkdown(block: Block): string[] {
     case "steps":
       return block.items.flatMap((step, index) => [
         `${index + 1}. **${step.title}**${step.body ? ` ${step.body}` : ""}`,
-        ...(step.code ? ["", ...fence(step.code, step.lang).map((line) => `   ${line}`)] : []),
+        ...(step.code
+          ? [
+              "",
+              ...fence(step.code, step.lang).flatMap((line) =>
+                line.split("\n").map((row) => `   ${row}`),
+              ),
+            ]
+          : []),
         "",
       ])
     case "cards":
@@ -57,9 +74,9 @@ function blockMarkdown(block: Block): string[] {
 
 export function functionMarkdown(fn: GtfsFunction) {
   return [
-    `### ${fn.name}`,
+    `#### ${fn.name}`,
     "",
-    `\`${fn.signature}\` (${fn.kind})`,
+    `\`${fn.signature}\` (${fn.kind}${fn.usedByViz ? ", used by GTFS Viz" : ""})`,
     "",
     fn.description,
     "",
@@ -74,24 +91,47 @@ export function functionMarkdown(fn: GtfsFunction) {
 }
 
 function functionsMarkdown() {
-  return functionCategories.flatMap((category) => [
-    `## ${category.title}`,
+  return [
+    "## Groups",
     "",
-    category.body,
+    ...functionGroups.map(
+      (group) =>
+        `- [${group.title}](${docsBase}${groupFile(group.id)}): ${group.body} (${functions.filter((fn) => fn.group === group.id).length} functions)`,
+    ),
     "",
-    ...functions.filter((fn) => fn.category === category.id).flatMap(functionMarkdown),
-  ])
+    `${internalCount} more functions are internal to GTFS Viz (caches, map bounds and filter menus) and are not covered here.`,
+    "",
+  ]
 }
 
+export function groupMarkdown(group: FunctionGroup) {
+  const list = functions.filter((fn) => fn.group === group.id)
+  const multiple = group.categories.length > 1
+  return [
+    `# GTFS DuckDB functions: ${group.title}`,
+    "",
+    group.body,
+    "",
+    `Page: ${functionsPath(group.id)}`,
+    "",
+    ...group.categories.flatMap((category) => [
+      ...(multiple ? [`## ${category.title}`, "", category.body, ""] : []),
+      ...list.filter((fn) => fn.category === category.id).flatMap(functionMarkdown),
+    ]),
+  ].join("\n")
+}
+
+const sectionMarkdown = (section: Section, depth: number): string[] => [
+  `${"#".repeat(depth)} ${section.title}`,
+  "",
+  ...section.blocks.flatMap(blockMarkdown),
+  ...(section.sub ?? []).flatMap((child) => sectionMarkdown(child, depth + 1)),
+]
+
+const sectionsMarkdown = (page: DocPage) =>
+  page.sections.flatMap((section) => sectionMarkdown(section, 2))
+
 export function pageMarkdown(part: Part, page: DocPage) {
-  const body =
-    page.slug === "functions"
-      ? functionsMarkdown()
-      : page.sections.flatMap((section) => [
-          `## ${section.title}`,
-          "",
-          ...section.blocks.flatMap(blockMarkdown),
-        ])
   return [
     `# ${part.name}: ${page.title}`,
     "",
@@ -99,7 +139,46 @@ export function pageMarkdown(part: Part, page: DocPage) {
     "",
     `Page: ${pagePath(part.id, page.slug)}`,
     "",
-    ...body,
+    ...(page.slug === "functions" ? functionsMarkdown() : []),
+    ...sectionsMarkdown(page),
+  ].join("\n")
+}
+
+export function agentMarkdown() {
+  return [
+    `# ${agentPage.title}`,
+    "",
+    agentPage.summary,
+    "",
+    `Page: ${agentPath}`,
+    "",
+    ...sectionsMarkdown(agentPage),
+  ].join("\n")
+}
+
+export function upcomingMarkdown() {
+  return [
+    `# ${upcoming.title}`,
+    "",
+    upcoming.summary,
+    "",
+    `Page: ${upcomingPath}`,
+    "",
+    ...upcoming.features.flatMap((feature) => [
+      `## ${feature.title}`,
+      "",
+      `- Category: ${feature.category}`,
+      "",
+      feature.description,
+      "",
+    ]),
+    "## Share your ideas",
+    "",
+    upcoming.ideas,
+    "",
+    `- Discussions: ${upcoming.discussions}`,
+    `- Report a bug: ${upcoming.issues}`,
+    "",
   ].join("\n")
 }
 
@@ -139,9 +218,15 @@ export function releasesMarkdown(part: Part) {
 }
 
 const pageLinks = (part: Part) => [
-  ...part.pages.map(
-    (page) => `- [${page.title}](${docsBase}${pageFile(part.id, page.slug)}): ${page.summary}`,
-  ),
+  `- [Overview](${docsBase}${partFile(part.id)}): what ${part.name} does`,
+  ...part.pages.flatMap((page) => [
+    `- [${page.title}](${docsBase}${pageFile(part.id, page.slug)}): ${page.summary}`,
+    ...(page.slug === "functions"
+      ? functionGroups.map(
+          (group) => `  - [${group.title}](${docsBase}${groupFile(group.id)}): ${group.body}`,
+        )
+      : []),
+  ]),
   `- [Releases](${docsBase}${part.id}/releases.md): every release, each with its own file`,
 ]
 
@@ -149,9 +234,14 @@ export function partMarkdown(part: Part) {
   return [
     `# ${part.name}`,
     "",
-    `${part.tagline}. Repository: ${part.repo}`,
-    "",
     part.summary,
+    "",
+    `- Repository: ${part.repo}`,
+    `- Page: ${partPath(part.id)}`,
+    "",
+    "## What it does",
+    "",
+    ...part.does.map((item) => `- ${item}`),
     "",
     "## Pages",
     "",
@@ -162,33 +252,41 @@ export function partMarkdown(part: Part) {
 
 export function overviewMarkdown() {
   return [
-    "# GTFS Viz",
+    "# GTFS Tools",
     "",
     intro,
     "",
-    "## Goals",
+    "## Goal",
     "",
     ...goals.map((goal) => `- **${goal.title}:** ${goal.body}`),
     "",
     ...parts.flatMap((part) => [
       `## ${part.name}`,
       "",
-      `${part.tagline}. ${part.repo}`,
+      `${part.summary} Repository: ${part.repo}`,
       "",
       ...pageLinks(part),
       "",
     ]),
+    "## Agent skill",
+    "",
+    `- [${agentPage.title}](${docsBase}${agentFile}): ${agentPage.summary}`,
+    "",
+    "## Roadmap",
+    "",
+    `- [${upcoming.title}](${docsBase}${upcomingFile}): ${upcoming.features.map((feature) => feature.title).join(", ")}`,
+    "",
     "## Links",
     "",
-    `- Web app: ${repos.app}`,
-    `- CLI on npm: ${repos.npm}`,
+    `- GTFS Viz web app: ${repos.app}`,
+    `- Docs: ${docsBase}`,
     "",
   ].join("\n")
 }
 
 export function llmsTxt() {
   return [
-    "# GTFS Viz",
+    "# GTFS Tools",
     "",
     `> ${intro}`,
     "",
@@ -198,6 +296,14 @@ export function llmsTxt() {
     `- [Overview](${docsBase}index.md): goals and parts`,
     "",
     ...parts.flatMap((part) => [`## ${part.name}`, "", ...pageLinks(part), ""]),
+    "## Agent skill",
+    "",
+    `- [${agentPage.title}](${docsBase}${agentFile}): ${agentPage.summary}`,
+    "",
+    "## Roadmap",
+    "",
+    `- [${upcoming.title}](${docsBase}${upcomingFile}): features planned for future releases`,
+    "",
     "## Releases",
     "",
     ...releases.map(
@@ -212,9 +318,13 @@ export const fullMarkdown = () =>
   [
     overviewMarkdown(),
     ...parts.flatMap((part) => [
+      partMarkdown(part),
       ...part.pages.map((page) => pageMarkdown(part, page)),
+      ...(part.id === "gtfs-duckdb" ? functionGroups.map(groupMarkdown) : []),
       ...releasesFor(part.id).map(releaseMarkdown),
     ]),
+    agentMarkdown(),
+    upcomingMarkdown(),
   ].join("\n---\n\n")
 
 export function markdownFiles(): Record<string, string> {
@@ -222,7 +332,12 @@ export function markdownFiles(): Record<string, string> {
     "llms.txt": llmsTxt(),
     "llms-full.txt": fullMarkdown(),
     "index.md": overviewMarkdown(),
-    ...Object.fromEntries(parts.map((part) => [`${part.id}.md`, partMarkdown(part)])),
+    [agentFile]: agentMarkdown(),
+    [upcomingFile]: upcomingMarkdown(),
+    ...Object.fromEntries(parts.map((part) => [partFile(part.id), partMarkdown(part)])),
+    ...Object.fromEntries(
+      functionGroups.map((group) => [groupFile(group.id), groupMarkdown(group)]),
+    ),
     ...Object.fromEntries(parts.map((part) => [`${part.id}/releases.md`, releasesMarkdown(part)])),
     ...Object.fromEntries(
       parts.flatMap((part) =>

@@ -5,7 +5,7 @@
 
 Lightweight GTFS data visualizer and editor. Import, browse, edit, and export transit feeds — runs entirely client-side with DuckDB.
 
-**Docs:** [gtfs-viz-production-f1a4.up.railway.app/docs](https://gtfs-viz-production-f1a4.up.railway.app/docs/) — web app, CLI, agent skill and the GTFS DuckDB function reference. Every page is also available as markdown ([llms.txt](https://gtfs-viz-production-f1a4.up.railway.app/docs/llms.txt)).
+**Docs:** [gtfs-viz-production-f1a4.up.railway.app/docs](https://gtfs-viz-production-f1a4.up.railway.app/docs/) — web app, CLI, agent skill, the GTFS DuckDB function reference and [upcoming features](https://gtfs-viz-production-f1a4.up.railway.app/docs/upcoming/). Every page is also available as markdown ([llms.txt](https://gtfs-viz-production-f1a4.up.railway.app/docs/llms.txt)).
 
 ![GTFS Viz Demo](images/gtfs-viz.gif)
 
@@ -103,6 +103,7 @@ Run the same build locally:
 
 ```bash
 yarn preview:deploy                                   # app, docs and ../gtfs-duckdb at localhost:4000
+yarn preview:deploy --port 4391                       # same build on another port
 yarn preview:deploy --extension <url|archive|repo>    # another extension build
 yarn preview:deploy --skip-build                      # only refresh the extension files after rebuilding it
 ```

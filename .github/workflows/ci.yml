@@ -31,11 +31,11 @@ jobs:
       - run: yarn test
 
   extension-integration:
-    name: GTFS DuckDB Extension integration
+    name: GTFS DuckDB integration
     needs: build
     runs-on: ubuntu-24.04
     env:
-      EXTENSION_REPOSITORY: gabrielAHN/gtfs-duckdb-extension
+      EXTENSION_REPOSITORY: gabrielAHN/gtfs-duckdb
       EXTENSION_BRANCH: ${{ vars.GTFS_EXTENSION_BRANCH || 'main' }}
       GTFS_STAGED_REPOSITORY: ${{ github.workspace }}/build/staged-repository
       DUCKDB_BIN: ${{ github.workspace }}/build/duckdb-cli/duckdb

@@ -1,14 +1,14 @@
 # @gtfs-viz/duckdb-client
 
-Downloads and loads the [GTFS DuckDB Extension](https://github.com/gabrielAHN/gtfs-duckdb-extension) and moves GTFS files into DuckDB for the web app and CLI. All database functions, normalization and schema live in the extension; this package only calls them.
+Downloads and loads the [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) extension and moves GTFS files into DuckDB for the web app and CLI. All database functions, normalization and schema live in the extension; this package only calls them.
 
 ```sql
 INSTALL gtfs FROM '<repository>';
 LOAD gtfs;
-PRAGMA gtfs_prepare;
--- stage <table>_raw from CSV, then PRAGMA gtfs_normalize_<table>
-PRAGMA gtfs_init;
+PRAGMA gtfs_import('<feed directory>');
 ```
+
+`gtfs_import` reads every GTFS file in the directory, builds the tables and keeps pending edits. The CLI passes its extract directory; the browser registers the files by name and passes `''`.
 
 ## Configuration
 

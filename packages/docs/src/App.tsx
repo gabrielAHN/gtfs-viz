@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import { BiLogoGithub } from "react-icons/bi"
 import {
@@ -11,20 +11,29 @@ import {
   Cloud,
   Copy,
   FileText,
+  Menu,
+  MessageSquare,
+  Sparkles,
   TrainFront,
+  X,
 } from "lucide-react"
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
+  agentFile,
+  agentPage,
+  agentPath,
   docsBase,
+  functionsPath,
   githubRelease,
+  groupFile,
   goals,
   intro,
   pageFile,
   pagePath,
   partById,
+  partFile,
   partPath,
   parts,
   pullRequest,
@@ -34,20 +43,36 @@ import {
   releasesPath,
   releaseSlug,
   repos,
+  upcoming,
+  upcomingFile,
+  upcomingPath,
   versionLabel,
 } from "./content"
-import type { Block, DocPage, Part, Release } from "./content"
-import { functionCategories, functions } from "./functions"
-import type { FunctionKind, GtfsFunction } from "./functions"
-import { fullMarkdown, pageMarkdown, releaseMarkdown, releasesMarkdown } from "./markdown"
-import { Link, usePathname } from "./router"
+import type { Block, DocPage, Part, Release, Section } from "./content"
+import { functionGroups, functions, internalCount } from "./functions"
+import type { FunctionGroup, FunctionKind, GtfsFunction } from "./functions"
+import {
+  agentMarkdown,
+  groupMarkdown,
+  pageMarkdown,
+  partMarkdown,
+  releaseMarkdown,
+  releasesMarkdown,
+  upcomingMarkdown,
+} from "./markdown"
+import { Link, useHash, usePathname } from "./router"
 
-const goalIcons = [Cloud, Bot, TrainFront]
+const goalIcons = [TrainFront, Bot, Cloud]
+
+const siteName = "GTFS Tools"
 
 type Route =
   | { kind: "home" }
   | { kind: "agents" }
+  | { kind: "upcoming" }
+  | { kind: "part"; part: Part }
   | { kind: "page"; part: Part; page: DocPage }
+  | { kind: "group"; part: Part; group: FunctionGroup }
   | { kind: "releases"; part: Part }
   | { kind: "release"; part: Part; release: Release }
   | { kind: "missing" }
@@ -59,9 +84,14 @@ function resolve(pathname: string): Route {
     .filter(Boolean)
   if (segments.length === 0) return { kind: "home" }
   if (segments[0] === "agents" && segments.length === 1) return { kind: "agents" }
+  if (segments[0] === "upcoming" && segments.length === 1) return { kind: "upcoming" }
   const part = partById(segments[0])
   if (!part) return { kind: "missing" }
-  if (segments.length === 1) return { kind: "page", part, page: part.pages[0] }
+  if (segments.length === 1) return { kind: "part", part }
+  if (segments[1] === "functions" && segments.length === 3) {
+    const group = functionGroups.find((item) => item.id === segments[2])
+    return group ? { kind: "group", part, group } : { kind: "missing" }
+  }
   if (segments[1] === "releases") {
     if (segments.length === 2) return { kind: "releases", part }
     const release = releasesFor(part.id).find((item) => releaseSlug(item) === segments[2])
@@ -76,17 +106,23 @@ function resolve(pathname: string): Route {
 function titleFor(route: Route) {
   switch (route.kind) {
     case "home":
-      return "GTFS Viz Docs"
+      return `${siteName} Docs`
     case "agents":
-      return "Agent docs · GTFS Viz Docs"
+      return `${agentPage.title} · ${siteName} Docs`
+    case "upcoming":
+      return `${upcoming.title} · ${siteName} Docs`
+    case "part":
+      return `${route.part.name} · ${siteName} Docs`
     case "page":
-      return `${route.page.title} · ${route.part.name} · GTFS Viz Docs`
+      return `${route.page.title} · ${route.part.name} · ${siteName} Docs`
+    case "group":
+      return `${route.group.title} · Functions · ${siteName} Docs`
     case "releases":
-      return `${route.part.name} releases · GTFS Viz Docs`
+      return `${route.part.name} releases · ${siteName} Docs`
     case "release":
-      return `${route.part.name} ${versionLabel(route.release)} · GTFS Viz Docs`
+      return `${route.part.name} ${versionLabel(route.release)} · ${siteName} Docs`
     default:
-      return "Not found · GTFS Viz Docs"
+      return `Not found · ${siteName} Docs`
   }
 }
 
@@ -128,12 +164,25 @@ function ExternalButton({
   )
 }
 
-function CopyButton({ text, label, compact }: { text: string; label: string; compact?: boolean }) {
+const smallButton = "h-7 gap-1.5 px-2.5 text-xs [&_svg]:size-3.5"
+
+function CopyButton({
+  text,
+  label,
+  compact,
+  className,
+}: {
+  text: string
+  label: string
+  compact?: boolean
+  className?: string
+}) {
   const [copied, setCopied] = useState(false)
   return (
     <Button
       variant={compact ? "ghost" : "outline"}
       size="sm"
+      className={className}
       aria-label={compact ? label : undefined}
       onClick={async () => {
         await navigator.clipboard.writeText(text)
@@ -148,15 +197,16 @@ function CopyButton({ text, label, compact }: { text: string; label: string; com
 }
 
 function MarkdownBar({ text, file }: { text: string; file: string }) {
+  const href = `${docsBase}${file}`
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <CopyButton text={text} label="Copy markdown" />
-      <Button variant="outline" size="sm" asChild>
-        <a href={`${docsBase}${file}`} target="_blank" rel="noopener noreferrer">
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Button variant="outline" size="sm" className={smallButton} asChild>
+        <a href={href} target="_blank" rel="noopener noreferrer" title={href}>
           <FileText />
-          {file.split("/").pop()}
+          Markdown
         </a>
       </Button>
+      <CopyButton text={text} label="Copy markdown" className={smallButton} />
     </div>
   )
 }
@@ -199,13 +249,9 @@ function PageHeader({
   return (
     <header className="space-y-2">
       <Breadcrumbs items={crumbs} />
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-5xl font-bold">{title}</h1>
-          {subtitle && <p className="text-lg text-muted-foreground">{subtitle}</p>}
-        </div>
-        {actions}
-      </div>
+      <h1 className="text-5xl font-bold">{title}</h1>
+      {subtitle && <p className="text-lg text-muted-foreground">{subtitle}</p>}
+      {actions && <div className="pt-1">{actions}</div>}
     </header>
   )
 }
@@ -275,7 +321,7 @@ function BlockView({ block }: { block: Block }) {
               <>
                 <p className="flex items-center justify-between gap-2 text-xl font-bold">
                   {card.title}
-                  {card.href && <ArrowUpRight className="h-4 w-4 shrink-0" />}
+                  {card.href && <ChevronRight className="h-4 w-4 shrink-0" />}
                 </p>
                 <p className="mt-1 break-words text-lg">
                   <Inline text={card.body} />
@@ -283,15 +329,13 @@ function BlockView({ block }: { block: Block }) {
               </>
             )
             return card.href ? (
-              <a
+              <Link
                 key={card.title}
-                href={card.href}
-                target="_blank"
-                rel="noopener noreferrer"
+                to={card.href}
                 className="rounded-lg border bg-card p-4 hover:bg-accent hover:text-accent-foreground"
               >
                 {body}
-              </a>
+              </Link>
             ) : (
               <div key={card.title} className="rounded-lg border bg-card p-4">
                 {body}
@@ -364,16 +408,15 @@ type NavItem = { to: string; label: string }
 
 function partNav(part: Part): NavItem[] {
   return [
-    ...part.pages.map((page) => ({ to: pagePath(part.id, page.slug), label: page.title })),
+    { to: partPath(part.id), label: "Overview" },
+    ...part.pages.flatMap((page) => [
+      { to: pagePath(part.id, page.slug), label: page.title },
+      ...(page.slug === "functions"
+        ? functionGroups.map((group) => ({ to: functionsPath(group.id), label: group.title }))
+        : []),
+    ]),
     { to: releasesPath(part.id), label: "Releases" },
   ]
-}
-
-function isActive(pathname: string, item: NavItem, part?: Part) {
-  if (pathname.startsWith(item.to)) return true
-  return part
-    ? item.to === pagePath(part.id, part.pages[0].slug) && pathname === partPath(part.id)
-    : false
 }
 
 function PageNav({ part, current }: { part: Part; current: string }) {
@@ -429,27 +472,35 @@ function OnThisPage({ items }: { items: { id: string; title: string }[] }) {
   )
 }
 
+function RepoButton({ href, label = "GitHub" }: { href: string; label?: string }) {
+  return (
+    <Button variant="outline" size="sm" asChild>
+      <a href={href} target="_blank" rel="noopener noreferrer">
+        <BiLogoGithub />
+        {label}
+      </a>
+    </Button>
+  )
+}
+
 function HomePage() {
   return (
     <div className="space-y-10">
       <header className="text-center">
-        <h1 className="text-6xl sm:text-8xl">GTFS 🚉 Viz</h1>
+        <h1 className="text-6xl sm:text-8xl">GTFS 🚉 Tools</h1>
         <p className="mx-auto mt-2 max-w-3xl text-xl">{intro}</p>
         <div className="mt-4 flex flex-wrap justify-center gap-2">
           <Button asChild>
-            <a href={repos.app}>Open the web app</a>
+            <a href={repos.app}>Open GTFS Viz</a>
           </Button>
-          <ExternalButton href={repos.viz} label="gtfs-viz" github />
-          <ExternalButton href={repos.extension} label="gtfs-duckdb-extension" github />
         </div>
       </header>
 
       <section className="space-y-4">
         <div>
-          <h2 className="text-4xl font-bold">Goals</h2>
+          <h2 className="text-4xl font-bold">Goal</h2>
           <p className="text-lg text-muted-foreground">
-            Make GTFS data scale in the cloud and with AI, without losing the simple workflow
-            operators rely on.
+            Make GTFS data easy to work with for operators, AI agents and cloud pipelines alike.
           </p>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
@@ -469,7 +520,7 @@ function HomePage() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-4xl font-bold">Parts</h2>
+        <h2 className="text-4xl font-bold">Projects</h2>
         <div className="grid gap-4 md:grid-cols-2">
           {parts.map((part) => (
             <div key={part.id} className="flex flex-col gap-3 rounded-lg border bg-card p-5">
@@ -481,33 +532,73 @@ function HomePage() {
                 <Inline text={part.summary} />
               </p>
               <div className="mt-auto flex flex-wrap gap-2">
-                {partNav(part).map((item, index) => (
-                  <Button
-                    key={item.to}
-                    variant={index === 0 ? "default" : "outline"}
-                    size="sm"
-                    asChild
-                  >
-                    <Link to={item.to}>{item.label}</Link>
-                  </Button>
-                ))}
+                <Button size="sm" asChild>
+                  <Link to={partPath(part.id)}>Docs</Link>
+                </Button>
+                <RepoButton href={part.repo} label={part.repo.replace("https://github.com/", "")} />
               </div>
             </div>
           ))}
         </div>
       </section>
+    </div>
+  )
+}
 
+function PartPage({ part }: { part: Part }) {
+  const pages = partNav(part).filter(
+    (item) =>
+      item.to !== partPath(part.id) &&
+      (item.to === functionsPath() || !item.to.startsWith(functionsPath())),
+  )
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        crumbs={[{ label: "Docs", to: docsBase }, { label: part.name }]}
+        title={part.name}
+        subtitle={<Inline text={part.summary} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <RepoButton href={part.repo} label={part.repo.replace("https://github.com/", "")} />
+            <MarkdownBar text={partMarkdown(part)} file={partFile(part.id)} />
+          </div>
+        }
+      />
       <section className="rounded-lg border bg-card p-5">
-        <h2 className="flex items-center gap-2 text-3xl font-bold">
-          <Bot className="h-7 w-7" />
-          Docs for AI agents
-        </h2>
-        <p className="text-lg text-muted-foreground">Every page is also available as markdown.</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <CopyButton text={fullMarkdown()} label="Copy all docs" />
-          <Button variant="outline" size="sm" asChild>
-            <Link to={`${docsBase}agents/`}>Agent docs</Link>
-          </Button>
+        <h2 className="text-2xl font-bold">What it does</h2>
+        <ul className="mt-2 list-disc space-y-1 pl-6 text-lg">
+          {part.does.map((item) => (
+            <li key={item}>
+              <Inline text={item} />
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section className="space-y-3">
+        <h2 className="text-3xl font-bold">Pages</h2>
+        <div
+          className={`grid grid-cols-1 gap-3 ${pages.length % 3 === 0 ? "md:grid-cols-3" : "sm:grid-cols-2"}`}
+        >
+          {pages.map((item) => {
+            const page = part.pages.find((entry) => pagePath(part.id, entry.slug) === item.to)
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className="flex flex-col gap-1 rounded-lg border bg-card p-5 hover:bg-accent hover:text-accent-foreground"
+              >
+                <span className="flex items-center justify-between gap-2 text-xl font-bold">
+                  {item.label}
+                  <ArrowRight className="h-5 w-5 shrink-0" />
+                </span>
+                <span className="text-base text-muted-foreground">
+                  <Inline
+                    text={page?.summary ?? `Every ${part.name} release, each on its own page.`}
+                  />
+                </span>
+              </Link>
+            )
+          })}
         </div>
       </section>
     </div>
@@ -531,9 +622,10 @@ function FunctionRow({ fn, open }: { fn: GtfsFunction; open: boolean }) {
             <Inline text={fn.description} />
           </span>
         </span>
-        <Badge variant="outline" className="mt-1 shrink-0">
-          {kindLabel[fn.kind]}
-        </Badge>
+        <span className="mt-1 flex shrink-0 flex-wrap justify-end gap-1">
+          {fn.usedByViz && <Badge variant="secondary">GTFS Viz</Badge>}
+          <Badge variant="outline">{kindLabel[fn.kind]}</Badge>
+        </span>
       </summary>
       <div className="space-y-3 border-t px-4 py-3">
         <p className="text-lg">
@@ -566,110 +658,138 @@ function FunctionRow({ fn, open }: { fn: GtfsFunction; open: boolean }) {
   )
 }
 
-const categoryOf = (name: string) => functions.find((fn) => fn.name === name)?.category
+const groupOf = (fn: GtfsFunction) => functionGroups.find((group) => group.id === fn.group)!
+const inGroup = (group: FunctionGroup) => functions.filter((fn) => fn.group === group.id)
 
-function FunctionsReference() {
+function FunctionSearch() {
   const [query, setQuery] = useState("")
-  const [kind, setKind] = useState<FunctionKind | "all">("all")
-  const [hash, setHash] = useState(() => decodeURIComponent(window.location.hash.slice(1)))
-  const [category, setCategory] = useState(() => categoryOf(hash) ?? functionCategories[0].id)
+  const needle = query.trim().toLowerCase()
+  const matches = needle
+    ? functions.filter(
+        (fn) =>
+          fn.name.toLowerCase().includes(needle) || fn.description.toLowerCase().includes(needle),
+      )
+    : []
+  return (
+    <div className="space-y-2">
+      <input
+        type="search"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder={`Search ${functions.length} functions`}
+        aria-label="Search functions"
+        className="h-9 w-full rounded-md border bg-background px-3 text-lg sm:w-80"
+      />
+      {needle && (
+        <ul className="space-y-1">
+          {matches.length === 0 && (
+            <li className="text-lg text-muted-foreground">No functions match “{query}”.</li>
+          )}
+          {matches.map((fn) => (
+            <li key={fn.name}>
+              <Link
+                to={`${functionsPath(fn.group)}#${fn.name}`}
+                className="flex flex-wrap items-baseline gap-2 rounded-md px-2 py-1 hover:bg-accent hover:text-accent-foreground"
+              >
+                <code className="font-bold">{fn.name}</code>
+                <span className="text-sm text-muted-foreground">{groupOf(fn).title}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function FunctionsOverview() {
+  return (
+    <div className="space-y-5">
+      <FunctionSearch />
+      <div className="grid gap-3 sm:grid-cols-2">
+        {functionGroups.map((group) => (
+          <div key={group.id} className="flex flex-col gap-2 rounded-lg border bg-card p-4">
+            <Link
+              to={functionsPath(group.id)}
+              className="flex items-center justify-between text-2xl font-bold hover:underline"
+            >
+              <span>
+                {group.title}{" "}
+                <span className="text-lg text-muted-foreground">{inGroup(group).length}</span>
+              </span>
+              <ArrowRight className="h-5 w-5" />
+            </Link>
+            <p className="text-lg text-muted-foreground">
+              <Inline text={group.body} />
+            </p>
+            {group.categories.length > 1 && (
+              <div className="mt-auto flex flex-wrap gap-1">
+                {group.categories.map((category) => (
+                  <Link
+                    key={category.id}
+                    to={`${functionsPath(group.id)}#category-${category.id}`}
+                    className="rounded-2xl border px-2 py-0.5 text-base hover:bg-accent hover:text-accent-foreground"
+                  >
+                    {category.title}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <p className="text-base text-muted-foreground">
+        {internalCount} more functions are internal to GTFS Viz: caches, map bounds and filter menus
+        for its maps. They are not covered here.
+      </p>
+    </div>
+  )
+}
+
+const currentHash = () => decodeURIComponent(window.location.hash.slice(1))
+
+function FunctionGroupView({ group }: { group: FunctionGroup }) {
+  const [hash, setHash] = useState(currentHash)
   useEffect(() => {
-    const onHash = () => {
-      const next = decodeURIComponent(window.location.hash.slice(1))
-      setQuery("")
-      setKind("all")
-      setHash(next)
-      const owner = categoryOf(next)
-      if (owner) setCategory(owner)
-    }
+    const onHash = () => setHash(currentHash())
     window.addEventListener("hashchange", onHash)
     return () => window.removeEventListener("hashchange", onHash)
   }, [])
   useEffect(() => {
     if (hash) document.getElementById(hash)?.scrollIntoView()
   }, [hash])
-  const needle = query.trim().toLowerCase()
-  const scoped = !needle && kind === "all"
-  const shown = useMemo(
-    () =>
-      functions.filter(
-        (fn) =>
-          (kind === "all" || fn.kind === kind) &&
-          (!needle ||
-            fn.name.toLowerCase().includes(needle) ||
-            fn.description.toLowerCase().includes(needle)) &&
-          (!scoped || fn.category === category),
-      ),
-    [kind, needle, scoped, category],
-  )
-  const counts = (["pragma", "scalar", "table"] as FunctionKind[]).map((item) => ({
-    item,
-    count: functions.filter((fn) => fn.kind === item).length,
-  }))
-  const groups = functionCategories.filter((group) => shown.some((fn) => fn.category === group.id))
+  const list = inGroup(group)
+  const multiple = group.categories.length > 1
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search all 88 functions"
-          aria-label="Search functions"
-          className="h-9 w-full rounded-md border bg-background px-3 text-lg sm:w-64"
+    <div className="space-y-6">
+      {multiple && (
+        <OnThisPage
+          items={group.categories.map((category) => ({
+            id: `category-${category.id}`,
+            title: category.title,
+          }))}
         />
-        <Tabs value={kind} onValueChange={(value) => setKind(value as FunctionKind | "all")}>
-          <TabsList className="h-auto flex-wrap justify-start">
-            <TabsTrigger value="all" className="text-base">
-              All {functions.length}
-            </TabsTrigger>
-            {counts.map(({ item, count }) => (
-              <TabsTrigger key={item} value={item} className="text-base">
-                {kindLabel[item]} {count}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      </div>
-      <nav aria-label="Function categories" className="flex flex-wrap gap-2">
-        {functionCategories.map((group) => {
-          const active = scoped && group.id === category
-          return (
-            <button
-              key={group.id}
-              type="button"
-              aria-pressed={active}
-              onClick={() => {
-                setQuery("")
-                setKind("all")
-                setCategory(group.id)
-              }}
-              className={`rounded-2xl border px-3 py-0.5 text-base hover:bg-accent hover:text-accent-foreground ${active ? "bg-accent font-bold text-accent-foreground" : ""}`}
-            >
-              {group.title}{" "}
-              <span className="text-muted-foreground">
-                {functions.filter((fn) => fn.category === group.id).length}
-              </span>
-            </button>
-          )
-        })}
-      </nav>
-      {groups.length === 0 && (
-        <p className="text-lg text-muted-foreground">No functions match “{query}”.</p>
       )}
-      {groups.map((group) => {
-        const list = shown.filter((fn) => fn.category === group.id)
+      {group.categories.map((category) => {
+        const rows = list.filter((fn) => fn.category === category.id)
         return (
-          <section key={group.id} id={`category-${group.id}`} className="scroll-mt-4 space-y-2">
-            <div>
-              <h2 className="text-3xl font-bold">
-                {group.title} <span className="text-xl text-muted-foreground">{list.length}</span>
-              </h2>
-              <p className="text-lg text-muted-foreground">
-                <Inline text={group.body} />
-              </p>
-            </div>
-            {list.map((fn) => (
+          <section
+            key={category.id}
+            id={`category-${category.id}`}
+            className="scroll-mt-4 space-y-2"
+          >
+            {multiple && (
+              <div>
+                <h2 className="text-3xl font-bold">
+                  {category.title}{" "}
+                  <span className="text-xl text-muted-foreground">{rows.length}</span>
+                </h2>
+                <p className="text-lg text-muted-foreground">
+                  <Inline text={category.body} />
+                </p>
+              </div>
+            )}
+            {rows.map((fn) => (
               <FunctionRow key={fn.name} fn={fn} open={hash === fn.name} />
             ))}
           </section>
@@ -679,10 +799,63 @@ function FunctionsReference() {
   )
 }
 
+function FunctionGroupPage({ part, group }: { part: Part; group: FunctionGroup }) {
+  const functionsPage = part.pages.find((page) => page.slug === "functions")!
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        crumbs={[
+          { label: "Docs", to: docsBase },
+          { label: part.name, to: partPath(part.id) },
+          { label: functionsPage.title, to: functionsPath() },
+          { label: group.title },
+        ]}
+        title={group.title}
+        subtitle={<Inline text={group.body} />}
+        actions={<MarkdownBar text={groupMarkdown(group)} file={groupFile(group.id)} />}
+      />
+      <FunctionGroupView group={group} />
+      <PageNav part={part} current={functionsPath(group.id)} />
+    </div>
+  )
+}
+
+function SectionView({ section, depth }: { section: Section; depth: number }) {
+  const Heading = depth === 0 ? "h2" : "h3"
+  return (
+    <section
+      id={section.id}
+      className={`scroll-mt-4 space-y-3 ${depth > 0 ? "rounded-lg border bg-card p-4" : ""}`}
+    >
+      <Heading className={depth === 0 ? "text-3xl font-bold" : "text-2xl font-bold"}>
+        {section.title}
+      </Heading>
+      {section.blocks.map((block, index) => (
+        <BlockView key={index} block={block} />
+      ))}
+      {section.sub && (
+        <div className="grid grid-cols-1 gap-3">
+          {section.sub.map((child) => (
+            <SectionView key={child.id} section={child} depth={depth + 1} />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function Sections({ page }: { page: DocPage }) {
+  return (
+    <>
+      {page.sections.length > 2 && <OnThisPage items={page.sections} />}
+      {page.sections.map((section) => (
+        <SectionView key={section.id} section={section} depth={0} />
+      ))}
+    </>
+  )
+}
+
 function DocPageView({ part, page }: { part: Part; page: DocPage }) {
-  const markdown = pageMarkdown(part, page)
-  const file = pageFile(part.id, page.slug)
-  const functionsPage = page.slug === "functions"
   return (
     <div className="space-y-6">
       <PageHeader
@@ -694,47 +867,13 @@ function DocPageView({ part, page }: { part: Part; page: DocPage }) {
         title={page.title}
         subtitle={<Inline text={page.summary} />}
         actions={
-          <ExternalButton
-            href={part.repo}
-            label={part.repo.replace("https://github.com/", "")}
-            github
-          />
+          <MarkdownBar text={pageMarkdown(part, page)} file={pageFile(part.id, page.slug)} />
         }
       />
-      <Tabs defaultValue="docs">
-        <TabsList className="h-auto flex-wrap justify-start">
-          <TabsTrigger value="docs" className="text-base">
-            Docs
-          </TabsTrigger>
-          <TabsTrigger value="markdown" className="text-base">
-            <FileText className="mr-1 h-4 w-4" />
-            Markdown
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="docs" className="mt-4 space-y-8">
-          {functionsPage ? (
-            <FunctionsReference />
-          ) : (
-            <>
-              {page.sections.length > 2 && <OnThisPage items={page.sections} />}
-              {page.sections.map((section) => (
-                <section key={section.id} id={section.id} className="scroll-mt-4 space-y-3">
-                  <h2 className="text-3xl font-bold">{section.title}</h2>
-                  {section.blocks.map((block, index) => (
-                    <BlockView key={index} block={block} />
-                  ))}
-                </section>
-              ))}
-            </>
-          )}
-        </TabsContent>
-        <TabsContent value="markdown" className="mt-4 space-y-3">
-          <MarkdownBar text={markdown} file={file} />
-          <pre className="max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-lg border bg-background px-4 py-3 text-base">
-            {markdown}
-          </pre>
-        </TabsContent>
-      </Tabs>
+      <div className="space-y-8">
+        {page.slug === "functions" && <FunctionsOverview />}
+        <Sections page={page} />
+      </div>
       <PageNav part={part} current={pagePath(part.id, page.slug)} />
     </div>
   )
@@ -752,12 +891,7 @@ function ReleasesPage({ part }: { part: Part }) {
         ]}
         title={`${part.name} releases`}
         subtitle="Each release has its own page with its highlights and the pull request it shipped in."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <MarkdownBar text={releasesMarkdown(part)} file={`${part.id}/releases.md`} />
-            <ExternalButton href={`${part.repo}/releases`} label="GitHub releases" github />
-          </div>
-        }
+        actions={<MarkdownBar text={releasesMarkdown(part)} file={`${part.id}/releases.md`} />}
       />
       <div className="space-y-2">
         {list.map((release) => (
@@ -852,52 +986,67 @@ function ReleasePage({ part, release }: { part: Part; release: Release }) {
 }
 
 function AgentsPage() {
-  const files = [
-    { file: "llms.txt", body: "Index of every docs file, following the llms.txt convention." },
-    { file: "llms-full.txt", body: "Every page and release note in one file." },
-    { file: "index.md", body: "Intro, goals and parts." },
-    ...parts.flatMap((part) => [
-      ...part.pages.map((page) => ({
-        file: pageFile(part.id, page.slug),
-        body: `${part.name}: ${page.title}.`,
-      })),
-      { file: `${part.id}/releases.md`, body: `${part.name}: every release.` },
-    ]),
-  ]
   return (
     <div className="space-y-6">
       <PageHeader
-        crumbs={[{ label: "Docs", to: docsBase }, { label: "Agent docs" }]}
-        title="Agent docs"
-        subtitle={
-          <>
-            Point an agent at <code className="rounded bg-muted px-1">{docsBase}llms.txt</code> or
-            paste the full file into its context.
-          </>
-        }
-        actions={<CopyButton text={fullMarkdown()} label="Copy all docs" />}
+        crumbs={[{ label: "Docs", to: docsBase }, { label: agentPage.title }]}
+        title={agentPage.title}
+        subtitle={<Inline text={agentPage.summary} />}
+        actions={<MarkdownBar text={agentMarkdown()} file={agentFile} />}
       />
-      <div className="grid gap-2 md:grid-cols-2">
-        {files.map((item) => (
-          <a
-            key={item.file}
-            href={`${docsBase}${item.file}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-between gap-3 rounded-lg border bg-card px-5 py-3 hover:bg-accent hover:text-accent-foreground"
+      <div className="space-y-8">
+        <Sections page={agentPage} />
+      </div>
+    </div>
+  )
+}
+
+function UpcomingPage() {
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        crumbs={[{ label: "Docs", to: docsBase }, { label: upcoming.title }]}
+        title={upcoming.title}
+        subtitle={upcoming.summary}
+        actions={<MarkdownBar text={upcomingMarkdown()} file={upcomingFile} />}
+      />
+      <div className="grid grid-cols-1 gap-3">
+        {upcoming.features.map((feature) => (
+          <section
+            key={feature.id}
+            id={feature.id}
+            className="flex scroll-mt-4 flex-col-reverse items-start gap-2 rounded-lg border bg-card p-5 sm:flex-row sm:justify-between sm:gap-4"
           >
-            <span className="min-w-0">
-              <span className="break-all text-xl font-bold">{item.file}</span>
-              <span className="block text-muted-foreground">{item.body}</span>
-            </span>
-            <ArrowUpRight className="h-5 w-5 shrink-0" />
-          </a>
+            <div className="min-w-0">
+              <h2 className="flex items-center gap-2 text-2xl font-bold">
+                <Sparkles className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+                {feature.title}
+              </h2>
+              <p className="mt-1 text-lg text-muted-foreground">{feature.description}</p>
+            </div>
+            <Badge variant="secondary" className="shrink-0">
+              {feature.category}
+            </Badge>
+          </section>
         ))}
       </div>
-      <p className="text-lg text-muted-foreground">
-        Each release page also has its own markdown file, listed in{" "}
-        <code className="rounded bg-muted px-1">llms.txt</code>.
-      </p>
+      <section className="space-y-3 rounded-lg border bg-card p-5 text-center">
+        <p className="text-lg text-muted-foreground">{upcoming.ideas}</p>
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button asChild>
+            <a href={upcoming.discussions} target="_blank" rel="noopener noreferrer">
+              <MessageSquare />
+              Share Your Ideas
+            </a>
+          </Button>
+          <Button variant="outline" asChild>
+            <a href={upcoming.issues} target="_blank" rel="noopener noreferrer">
+              <BiLogoGithub />
+              Report Bug
+            </a>
+          </Button>
+        </div>
+      </section>
     </div>
   )
 }
@@ -916,103 +1065,287 @@ function MissingPage() {
 const linkClass = (active: boolean) =>
   `rounded-2xl px-3 py-1 hover:bg-accent hover:text-accent-foreground ${active ? "bg-accent font-bold text-accent-foreground" : ""}`
 
-function Sidebar({ pathname }: { pathname: string }) {
-  const agents = `${docsBase}agents/`
+type TreeNode = {
+  to: string
+  label: string
+  hint?: string
+  scroll?: boolean
+  children?: TreeNode[]
+}
+
+const sectionNode = (to: string, section: Section): TreeNode => ({
+  to: `${to}#${section.id}`,
+  label: section.title,
+  children: section.sub?.map((child) => sectionNode(to, child)),
+})
+
+function pageChildren(to: string, page: DocPage): TreeNode[] {
+  if (page.slug === "functions") {
+    return functionGroups.map((group) => ({
+      to: functionsPath(group.id),
+      label: group.title,
+      children:
+        group.categories.length > 1
+          ? group.categories.map((category) => ({
+              to: `${functionsPath(group.id)}#category-${category.id}`,
+              label: category.title,
+            }))
+          : undefined,
+    }))
+  }
+  return page.sections.map((section) => sectionNode(to, section))
+}
+
+function partTree(part: Part): TreeNode[] {
+  return [
+    { to: partPath(part.id), label: "Overview" },
+    ...part.pages.map((page) => {
+      const to = pagePath(part.id, page.slug)
+      return { to, label: page.title, children: pageChildren(to, page) }
+    }),
+    {
+      to: releasesPath(part.id),
+      label: "Releases",
+      scroll: true,
+      children: releasesFor(part.id).map((release) => ({
+        to: releasePath(release),
+        label: versionLabel(release),
+        hint: release.title,
+      })),
+    },
+  ]
+}
+
+const agentNode: TreeNode = {
+  to: agentPath,
+  label: agentPage.title,
+  children: pageChildren(agentPath, agentPage),
+}
+
+const upcomingNode: TreeNode = {
+  to: upcomingPath,
+  label: upcoming.title,
+  children: upcoming.features.map((feature) => ({
+    to: `${upcomingPath}#${feature.id}`,
+    label: feature.title,
+  })),
+}
+
+const contains = (node: TreeNode, location: string): boolean =>
+  node.to === location || (node.children ?? []).some((child) => contains(child, location))
+
+function TreeItem({
+  node,
+  current,
+  location,
+  depth,
+  onLeaf,
+}: {
+  node: TreeNode
+  current: string
+  location: string
+  depth: number
+  onLeaf?: () => void
+}) {
+  const within = (!node.to.includes("#") && current.startsWith(node.to)) || contains(node, location)
+  const active = node.to.includes("#") ? location === node.to : current === node.to
+  const [open, setOpen] = useState(within)
+  useEffect(() => {
+    setOpen(within)
+  }, [within])
+  const list = useRef<HTMLUListElement>(null)
+  useEffect(() => {
+    const box = list.current
+    const item = box?.querySelector<HTMLElement>("[aria-current=page]")
+    if (!box || !item || !node.scroll) return
+    const top = item.offsetTop - box.offsetTop
+    if (top < box.scrollTop || top + item.offsetHeight > box.scrollTop + box.clientHeight) {
+      box.scrollTop = top - box.clientHeight / 2 + item.offsetHeight / 2
+    }
+  }, [open, location, node.scroll])
+  const children = node.children ?? []
   return (
-    <aside className="sticky top-6 hidden max-h-[calc(100vh-3rem)] w-56 shrink-0 overflow-y-auto lg:block">
+    <li>
+      <div className="flex items-center gap-1">
+        <Link
+          to={node.to}
+          onSelect={() => (node.children?.length ? setOpen(true) : onLeaf?.())}
+          aria-current={active ? "page" : undefined}
+          className={`${linkClass(active)} min-w-0 flex-1 ${depth > 0 ? "py-0.5 text-base" : ""}`}
+        >
+          <span className="block truncate" title={node.hint ?? node.label}>
+            {node.label}
+            {node.hint && <span className="ml-2 text-sm text-muted-foreground">{node.hint}</span>}
+          </span>
+        </Link>
+        {children.length > 0 && (
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-label={`${open ? "Collapse" : "Expand"} ${node.label}`}
+            onClick={() => setOpen(!open)}
+            className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            <ChevronRight
+              className={`h-4 w-4 motion-safe:transition-transform ${open ? "rotate-90" : ""}`}
+            />
+          </button>
+        )}
+      </div>
+      {open && children.length > 0 && (
+        <ul
+          ref={list}
+          className={`ml-3 mt-0.5 flex flex-col gap-0.5 border-l pl-2 text-muted-foreground ${node.scroll ? "max-h-44 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin]" : ""}`}
+        >
+          {children.map((child) => (
+            <TreeItem
+              key={child.to}
+              node={child}
+              current={current}
+              location={location}
+              depth={depth + 1}
+              onLeaf={onLeaf}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
+  )
+}
+
+function DocsNav({
+  current,
+  location,
+  onLeaf,
+}: {
+  current: string
+  location: string
+  onLeaf?: () => void
+}) {
+  return (
+    <nav className="flex flex-col gap-4 text-lg" aria-label="Docs">
+      <Link
+        to={docsBase}
+        onSelect={onLeaf}
+        aria-current={current === docsBase ? "page" : undefined}
+        className={linkClass(current === docsBase)}
+      >
+        Home
+      </Link>
+      {parts.map((part) => (
+        <div key={part.id} className="flex flex-col gap-0.5">
+          <Link
+            to={partPath(part.id)}
+            onSelect={onLeaf}
+            className="px-3 pb-1 text-sm font-bold uppercase tracking-wide text-muted-foreground hover:text-foreground"
+          >
+            {part.name}
+          </Link>
+          <ul className="flex flex-col gap-0.5">
+            {partTree(part).map((node) => (
+              <TreeItem
+                key={node.to}
+                node={node}
+                current={current}
+                location={location}
+                depth={0}
+                onLeaf={onLeaf}
+              />
+            ))}
+          </ul>
+        </div>
+      ))}
+      <div className="flex flex-col gap-0.5">
+        <span className="px-3 pb-1 text-sm font-bold uppercase tracking-wide text-muted-foreground">
+          AI agents
+        </span>
+        <ul>
+          <TreeItem
+            node={agentNode}
+            current={current}
+            location={location}
+            depth={0}
+            onLeaf={onLeaf}
+          />
+        </ul>
+      </div>
+      <div className="flex flex-col gap-0.5">
+        <span className="px-3 pb-1 text-sm font-bold uppercase tracking-wide text-muted-foreground">
+          Roadmap
+        </span>
+        <ul>
+          <TreeItem
+            node={upcomingNode}
+            current={current}
+            location={location}
+            depth={0}
+            onLeaf={onLeaf}
+          />
+        </ul>
+      </div>
+    </nav>
+  )
+}
+
+function Sidebar({ current, location }: { current: string; location: string }) {
+  return (
+    <aside className="sticky top-6 hidden max-h-[calc(100vh-3rem)] w-64 shrink-0 overflow-y-auto overscroll-contain pb-6 pr-3 [scrollbar-gutter:stable] [scrollbar-width:thin] lg:block">
       <Link to={docsBase} className="text-3xl font-bold">
-        GTFS 🚉 Viz
+        GTFS 🚉 Tools
       </Link>
       <p className="text-muted-foreground">Docs</p>
-      <nav className="mt-4 flex flex-col gap-4 text-lg" aria-label="Docs">
-        <Link
-          to={docsBase}
-          aria-current={pathname === docsBase ? "page" : undefined}
-          className={linkClass(pathname === docsBase)}
-        >
-          Home
-        </Link>
-        {parts.map((part) => (
-          <div key={part.id} className="flex flex-col gap-0.5">
-            <Link
-              to={partPath(part.id)}
-              className="px-3 pb-1 text-sm font-bold uppercase tracking-wide text-muted-foreground hover:text-foreground"
-            >
-              {part.name}
-            </Link>
-            {partNav(part).map((item) => {
-              const active = isActive(pathname, item, part)
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  aria-current={active ? "page" : undefined}
-                  className={`${linkClass(active)} ml-2 border-l pl-4`}
-                >
-                  {item.label}
-                </Link>
-              )
-            })}
-          </div>
-        ))}
-        <Link
-          to={agents}
-          aria-current={pathname === agents ? "page" : undefined}
-          className={linkClass(pathname === agents)}
-        >
-          Agent docs
-        </Link>
-      </nav>
+      <div className="mt-4">
+        <DocsNav current={current} location={location} />
+      </div>
     </aside>
   )
 }
 
-function MobileNav({ pathname, route }: { pathname: string; route: Route }) {
-  const current = "part" in route ? route.part : undefined
-  const top = [
-    { to: docsBase, label: "Home", active: pathname === docsBase },
-    ...parts.map((part) => ({
-      to: partPath(part.id),
-      label: part.name,
-      active: current?.id === part.id,
-    })),
-    { to: `${docsBase}agents/`, label: "Agent docs", active: route.kind === "agents" },
-  ]
+function MobileMenu({ current, location }: { current: string; location: string }) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const [open, setOpen] = useState(false)
+  const close = () => dialog.current?.close()
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)")
+    const onChange = () => media.matches && dialog.current?.close()
+    media.addEventListener("change", onChange)
+    return () => media.removeEventListener("change", onChange)
+  }, [])
   return (
-    <div className="space-y-2 lg:hidden">
-      <nav className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1" aria-label="Docs">
-        {top.map((link) => (
-          <Link
-            key={link.to}
-            to={link.to}
-            aria-current={link.active ? "page" : undefined}
-            className={`shrink-0 rounded-2xl border px-3 py-1 ${link.active ? "bg-accent font-bold text-accent-foreground" : ""}`}
-          >
-            {link.label}
-          </Link>
-        ))}
-      </nav>
-      {current && (
-        <nav
-          className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 text-base"
-          aria-label={`${current.name} pages`}
-        >
-          {partNav(current).map((item) => {
-            const active = isActive(pathname, item, current)
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                aria-current={active ? "page" : undefined}
-                className={`shrink-0 rounded-2xl px-3 py-0.5 ${active ? "bg-accent font-bold text-accent-foreground" : "text-muted-foreground"}`}
-              >
-                {item.label}
-              </Link>
-            )
-          })}
-        </nav>
-      )}
-    </div>
+    <>
+      <Button
+        variant="icon"
+        className="lg:hidden"
+        aria-label="Open menu"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => {
+          dialog.current?.showModal()
+          setOpen(true)
+        }}
+      >
+        <Menu />
+      </Button>
+      <dialog
+        ref={dialog}
+        aria-label="Docs menu"
+        onClose={() => setOpen(false)}
+        onClick={(event) => event.target === dialog.current && close()}
+        className="m-0 h-dvh max-h-dvh w-80 max-w-[85vw] border-r bg-background p-0 text-foreground backdrop:bg-black/50"
+      >
+        <div className="flex h-full flex-col">
+          <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
+            <span className="text-2xl font-bold">GTFS 🚉 Tools</span>
+            <Button variant="icon" aria-label="Close menu" onClick={close}>
+              <X />
+            </Button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-4">
+            {open && <DocsNav current={current} location={location} onLeaf={close} />}
+          </div>
+        </div>
+      </dialog>
+    </>
   )
 }
 
@@ -1020,6 +1353,9 @@ export default function App() {
   const raw = usePathname()
   const pathname = raw.endsWith("/") ? raw : `${raw}/`
   const route = resolve(pathname)
+  const current = route.kind === "page" ? pagePath(route.part.id, route.page.slug) : pathname
+  const hash = useHash()
+  const location = `${current}${hash}`
   useEffect(() => {
     document.title = titleFor(route)
   }, [route])
@@ -1029,6 +1365,12 @@ export default function App() {
         return <HomePage />
       case "agents":
         return <AgentsPage />
+      case "upcoming":
+        return <UpcomingPage />
+      case "part":
+        return <PartPage key={route.part.id} part={route.part} />
+      case "group":
+        return <FunctionGroupPage key={route.group.id} part={route.part} group={route.group} />
       case "page":
         return (
           <DocPageView
@@ -1049,22 +1391,17 @@ export default function App() {
   })()
   return (
     <div className="mx-auto flex min-h-screen max-w-6xl gap-10 px-4 py-6">
-      <Sidebar pathname={pathname} />
+      <Sidebar current={current} location={location} />
       <main className="min-w-0 flex-1 space-y-6">
         <div className="flex items-center justify-between gap-2">
           <Link to={docsBase} className="text-2xl font-bold lg:invisible">
-            GTFS 🚉 Viz
+            GTFS 🚉 Tools
           </Link>
           <div className="flex gap-2">
-            <Button variant="icon" asChild>
-              <a href={repos.viz} target="_blank" rel="noopener noreferrer" aria-label="GitHub">
-                <BiLogoGithub />
-              </a>
-            </Button>
             <ThemeSwitcher />
+            <MobileMenu current={current} location={location} />
           </div>
         </div>
-        <MobileNav pathname={pathname} route={route} />
         {page}
         <footer className="pb-6 pt-6 text-center text-muted-foreground">
           MIT License · Gabriel AHN
