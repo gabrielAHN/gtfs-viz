@@ -11,15 +11,20 @@
     <title>GTFS Viz Docs</title>
     <meta
       name="description"
-      content="GTFS Viz and the GTFS DuckDB Extension: a web app, CLI, agent skill and DuckDB extension for GTFS transit data."
+      content="GTFS Tools: GTFS Viz, a web app, CLI and agent skill, and GTFS DuckDB, a DuckDB extension for GTFS transit data."
     />
     <meta property="og:title" content="GTFS Viz Docs" />
     <meta property="og:image" content="/docs/og-preview.png" />
     <script>
       ;(function () {
-        if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-          document.documentElement.classList.add("dark")
+        var theme = null
+        try {
+          theme = window.localStorage.getItem("gtfs-viz-theme")
+        } catch (e) {}
+        if (theme !== "dark" && theme !== "light") {
+          theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
         }
+        document.documentElement.classList.toggle("dark", theme === "dark")
       })()
     </script>
   </head>

@@ -1,12 +1,11 @@
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher"
 import FileImporter from "./FileImporter"
-import UpcomingFeatures from "@/components/UpcomingFeatures"
 
 import { DocsButton, GithubButton } from "@/components/contact"
 
 function Intro() {
   return (
-    <div className="flex min-h-screen w-screen flex-col items-center overflow-y-auto px-4 py-6 text-center sm:justify-center">
+    <div className="flex min-h-dvh w-full flex-col items-center justify-center overflow-y-auto px-4 py-6 text-center">
       <h1 className="text-6xl sm:text-[15vh]">GTFS 🚉 Viz</h1>
       <div className="flex gap-2 mb-[1vh]">
         <GithubButton />
@@ -14,9 +13,6 @@ function Intro() {
         <ThemeSwitcher />
       </div>
       <FileImporter />
-      <div className="mt-[2vh]">
-        <UpcomingFeatures />
-      </div>
     </div>
   )
 }
