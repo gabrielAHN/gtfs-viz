@@ -10,9 +10,16 @@ yarn build:docs    # packages/docs/dist
 yarn start:docs    # serves dist on $PORT (default 4173)
 ```
 
-Page content lives in `src/content.ts`. The site has two parts, GTFS Viz (web app and CLI) and the GTFS DuckDB Extension. Each part has its own page with Overview, How to and Markdown tabs, plus a releases index. Every release has its own page at `/docs/<part>/releases/<version>/`, showing up to three area-tagged highlights, links to the build's PR and GitHub release, and older/newer navigation. `src/router.tsx` handles client-side navigation, and `server.mjs` serves `index.html` for every page route.
+Page content lives in `src/content.ts`. The site has two parts, and the sidebar lists each part's pages:
 
-`src/markdown.ts` renders the same content as markdown for agents. The build writes `llms.txt`, `llms-full.txt`, `index.md`, one `<part>.md` per part and one `<part>/releases/<version>.md` per release next to `index.html`, and the dev server serves them too.
+| Part                  | Pages                                          |
+| --------------------- | ---------------------------------------------- |
+| GTFS Viz              | How it works, Web app, CLI, AI skill, Releases |
+| GTFS DuckDB Extension | Usage, Functions, Releases                     |
+
+Each page lives at `/docs/<part>/<page>/`, and `/docs/<part>/` opens the part's first page. Every page has Docs and Markdown tabs. The function reference comes from `src/functions.ts`, which lists all 88 functions the extension registers, each with an example and the columns it returns on the MBTA subway feed. Every release has its own page at `/docs/<part>/releases/<version>/`. `src/router.tsx` handles client-side navigation, and `server.mjs` serves `index.html` for every page route.
+
+`src/markdown.ts` renders the same content as markdown for agents. The build writes `llms.txt`, `llms-full.txt`, `index.md`, `<part>.md`, `<part>/<page>.md`, `<part>/releases.md` and `<part>/releases/<version>.md` next to `index.html`, and the dev server serves them too.
 
 ## Railway
 

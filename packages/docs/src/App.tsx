@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import type { ReactNode } from "react"
 import { BiLogoGithub } from "react-icons/bi"
 import {
@@ -22,6 +22,8 @@ import {
   githubRelease,
   goals,
   intro,
+  pageFile,
+  pagePath,
   partById,
   partPath,
   parts,
@@ -34,8 +36,10 @@ import {
   repos,
   versionLabel,
 } from "./content"
-import type { Part, Release } from "./content"
-import { fullMarkdown, partMarkdown, releaseMarkdown } from "./markdown"
+import type { Block, DocPage, Part, Release } from "./content"
+import { functionCategories, functions } from "./functions"
+import type { FunctionKind, GtfsFunction } from "./functions"
+import { fullMarkdown, pageMarkdown, releaseMarkdown, releasesMarkdown } from "./markdown"
 import { Link, usePathname } from "./router"
 
 const goalIcons = [Cloud, Bot, TrainFront]
@@ -43,7 +47,7 @@ const goalIcons = [Cloud, Bot, TrainFront]
 type Route =
   | { kind: "home" }
   | { kind: "agents" }
-  | { kind: "part"; part: Part }
+  | { kind: "page"; part: Part; page: DocPage }
   | { kind: "releases"; part: Part }
   | { kind: "release"; part: Part; release: Release }
   | { kind: "missing" }
@@ -57,11 +61,16 @@ function resolve(pathname: string): Route {
   if (segments[0] === "agents" && segments.length === 1) return { kind: "agents" }
   const part = partById(segments[0])
   if (!part) return { kind: "missing" }
-  if (segments.length === 1) return { kind: "part", part }
-  if (segments[1] !== "releases") return { kind: "missing" }
-  if (segments.length === 2) return { kind: "releases", part }
-  const release = releasesFor(part.id).find((item) => releaseSlug(item) === segments[2])
-  return release && segments.length === 3 ? { kind: "release", part, release } : { kind: "missing" }
+  if (segments.length === 1) return { kind: "page", part, page: part.pages[0] }
+  if (segments[1] === "releases") {
+    if (segments.length === 2) return { kind: "releases", part }
+    const release = releasesFor(part.id).find((item) => releaseSlug(item) === segments[2])
+    return release && segments.length === 3
+      ? { kind: "release", part, release }
+      : { kind: "missing" }
+  }
+  const page = part.pages.find((item) => item.slug === segments[1])
+  return page && segments.length === 2 ? { kind: "page", part, page } : { kind: "missing" }
 }
 
 function titleFor(route: Route) {
@@ -70,8 +79,8 @@ function titleFor(route: Route) {
       return "GTFS Viz Docs"
     case "agents":
       return "Agent docs · GTFS Viz Docs"
-    case "part":
-      return `${route.part.name} · GTFS Viz Docs`
+    case "page":
+      return `${route.page.title} · ${route.part.name} · GTFS Viz Docs`
     case "releases":
       return `${route.part.name} releases · GTFS Viz Docs`
     case "release":
@@ -119,12 +128,13 @@ function ExternalButton({
   )
 }
 
-function CopyButton({ text, label }: { text: string; label: string }) {
+function CopyButton({ text, label, compact }: { text: string; label: string; compact?: boolean }) {
   const [copied, setCopied] = useState(false)
   return (
     <Button
-      variant="outline"
+      variant={compact ? "ghost" : "outline"}
       size="sm"
+      aria-label={compact ? label : undefined}
       onClick={async () => {
         await navigator.clipboard.writeText(text)
         setCopied(true)
@@ -132,7 +142,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
       }}
     >
       {copied ? <Check /> : <Copy />}
-      {copied ? "Copied" : label}
+      {!compact && (copied ? "Copied" : label)}
     </Button>
   )
 }
@@ -202,10 +212,125 @@ function PageHeader({
 
 function CodeBlock({ code }: { code: string }) {
   return (
-    <pre className="overflow-x-auto rounded-lg border bg-background px-4 py-2 text-base">
-      <code>{code}</code>
-    </pre>
+    <div className="relative">
+      <pre className="overflow-x-auto rounded-lg border bg-background py-2 pl-4 pr-12 text-base">
+        <code>{code}</code>
+      </pre>
+      <div className="absolute right-1 top-1">
+        <CopyButton text={code} label="Copy code" compact />
+      </div>
+    </div>
   )
+}
+
+function BlockView({ block }: { block: Block }) {
+  switch (block.type) {
+    case "text":
+      return (
+        <p className="text-lg">
+          <Inline text={block.text} />
+        </p>
+      )
+    case "list":
+      return (
+        <ul className="list-disc space-y-1 pl-6 text-lg">
+          {block.items.map((item) => (
+            <li key={item}>
+              <Inline text={item} />
+            </li>
+          ))}
+        </ul>
+      )
+    case "code":
+      return <CodeBlock code={block.code} />
+    case "steps":
+      return (
+        <ol className="space-y-3">
+          {block.items.map((step, index) => (
+            <li key={step.title} className="grid grid-cols-[2rem_1fr] gap-x-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full border bg-card font-bold">
+                {index + 1}
+              </span>
+              <div className="min-w-0 space-y-2">
+                <p className="text-lg">
+                  <strong>{step.title}</strong>
+                  {step.body && (
+                    <>
+                      {" · "}
+                      <Inline text={step.body} />
+                    </>
+                  )}
+                </p>
+                {step.code && <CodeBlock code={step.code} />}
+              </div>
+            </li>
+          ))}
+        </ol>
+      )
+    case "cards":
+      return (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {block.items.map((card) => {
+            const body = (
+              <>
+                <p className="flex items-center justify-between gap-2 text-xl font-bold">
+                  {card.title}
+                  {card.href && <ArrowUpRight className="h-4 w-4 shrink-0" />}
+                </p>
+                <p className="mt-1 break-words text-lg">
+                  <Inline text={card.body} />
+                </p>
+              </>
+            )
+            return card.href ? (
+              <a
+                key={card.title}
+                href={card.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg border bg-card p-4 hover:bg-accent hover:text-accent-foreground"
+              >
+                {body}
+              </a>
+            ) : (
+              <div key={card.title} className="rounded-lg border bg-card p-4">
+                {body}
+              </div>
+            )
+          })}
+        </div>
+      )
+    case "table":
+      return (
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-left text-lg">
+            <thead className="bg-muted">
+              <tr>
+                {block.head.map((cell) => (
+                  <th key={cell} className="px-4 py-2 font-bold">
+                    {cell}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.rows.map((row) => (
+                <tr key={row.join("|")} className="border-t align-top">
+                  {row.map((cell, index) => (
+                    <td
+                      key={index}
+                      className={`px-4 py-2 ${index === 0 ? "whitespace-nowrap font-bold" : ""}`}
+                    >
+                      <Inline text={cell} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+  }
 }
 
 function StatusBadge({ release }: { release: Release }) {
@@ -235,54 +360,72 @@ function ReleaseCard({ release }: { release: Release }) {
   )
 }
 
-function HowTo({ part }: { part: Part }) {
-  const [active, setActive] = useState(0)
-  const step = part.howTo[active]
+type NavItem = { to: string; label: string }
+
+function partNav(part: Part): NavItem[] {
+  return [
+    ...part.pages.map((page) => ({ to: pagePath(part.id, page.slug), label: page.title })),
+    { to: releasesPath(part.id), label: "Releases" },
+  ]
+}
+
+function isActive(pathname: string, item: NavItem, part?: Part) {
+  if (pathname.startsWith(item.to)) return true
+  return part
+    ? item.to === pagePath(part.id, part.pages[0].slug) && pathname === partPath(part.id)
+    : false
+}
+
+function PageNav({ part, current }: { part: Part; current: string }) {
+  const items = partNav(part)
+  const index = items.findIndex((item) => item.to === current)
+  const previous = items[index - 1]
+  const next = items[index + 1]
   return (
-    <div className="grid gap-4 md:grid-cols-[16rem_1fr]">
-      <ol className="flex gap-1 overflow-x-auto md:flex-col">
-        {part.howTo.map((item, index) => (
-          <li key={item.title} className="shrink-0">
-            <button
-              type="button"
-              onClick={() => setActive(index)}
-              aria-current={index === active ? "step" : undefined}
-              className={`flex w-full items-start gap-2 rounded-md px-3 py-2 text-left text-lg hover:bg-accent hover:text-accent-foreground ${index === active ? "bg-accent font-bold text-accent-foreground" : ""}`}
-            >
-              <span className="w-5 shrink-0 text-muted-foreground">{index + 1}.</span>
-              <span className="whitespace-nowrap md:whitespace-normal">{item.title}</span>
-            </button>
-          </li>
-        ))}
-      </ol>
-      <div className="space-y-3">
-        <h3 className="text-2xl font-bold">
-          {active + 1}. {step.title}
-        </h3>
-        <p className="text-lg">
-          <Inline text={step.body} />
-        </p>
-        {step.code && <CodeBlock code={step.code} />}
-        <div className="flex justify-between">
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={active === 0}
-            onClick={() => setActive(active - 1)}
-          >
-            Previous
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={active === part.howTo.length - 1}
-            onClick={() => setActive(active + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      </div>
-    </div>
+    <nav className="grid gap-2 sm:grid-cols-2" aria-label="Page navigation">
+      {previous ? (
+        <Link
+          to={previous.to}
+          className="flex items-center gap-2 rounded-lg border bg-card px-4 py-3 hover:bg-accent hover:text-accent-foreground"
+        >
+          <ArrowLeft className="h-5 w-5 shrink-0" />
+          <span>
+            <span className="block text-sm text-muted-foreground">Previous</span>
+            <span className="text-lg font-bold">{previous.label}</span>
+          </span>
+        </Link>
+      ) : (
+        <span />
+      )}
+      {next && (
+        <Link
+          to={next.to}
+          className="flex items-center justify-end gap-2 rounded-lg border bg-card px-4 py-3 text-right hover:bg-accent hover:text-accent-foreground"
+        >
+          <span>
+            <span className="block text-sm text-muted-foreground">Next</span>
+            <span className="text-lg font-bold">{next.label}</span>
+          </span>
+          <ArrowRight className="h-5 w-5 shrink-0" />
+        </Link>
+      )}
+    </nav>
+  )
+}
+
+function OnThisPage({ items }: { items: { id: string; title: string }[] }) {
+  return (
+    <nav aria-label="On this page" className="flex flex-wrap gap-2">
+      {items.map((item) => (
+        <a
+          key={item.id}
+          href={`#${item.id}`}
+          className="rounded-2xl border px-3 py-0.5 text-base hover:bg-accent hover:text-accent-foreground"
+        >
+          {item.title}
+        </a>
+      ))}
+    </nav>
   )
 }
 
@@ -328,36 +471,29 @@ function HomePage() {
       <section className="space-y-4">
         <h2 className="text-4xl font-bold">Parts</h2>
         <div className="grid gap-4 md:grid-cols-2">
-          {parts.map((part) => {
-            const latest = releasesFor(part.id)[0]
-            return (
-              <div key={part.id} className="flex flex-col gap-3 rounded-lg border bg-card p-5">
-                <div>
-                  <h3 className="text-3xl font-bold">{part.name}</h3>
-                  <p className="text-lg text-muted-foreground">{part.tagline}</p>
-                </div>
-                <p className="text-lg">
-                  <Inline text={part.summary} />
-                </p>
-                <div className="mt-auto flex flex-wrap gap-2">
-                  <Button asChild>
-                    <Link to={partPath(part.id)}>
-                      Read the docs
-                      <ArrowRight />
-                    </Link>
-                  </Button>
-                  <Button variant="outline" asChild>
-                    <Link to={releasesPath(part.id)}>Releases</Link>
-                  </Button>
-                  {latest && (
-                    <Button variant="ghost" asChild>
-                      <Link to={releasePath(latest)}>Latest: {versionLabel(latest)}</Link>
-                    </Button>
-                  )}
-                </div>
+          {parts.map((part) => (
+            <div key={part.id} className="flex flex-col gap-3 rounded-lg border bg-card p-5">
+              <div>
+                <h3 className="text-3xl font-bold">{part.name}</h3>
+                <p className="text-lg text-muted-foreground">{part.tagline}</p>
               </div>
-            )
-          })}
+              <p className="text-lg">
+                <Inline text={part.summary} />
+              </p>
+              <div className="mt-auto flex flex-wrap gap-2">
+                {partNav(part).map((item, index) => (
+                  <Button
+                    key={item.to}
+                    variant={index === 0 ? "default" : "outline"}
+                    size="sm"
+                    asChild
+                  >
+                    <Link to={item.to}>{item.label}</Link>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -378,14 +514,185 @@ function HomePage() {
   )
 }
 
-function PartPage({ part }: { part: Part }) {
-  const list = releasesFor(part.id)
+const kindLabel: Record<FunctionKind, string> = {
+  pragma: "Pragma",
+  scalar: "Scalar",
+  table: "Table",
+}
+
+function FunctionRow({ fn, open }: { fn: GtfsFunction; open: boolean }) {
+  return (
+    <details id={fn.name} open={open} className="group rounded-lg border bg-card">
+      <summary className="flex cursor-pointer list-none items-start gap-3 px-4 py-2 hover:bg-accent hover:text-accent-foreground">
+        <ChevronRight className="mt-1.5 h-4 w-4 shrink-0 transition-transform group-open:rotate-90" />
+        <span className="min-w-0 flex-1">
+          <code className="break-all text-lg font-bold">{fn.name}</code>
+          <span className="block text-base text-muted-foreground">
+            <Inline text={fn.description} />
+          </span>
+        </span>
+        <Badge variant="outline" className="mt-1 shrink-0">
+          {kindLabel[fn.kind]}
+        </Badge>
+      </summary>
+      <div className="space-y-3 border-t px-4 py-3">
+        <p className="text-lg">
+          <code className="break-all rounded bg-muted px-1">{fn.signature}</code>
+        </p>
+        <CodeBlock code={fn.example} />
+        {fn.kind === "table" && (
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="mr-1 text-muted-foreground">Returns</span>
+            {fn.returns.map((column) => (
+              <code key={column} className="rounded bg-muted px-1">
+                {column}
+              </code>
+            ))}
+          </div>
+        )}
+        {fn.kind === "scalar" && (
+          <p className="text-lg">
+            <span className="text-muted-foreground">Result </span>
+            <code className="rounded bg-muted px-1">{fn.returns[0]}</code>
+          </p>
+        )}
+        {fn.note && (
+          <p className="text-lg text-muted-foreground">
+            <Inline text={fn.note} />
+          </p>
+        )}
+      </div>
+    </details>
+  )
+}
+
+const categoryOf = (name: string) => functions.find((fn) => fn.name === name)?.category
+
+function FunctionsReference() {
+  const [query, setQuery] = useState("")
+  const [kind, setKind] = useState<FunctionKind | "all">("all")
+  const [hash, setHash] = useState(() => decodeURIComponent(window.location.hash.slice(1)))
+  const [category, setCategory] = useState(() => categoryOf(hash) ?? functionCategories[0].id)
+  useEffect(() => {
+    const onHash = () => {
+      const next = decodeURIComponent(window.location.hash.slice(1))
+      setQuery("")
+      setKind("all")
+      setHash(next)
+      const owner = categoryOf(next)
+      if (owner) setCategory(owner)
+    }
+    window.addEventListener("hashchange", onHash)
+    return () => window.removeEventListener("hashchange", onHash)
+  }, [])
+  useEffect(() => {
+    if (hash) document.getElementById(hash)?.scrollIntoView()
+  }, [hash])
+  const needle = query.trim().toLowerCase()
+  const scoped = !needle && kind === "all"
+  const shown = useMemo(
+    () =>
+      functions.filter(
+        (fn) =>
+          (kind === "all" || fn.kind === kind) &&
+          (!needle ||
+            fn.name.toLowerCase().includes(needle) ||
+            fn.description.toLowerCase().includes(needle)) &&
+          (!scoped || fn.category === category),
+      ),
+    [kind, needle, scoped, category],
+  )
+  const counts = (["pragma", "scalar", "table"] as FunctionKind[]).map((item) => ({
+    item,
+    count: functions.filter((fn) => fn.kind === item).length,
+  }))
+  const groups = functionCategories.filter((group) => shown.some((fn) => fn.category === group.id))
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search all 88 functions"
+          aria-label="Search functions"
+          className="h-9 w-full rounded-md border bg-background px-3 text-lg sm:w-64"
+        />
+        <Tabs value={kind} onValueChange={(value) => setKind(value as FunctionKind | "all")}>
+          <TabsList className="h-auto flex-wrap justify-start">
+            <TabsTrigger value="all" className="text-base">
+              All {functions.length}
+            </TabsTrigger>
+            {counts.map(({ item, count }) => (
+              <TabsTrigger key={item} value={item} className="text-base">
+                {kindLabel[item]} {count}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </div>
+      <nav aria-label="Function categories" className="flex flex-wrap gap-2">
+        {functionCategories.map((group) => {
+          const active = scoped && group.id === category
+          return (
+            <button
+              key={group.id}
+              type="button"
+              aria-pressed={active}
+              onClick={() => {
+                setQuery("")
+                setKind("all")
+                setCategory(group.id)
+              }}
+              className={`rounded-2xl border px-3 py-0.5 text-base hover:bg-accent hover:text-accent-foreground ${active ? "bg-accent font-bold text-accent-foreground" : ""}`}
+            >
+              {group.title}{" "}
+              <span className="text-muted-foreground">
+                {functions.filter((fn) => fn.category === group.id).length}
+              </span>
+            </button>
+          )
+        })}
+      </nav>
+      {groups.length === 0 && (
+        <p className="text-lg text-muted-foreground">No functions match “{query}”.</p>
+      )}
+      {groups.map((group) => {
+        const list = shown.filter((fn) => fn.category === group.id)
+        return (
+          <section key={group.id} id={`category-${group.id}`} className="scroll-mt-4 space-y-2">
+            <div>
+              <h2 className="text-3xl font-bold">
+                {group.title} <span className="text-xl text-muted-foreground">{list.length}</span>
+              </h2>
+              <p className="text-lg text-muted-foreground">
+                <Inline text={group.body} />
+              </p>
+            </div>
+            {list.map((fn) => (
+              <FunctionRow key={fn.name} fn={fn} open={hash === fn.name} />
+            ))}
+          </section>
+        )
+      })}
+    </div>
+  )
+}
+
+function DocPageView({ part, page }: { part: Part; page: DocPage }) {
+  const markdown = pageMarkdown(part, page)
+  const file = pageFile(part.id, page.slug)
+  const functionsPage = page.slug === "functions"
   return (
     <div className="space-y-6">
       <PageHeader
-        crumbs={[{ label: "Docs", to: docsBase }, { label: part.name }]}
-        title={part.name}
-        subtitle={part.tagline}
+        crumbs={[
+          { label: "Docs", to: docsBase },
+          { label: part.name, to: partPath(part.id) },
+          { label: page.title },
+        ]}
+        title={page.title}
+        subtitle={<Inline text={page.summary} />}
         actions={
           <ExternalButton
             href={part.repo}
@@ -394,77 +701,41 @@ function PartPage({ part }: { part: Part }) {
           />
         }
       />
-      <Tabs defaultValue="overview">
+      <Tabs defaultValue="docs">
         <TabsList className="h-auto flex-wrap justify-start">
-          <TabsTrigger value="overview" className="text-base">
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="how-to" className="text-base">
-            How to
+          <TabsTrigger value="docs" className="text-base">
+            Docs
           </TabsTrigger>
           <TabsTrigger value="markdown" className="text-base">
             <FileText className="mr-1 h-4 w-4" />
             Markdown
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="overview" className="mt-4 space-y-4">
-          <p className="text-lg">
-            <Inline text={part.summary} />
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {part.components.map((component) => (
-              <a
-                key={component.name}
-                href={`${part.repo}/tree/main/${component.path}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-lg border bg-card p-4 hover:bg-accent hover:text-accent-foreground"
-              >
-                <p className="flex items-center justify-between gap-2 text-xl font-bold">
-                  {component.name}
-                  <ArrowUpRight className="h-4 w-4 shrink-0" />
-                </p>
-                <p className="text-sm text-muted-foreground">{component.path}</p>
-                <p className="mt-1 text-lg">
-                  <Inline text={component.body} />
-                </p>
-              </a>
-            ))}
-          </div>
-          <ul className="grid list-disc gap-x-8 gap-y-1 pl-6 text-lg sm:grid-cols-2">
-            {part.features.map((feature) => (
-              <li key={feature}>
-                <Inline text={feature} />
-              </li>
-            ))}
-          </ul>
-        </TabsContent>
-        <TabsContent value="how-to" className="mt-4">
-          <HowTo part={part} />
+        <TabsContent value="docs" className="mt-4 space-y-8">
+          {functionsPage ? (
+            <FunctionsReference />
+          ) : (
+            <>
+              {page.sections.length > 2 && <OnThisPage items={page.sections} />}
+              {page.sections.map((section) => (
+                <section key={section.id} id={section.id} className="scroll-mt-4 space-y-3">
+                  <h2 className="text-3xl font-bold">{section.title}</h2>
+                  {section.blocks.map((block, index) => (
+                    <BlockView key={index} block={block} />
+                  ))}
+                </section>
+              ))}
+            </>
+          )}
         </TabsContent>
         <TabsContent value="markdown" className="mt-4 space-y-3">
-          <MarkdownBar text={partMarkdown(part)} file={`${part.id}.md`} />
-          <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap rounded-lg border bg-background px-4 py-3 text-base">
-            {partMarkdown(part)}
+          <MarkdownBar text={markdown} file={file} />
+          <pre className="max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-lg border bg-background px-4 py-3 text-base">
+            {markdown}
           </pre>
         </TabsContent>
       </Tabs>
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-3xl font-bold">Latest releases</h2>
-          <Button variant="outline" size="sm" asChild>
-            <Link to={releasesPath(part.id)}>
-              All {list.length} releases
-              <ArrowRight />
-            </Link>
-          </Button>
-        </div>
-        <div className="space-y-2">
-          {list.slice(0, 3).map((release) => (
-            <ReleaseCard key={release.version} release={release} />
-          ))}
-        </div>
-      </section>
+      <PageNav part={part} current={pagePath(part.id, page.slug)} />
     </div>
   )
 }
@@ -481,13 +752,19 @@ function ReleasesPage({ part }: { part: Part }) {
         ]}
         title={`${part.name} releases`}
         subtitle="Each release has its own page with its highlights and the pull request it shipped in."
-        actions={<ExternalButton href={`${part.repo}/releases`} label="GitHub releases" github />}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <MarkdownBar text={releasesMarkdown(part)} file={`${part.id}/releases.md`} />
+            <ExternalButton href={`${part.repo}/releases`} label="GitHub releases" github />
+          </div>
+        }
       />
       <div className="space-y-2">
         {list.map((release) => (
           <ReleaseCard key={release.version} release={release} />
         ))}
       </div>
+      <PageNav part={part} current={releasesPath(part.id)} />
     </div>
   )
 }
@@ -577,9 +854,15 @@ function ReleasePage({ part, release }: { part: Part; release: Release }) {
 function AgentsPage() {
   const files = [
     { file: "llms.txt", body: "Index of every docs file, following the llms.txt convention." },
-    { file: "llms-full.txt", body: "All docs, parts and release notes in one file." },
+    { file: "llms-full.txt", body: "Every page and release note in one file." },
     { file: "index.md", body: "Intro, goals and parts." },
-    ...parts.map((part) => ({ file: `${part.id}.md`, body: `${part.name}: overview and how-to.` })),
+    ...parts.flatMap((part) => [
+      ...part.pages.map((page) => ({
+        file: pageFile(part.id, page.slug),
+        body: `${part.name}: ${page.title}.`,
+      })),
+      { file: `${part.id}/releases.md`, body: `${part.name}: every release.` },
+    ]),
   ]
   return (
     <div className="space-y-6">
@@ -594,7 +877,7 @@ function AgentsPage() {
         }
         actions={<CopyButton text={fullMarkdown()} label="Copy all docs" />}
       />
-      <div className="grid gap-2">
+      <div className="grid gap-2 md:grid-cols-2">
         {files.map((item) => (
           <a
             key={item.file}
@@ -603,8 +886,8 @@ function AgentsPage() {
             rel="noopener noreferrer"
             className="flex items-center justify-between gap-3 rounded-lg border bg-card px-5 py-3 hover:bg-accent hover:text-accent-foreground"
           >
-            <span>
-              <span className="text-xl font-bold">{item.file}</span>
+            <span className="min-w-0">
+              <span className="break-all text-xl font-bold">{item.file}</span>
               <span className="block text-muted-foreground">{item.body}</span>
             </span>
             <ArrowUpRight className="h-5 w-5 shrink-0" />
@@ -630,63 +913,106 @@ function MissingPage() {
   )
 }
 
-function navLinks() {
-  return [
-    { to: docsBase, label: "Home", nested: false },
-    ...parts.flatMap((part) => [
-      { to: partPath(part.id), label: part.name, nested: false },
-      { to: releasesPath(part.id), label: "Releases", nested: true },
-    ]),
-    { to: `${docsBase}agents/`, label: "Agent docs", nested: false },
-  ]
-}
+const linkClass = (active: boolean) =>
+  `rounded-2xl px-3 py-1 hover:bg-accent hover:text-accent-foreground ${active ? "bg-accent font-bold text-accent-foreground" : ""}`
 
 function Sidebar({ pathname }: { pathname: string }) {
+  const agents = `${docsBase}agents/`
   return (
-    <aside className="sticky top-6 hidden h-fit w-48 shrink-0 lg:block">
+    <aside className="sticky top-6 hidden max-h-[calc(100vh-3rem)] w-56 shrink-0 overflow-y-auto lg:block">
       <Link to={docsBase} className="text-3xl font-bold">
         GTFS 🚉 Viz
       </Link>
       <p className="text-muted-foreground">Docs</p>
-      <nav className="mt-4 flex flex-col gap-1 text-lg">
-        {navLinks().map((link) => {
-          const active = pathname === link.to || (link.nested && pathname.startsWith(link.to))
-          return (
+      <nav className="mt-4 flex flex-col gap-4 text-lg" aria-label="Docs">
+        <Link
+          to={docsBase}
+          aria-current={pathname === docsBase ? "page" : undefined}
+          className={linkClass(pathname === docsBase)}
+        >
+          Home
+        </Link>
+        {parts.map((part) => (
+          <div key={part.id} className="flex flex-col gap-0.5">
             <Link
-              key={link.to}
-              to={link.to}
-              aria-current={active ? "page" : undefined}
-              className={`rounded-2xl px-3 py-1 hover:bg-accent hover:text-accent-foreground ${link.nested ? "pl-6 text-base" : ""} ${active ? "bg-accent font-bold text-accent-foreground" : ""}`}
+              to={partPath(part.id)}
+              className="px-3 pb-1 text-sm font-bold uppercase tracking-wide text-muted-foreground hover:text-foreground"
             >
-              {link.label}
+              {part.name}
             </Link>
-          )
-        })}
+            {partNav(part).map((item) => {
+              const active = isActive(pathname, item, part)
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  aria-current={active ? "page" : undefined}
+                  className={`${linkClass(active)} ml-2 border-l pl-4`}
+                >
+                  {item.label}
+                </Link>
+              )
+            })}
+          </div>
+        ))}
+        <Link
+          to={agents}
+          aria-current={pathname === agents ? "page" : undefined}
+          className={linkClass(pathname === agents)}
+        >
+          Agent docs
+        </Link>
       </nav>
     </aside>
   )
 }
 
-function MobileNav({ pathname }: { pathname: string }) {
-  const links = navLinks().map((link, index, all) =>
-    link.nested ? { ...link, label: `${all[index - 1].label} releases` } : link,
-  )
+function MobileNav({ pathname, route }: { pathname: string; route: Route }) {
+  const current = "part" in route ? route.part : undefined
+  const top = [
+    { to: docsBase, label: "Home", active: pathname === docsBase },
+    ...parts.map((part) => ({
+      to: partPath(part.id),
+      label: part.name,
+      active: current?.id === part.id,
+    })),
+    { to: `${docsBase}agents/`, label: "Agent docs", active: route.kind === "agents" },
+  ]
   return (
-    <nav className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 lg:hidden">
-      {links.map((link) => {
-        const active = pathname === link.to || (link.nested && pathname.startsWith(link.to))
-        return (
+    <div className="space-y-2 lg:hidden">
+      <nav className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1" aria-label="Docs">
+        {top.map((link) => (
           <Link
             key={link.to}
             to={link.to}
-            aria-current={active ? "page" : undefined}
-            className={`shrink-0 rounded-2xl border px-3 py-1 ${active ? "bg-accent font-bold text-accent-foreground" : ""}`}
+            aria-current={link.active ? "page" : undefined}
+            className={`shrink-0 rounded-2xl border px-3 py-1 ${link.active ? "bg-accent font-bold text-accent-foreground" : ""}`}
           >
             {link.label}
           </Link>
-        )
-      })}
-    </nav>
+        ))}
+      </nav>
+      {current && (
+        <nav
+          className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 text-base"
+          aria-label={`${current.name} pages`}
+        >
+          {partNav(current).map((item) => {
+            const active = isActive(pathname, item, current)
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                aria-current={active ? "page" : undefined}
+                className={`shrink-0 rounded-2xl px-3 py-0.5 ${active ? "bg-accent font-bold text-accent-foreground" : "text-muted-foreground"}`}
+              >
+                {item.label}
+              </Link>
+            )
+          })}
+        </nav>
+      )}
+    </div>
   )
 }
 
@@ -703,8 +1029,14 @@ export default function App() {
         return <HomePage />
       case "agents":
         return <AgentsPage />
-      case "part":
-        return <PartPage key={route.part.id} part={route.part} />
+      case "page":
+        return (
+          <DocPageView
+            key={pagePath(route.part.id, route.page.slug)}
+            part={route.part}
+            page={route.page}
+          />
+        )
       case "releases":
         return <ReleasesPage part={route.part} />
       case "release":
@@ -732,7 +1064,7 @@ export default function App() {
             <ThemeSwitcher />
           </div>
         </div>
-        <MobileNav pathname={pathname} />
+        <MobileNav pathname={pathname} route={route} />
         {page}
         <footer className="pb-6 pt-6 text-center text-muted-foreground">
           MIT License · Gabriel AHN
