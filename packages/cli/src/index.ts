@@ -401,14 +401,7 @@ const importDataset = async (feedArg: string) => {
 
   const importSteps = await buildImportSteps({
     databasePath: currentDbPath,
-    stopsPath,
-    pathwaysPath,
-    routesPath,
-    tripsPath,
-    stopTimesPath,
-    shapesPath,
-    calendarPath,
-    calendarDatesPath,
+    directory: currentExtractDir,
   });
   const importSqlPath = path.join(currentDataDir, "import.sql");
   await writeFile(importSqlPath, importSteps.join("\n"));

@@ -30,5 +30,6 @@ export function createExtensionClient(executor: SqlExecutor, options: ExtensionC
     prepare: () => run('prepare', 'PRAGMA gtfs_prepare', 'Await load() on this database before preparing edit tables.'),
     init: () => run('init', 'PRAGMA gtfs_init', 'Await load(), prepare(), and normalized source-table import before initializing.'),
     refresh: () => run('refresh', 'PRAGMA gtfs_refresh', 'Await load() and initialize the dataset before refreshing.'),
+    importDirectory: (directory: string) => run('import', `PRAGMA gtfs_import('${directory.replaceAll("'", "''")}')`, 'Await load() first and make stops.txt readable in the given directory. No fallback was attempted.'),
   };
 }

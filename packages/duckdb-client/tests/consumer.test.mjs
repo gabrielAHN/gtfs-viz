@@ -17,10 +17,9 @@ test('download failure never falls back to embedded SQL', async () => {
   assert.equal(queries.length, 1);
 });
 
-test('downloaded ingestion installs and loads before prepare/import/init without embedded macros', async () => {
+test('downloaded ingestion installs and loads before the extension import without embedded macros', async () => {
   const queries = [];
-  await importGtfs(async sql => queries.push(sql), { ...allFiles, extensionRepository: 'https://example.test/ext' });
-  assert.deepEqual(queries.slice(0, 3), ["INSTALL gtfs FROM 'https://example.test/ext'", 'LOAD gtfs', 'PRAGMA gtfs_prepare']);
-  assert.equal(queries.at(-1), 'PRAGMA gtfs_init');
+  await importGtfs(async sql => queries.push(sql), { ...allFiles, directory: "it's here", extensionRepository: 'https://example.test/ext' });
+  assert.deepEqual(queries, ["INSTALL gtfs FROM 'https://example.test/ext'", 'LOAD gtfs', "PRAGMA gtfs_import('it''s here')"]);
   assert.equal(queries.some(sql => /CREATE\s+(OR REPLACE\s+)?MACRO/i.test(sql)), false);
 });

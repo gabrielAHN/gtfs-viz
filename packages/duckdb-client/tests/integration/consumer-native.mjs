@@ -45,7 +45,7 @@ try {
   const stopsPath = join(dir, 'stops.txt');
   await writeFile(stopsPath, 'stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station\nS,Station,35,139,1,\nP,Platform,35.001,139,0,S\n');
   const dbPath = join(dir, 'positive', 'data.duckdb');
-  const steps = await buildImportSteps({ databasePath: dbPath, stopsPath });
+  const steps = await buildImportSteps({ databasePath: dbPath, directory: dir });
   const sql = steps.join("\n");
   assert.equal(/CREATE\s+(OR REPLACE\s+)?MACRO/i.test(sql), false);
   const sqlPath = join(dir, 'import.sql');

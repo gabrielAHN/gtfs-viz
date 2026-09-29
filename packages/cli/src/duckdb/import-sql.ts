@@ -1,12 +1,9 @@
-import { dropExistingSql, buildImportSql as buildIngestionSql, addGeomColumnsSql } from "@gtfs-viz/duckdb-client";
-import type { ImportOptions as TransportOptions } from "@gtfs-viz/duckdb-client";
-export type ImportOptions = TransportOptions & { databasePath: string };
+import { importSql, addGeomColumnsSql } from "@gtfs-viz/duckdb-client";
+export type ImportOptions = { databasePath: string; directory: string };
 export async function buildImportSteps(opts: ImportOptions): Promise<string[]> {
   return [
     "INSTALL spatial; LOAD spatial;",
-    "PRAGMA gtfs_prepare;",
-    dropExistingSql() + "\n" + buildIngestionSql(opts),
-    "PRAGMA gtfs_init;",
+    importSql(opts.directory),
     "LOAD spatial;\n" + addGeomColumnsSql(),
   ];
 }
