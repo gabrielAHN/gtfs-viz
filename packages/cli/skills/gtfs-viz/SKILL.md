@@ -4,7 +4,7 @@ description: Import GTFS transit feeds, query station/stop/pathway/route/trip/ca
 license: MIT
 metadata:
   author: gabrielahn
-  version: "1.5.3"
+  version: "1.5.4"
   repository: gabrielAHN/gtfs-viz
 ---
 

@@ -709,8 +709,8 @@ export const releases: Release[] = [
     repo: "gtfs-duckdb",
     version: "1.0.0",
     title: "First release",
-    date: "2026-09-28",
-    status: "In review",
+    date: "2026-09-29",
+    status: "Released",
     pr: 4,
     highlights: [
       { area: "Extension", text: "89 GTFS functions available after `LOAD gtfs`" },
@@ -724,10 +724,10 @@ export const releases: Release[] = [
   },
   {
     repo: "gtfs-viz",
-    version: "Unreleased",
+    version: "1.5.4",
     title: "Consume GTFS DuckDB",
-    date: "2026-09-28",
-    status: "In review",
+    date: "2026-09-29",
+    status: "Released",
     pr: 20,
     highlights: [
       { area: "Architecture", text: "Web and CLI call the extension instead of bundling SQL" },

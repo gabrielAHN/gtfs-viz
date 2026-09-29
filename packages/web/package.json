@@ -1,6 +1,6 @@
 {
   "name": "@gtfs-viz/web",
-  "version": "1.5.3",
+  "version": "1.5.4",
   "private": true,
   "description": "Lightweight GTFS data visualizer and editor — web app",
   "license": "MIT",

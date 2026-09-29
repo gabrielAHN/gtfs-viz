@@ -2,6 +2,27 @@
 
 All notable changes to GTFS Viz will be documented in this file.
 
+## [1.5.4] - 2026-09-29
+
+### Changed
+- Load the separate [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) extension instead of bundling the SQL toolbox; `@gtfs-viz/duckdb-client` installs and loads it, and rendering lives in `@gtfs-viz/lib`.
+- Import feeds in the web app and the CLI with the extension's `gtfs_import` pragma.
+- Serve the app, the docs at `/docs/` and the GTFS DuckDB browser build at `/extensions/` from one deployment.
+
+### Added
+- GTFS Tools docs with project pages, the function reference, agent skill categories, releases and upcoming features, each page also as markdown.
+- Share the light or dark theme between the app and the docs.
+
+### Fixed
+- Reopen a browser session by loading the extension instead of rebuilding the dataset.
+- Opening the stations table before selecting a row no longer crashes.
+
+### Build notes
+- Use Node 22.
+- `yarn install --frozen-lockfile --ignore-engines`, then `yarn build`, `yarn test` and `yarn run check`.
+- `yarn preview:deploy` runs the deploy build locally.
+- The CLI needs `GTFS_EXTENSION_REPOSITORY` pointing at a repository with a signed `gtfs` build.
+
 ## [1.5.3] - 2026-09-15
 
 ### Added
