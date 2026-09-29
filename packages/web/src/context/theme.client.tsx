@@ -2,6 +2,17 @@ import React, { createContext, useState, useContext, ReactNode, FC, useEffect } 
 
 type Theme = "light" | "dark"
 
+export const themeStorageKey = "gtfs-viz-theme"
+
+const storedTheme = (): Theme | null => {
+  try {
+    const value = window.localStorage.getItem(themeStorageKey)
+    return value === "dark" || value === "light" ? value : null
+  } catch {
+    return null
+  }
+}
+
 interface ThemeContextType {
   theme: Theme
   setTheme: (theme: Theme) => void
@@ -15,15 +26,29 @@ export const ThemeProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window === "undefined") return "light"
 
-    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
-    return systemTheme
+    return (
+      storedTheme() ??
+      (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+    )
   })
 
   const [themeVariables, setThemeVariables] = useState<Record<string, string>>({})
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme)
+    try {
+      window.localStorage.setItem(themeStorageKey, newTheme)
+    } catch {}
   }
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== themeStorageKey) return
+      if (event.newValue === "dark" || event.newValue === "light") setThemeState(event.newValue)
+    }
+    window.addEventListener("storage", onStorage)
+    return () => window.removeEventListener("storage", onStorage)
+  }, [])
 
   const toggleTheme = () => {
     const newTheme = theme === "dark" ? "light" : "dark"

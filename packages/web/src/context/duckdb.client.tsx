@@ -26,6 +26,7 @@ export const DuckDBProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [dbInstance, setDbInstance] = useState<any>(null)
   const [connInstance, setConnInstance] = useState<any>(null)
   const [loading, setLoading] = useState<boolean>(true)
+  const [initializationError, setInitializationError] = useState<string | null>(null)
   const [initialized, setInitialized] = useState<boolean>(() => {
     return (
       Boolean(getCliNativeLaunchProfile()) ||
@@ -82,7 +83,7 @@ export const DuckDBProvider: FC<{ children: ReactNode }> = ({ children }) => {
     setLoading(true)
     if (cliProfile) {
       const dataset = await fetchCliNativeDataset(cliProfile)
-      setConnInstance(createCliNativeConnection(cliProfile))
+      setConnInstance(createCliNativeConnection(cliProfile, dataset.extensionRepository))
       setDbInstance({ __gtfsVizCliNative: true })
       setInitialized(dataset.status === "ready")
       setHasStations(Number(dataset.counts?.stations || 0) > 0)
@@ -94,11 +95,7 @@ export const DuckDBProvider: FC<{ children: ReactNode }> = ({ children }) => {
     const { conn, db, opfs } = await DuckDB()
     if (gen !== initGenRef.current) return
     setStorage(opfs ? "opfs" : "memory")
-    try {
-      await reinstallMacros(conn)
-    } catch (error) {
-      logger.warn("Could not re-register query macros:", error)
-    }
+    await reinstallMacros(conn)
     if (gen !== initGenRef.current) return
     setConnInstance(conn)
     setDbInstance(db)
@@ -107,9 +104,18 @@ export const DuckDBProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
   const initializeDuckDB = async () => {
     const gen = ++initGenRef.current
-    const run = initializeDuckDBInner(gen).finally(() => {
-      if (initInFlightRef.current === run) initInFlightRef.current = null
-    })
+    setInitializationError(null)
+    const run = initializeDuckDBInner(gen)
+      .catch((error) => {
+        if (gen === initGenRef.current) {
+          setInitializationError(error instanceof Error ? error.message : String(error))
+          setLoading(false)
+        }
+        throw error
+      })
+      .finally(() => {
+        if (initInFlightRef.current === run) initInFlightRef.current = null
+      })
     initInFlightRef.current = run
     return run
   }
@@ -117,7 +123,7 @@ export const DuckDBProvider: FC<{ children: ReactNode }> = ({ children }) => {
   useEffect(() => {
     if (cliProfile) {
       sessionStorage.setItem(SESSION_KEY, "true")
-      initializeDuckDB()
+      initializeDuckDB().catch((error) => logger.error("Database initialization failed:", error))
       return
     }
 
@@ -171,9 +177,9 @@ export const DuckDBProvider: FC<{ children: ReactNode }> = ({ children }) => {
     }
 
     if (isHardRefresh) {
-      performReset()
+      performReset().catch((error) => logger.error("Database initialization failed:", error))
     } else {
-      initializeDuckDB()
+      initializeDuckDB().catch((error) => logger.error("Database initialization failed:", error))
     }
   }, [navigate, queryClient, cliProfile])
 
@@ -401,6 +407,18 @@ export const DuckDBProvider: FC<{ children: ReactNode }> = ({ children }) => {
     logger.log("  🔄 Creating fresh DuckDB instance...")
     await initializeDuckDB()
     logger.log("✅ Database reset complete - ready for new data")
+  }
+
+  if (initializationError) {
+    return (
+      <main role="alert" className="m-6 rounded border border-red-500 p-6 break-words">
+        <h1 className="mb-3 text-xl font-semibold">Database initialization failed</h1>
+        <p>{initializationError}</p>
+        <p className="mt-3">
+          Check the configured extension repository and matching signed artifacts, then reload.
+        </p>
+      </main>
+    )
   }
 
   return (

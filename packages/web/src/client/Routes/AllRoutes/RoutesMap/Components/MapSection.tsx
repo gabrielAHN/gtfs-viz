@@ -7,7 +7,7 @@ import {
   largestBundleIn,
   laneWidthPxForRouteType,
   routeModeRank,
-} from "@gtfs-viz/duckdb-extension/deckgl"
+} from "@gtfs-viz/lib/deckgl"
 import { createPointOutline } from "@/components/maps/MapOutlineHelpers"
 import { useThemeContext } from "@/context/theme.client"
 import { getRouteTypeColor } from "@/client/Routes/routeTypeColors"

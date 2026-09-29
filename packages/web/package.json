@@ -1,14 +1,14 @@
 {
   "name": "@gtfs-viz/web",
-  "version": "1.5.3",
+  "version": "1.5.4",
   "private": true,
   "description": "Lightweight GTFS data visualizer and editor — web app",
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "predev": "yarn workspace @gtfs-viz/duckdb-extension run build",
+    "predev": "yarn workspace @gtfs-viz/duckdb-client run build && yarn workspace @gtfs-viz/lib run build",
     "dev": "PATH=\"$HOME/.nvm/versions/node/v22.21.1/bin:$PATH\" vp dev --force",
-    "prebuild": "yarn workspace @gtfs-viz/duckdb-extension run build",
+    "prebuild": "rm -rf dist && yarn workspace @gtfs-viz/duckdb-client run build && yarn workspace @gtfs-viz/lib run build",
     "build": "PATH=\"$HOME/.nvm/versions/node/v22.21.1/bin:$PATH\" vp build",
     "preview": "PATH=\"$HOME/.nvm/versions/node/v22.21.1/bin:$PATH\" vp preview",
     "check": "PATH=\"$HOME/.nvm/versions/node/v22.21.1/bin:$PATH\" vp check"
@@ -21,7 +21,8 @@
     "@deck.gl/mesh-layers": "^8.9.14",
     "@deck.gl/react": "^8.9.14",
     "@duckdb/duckdb-wasm": "^1.29.0",
-    "@gtfs-viz/duckdb-extension": "*",
+    "@gtfs-viz/duckdb-client": "*",
+    "@gtfs-viz/lib": "*",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.3",
     "@radix-ui/react-avatar": "^1.1.11",

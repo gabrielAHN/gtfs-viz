@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='80' font-size='80'%3E🚉%3C/text%3E%3C/svg%3E"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GTFS Viz Docs</title>
+    <meta
+      name="description"
+      content="GTFS Tools: GTFS Viz, a web app, CLI and agent skill, and GTFS DuckDB, a DuckDB extension for GTFS transit data."
+    />
+    <meta property="og:title" content="GTFS Viz Docs" />
+    <meta property="og:image" content="/docs/og-preview.png" />
+    <script>
+      ;(function () {
+        var theme = null
+        try {
+          theme = window.localStorage.getItem("gtfs-viz-theme")
+        } catch (e) {}
+        if (theme !== "dark" && theme !== "light") {
+          theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+        }
+        document.documentElement.classList.toggle("dark", theme === "dark")
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/main.tsx"></script>
+  </body>
+</html>

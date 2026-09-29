@@ -52,18 +52,14 @@
     <link rel="canonical" href="https://github.com/gabrielAHN/gtfs-viz" />
     <script>
       ;(function () {
+        var theme = null
         try {
-          const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-          const theme = systemPrefersDark ? "dark" : "light"
-
-          if (theme === "dark") {
-            document.documentElement.classList.add("dark")
-          } else {
-            document.documentElement.classList.remove("dark")
-          }
-        } catch (e) {
-          console.error("Theme initialization error:", e)
+          theme = window.localStorage.getItem("gtfs-viz-theme")
+        } catch (e) {}
+        if (theme !== "dark" && theme !== "light") {
+          theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
         }
+        document.documentElement.classList.toggle("dark", theme === "dark")
       })()
     </script>
   </head>

@@ -7,7 +7,6 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet"
 import { GithubButton } from "@/components/contact"
-import UpcomingFeatures from "@/components/UpcomingFeatures"
 import { Button } from "@/components/ui/button"
 import { BiMenu } from "react-icons/bi"
 
@@ -74,7 +73,6 @@ function HeaderDrawer({ TabList }) {
           ))}
           <div className="flex justify-center mt-4 gap-2">
             <GithubButton />
-            <UpcomingFeatures />
           </div>
         </nav>
       </SheetContent>

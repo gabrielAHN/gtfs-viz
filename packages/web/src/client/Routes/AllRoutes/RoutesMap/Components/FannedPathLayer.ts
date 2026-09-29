@@ -1,6 +1,6 @@
 import { PathLayer } from "@deck.gl/layers"
 import { _mergeShaders as mergeShaders } from "@deck.gl/core"
-import { createRouteShapeLayer } from "@gtfs-viz/duckdb-extension/deckgl"
+import { createRouteShapeLayer } from "@gtfs-viz/lib/deckgl"
 
 export {
   encodeFanCode as encodeFanZ,
@@ -12,7 +12,7 @@ export {
   routeShapeLayerState,
   type RouteShapePath,
   type RouteShapeRecord,
-} from "@gtfs-viz/duckdb-extension/deckgl"
+} from "@gtfs-viz/lib/deckgl"
 
 const { FannedPathLayer, RouteShapeLayer } = createRouteShapeLayer({ PathLayer, mergeShaders })
 

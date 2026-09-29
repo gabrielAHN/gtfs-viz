@@ -2,8 +2,9 @@ import JSZip from "jszip"
 import pako from "pako"
 import { AsyncDuckDB, AsyncDuckDBConnection } from "@duckdb/duckdb-wasm"
 import { logger } from "@/lib/logger"
-import { importGtfs } from "@gtfs-viz/duckdb-extension"
-import type { SqlExecutor } from "@gtfs-viz/duckdb-extension"
+import { getExtensionRepository } from "@/lib/extensions"
+import { importGtfs } from "@gtfs-viz/duckdb-client"
+import type { SqlExecutor } from "@gtfs-viz/duckdb-client"
 import { fetchGTFSDataAvailability } from "./availability"
 
 export interface GTFSFile {
@@ -740,6 +741,7 @@ export async function runIngestion(
     }
 
     await importGtfs(executor, {
+      extensionRepository: getExtensionRepository(conn),
       stopsPath: "stops.txt",
       pathwaysPath: hasPathwaysFile ? "pathways.txt" : undefined,
       routesPath: hasRoutesFile ? "routes.txt" : undefined,
@@ -749,45 +751,28 @@ export async function runIngestion(
       calendarPath: hasCalendarFile ? "calendar.txt" : undefined,
       calendarDatesPath: hasCalendarDatesFile ? "calendar_dates.txt" : undefined,
       onCsvImported,
-      onProgress: ({ phase, done, total, detail }) => {
+      onProgress: ({ phase, done, total }) => {
         const frac = total > 0 ? Math.min(1, done / total) : 1
-        if (phase === "macros") {
-          onProgress?.({
-            percent: 20 + frac * 2,
-            message: "Preparing database helpers...",
-            step: "import",
-          })
-        } else if (phase === "drop") {
-          onProgress?.({
-            percent: 22 + frac * 2,
-            message: "Clearing previous tables...",
-            step: "import",
-          })
-        } else if (phase === "import") {
-          const step = Math.min(done + 1, total)
-          onProgress?.({
-            percent: 24 + frac * 36,
-            message: detail
-              ? `Loading ${detail} (${step}/${total})...`
-              : `Loading GTFS tables (${step}/${total})...`,
-            step: "import",
-          })
-        } else {
-          onProgress?.({
-            percent: 60 + frac * 28,
-            message: detail
-              ? `Building ${detail} (${done}/${total})...`
-              : `Building views and tables (${done}/${total})...`,
-            step: "reformat",
-          })
-        }
+        onProgress?.(
+          phase === "macros"
+            ? {
+                percent: 20 + frac * 4,
+                message: "Loading the GTFS DuckDB extension...",
+                step: "import",
+              }
+            : {
+                percent: 24 + frac * 64,
+                message: "Importing and building GTFS tables...",
+                step: "reformat",
+              },
+        )
       },
     })
 
     // Add geom columns if spatial extension is available
     try {
       await conn.query(`SELECT ST_Point(0, 0)`)
-      const { addGeomColumnsSql } = await import("@gtfs-viz/duckdb-extension")
+      const { addGeomColumnsSql } = await import("@gtfs-viz/duckdb-client")
       await conn.query(addGeomColumnsSql())
     } catch {
       // spatial not available — skip geom columns

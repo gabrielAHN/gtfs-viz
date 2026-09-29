@@ -5,6 +5,8 @@
 
 Lightweight GTFS data visualizer and editor. Import, browse, edit, and export transit feeds — runs entirely client-side with DuckDB.
 
+**Docs:** [gtfs-viz-production-f1a4.up.railway.app/docs](https://gtfs-viz-production-f1a4.up.railway.app/docs/) — web app, CLI, agent skill, the GTFS DuckDB function reference and [upcoming features](https://gtfs-viz-production-f1a4.up.railway.app/docs/upcoming/). Every page is also available as markdown ([llms.txt](https://gtfs-viz-production-f1a4.up.railway.app/docs/llms.txt)).
+
 ![GTFS Viz Demo](images/gtfs-viz.gif)
 
 ## Features
@@ -25,7 +27,7 @@ Lightweight GTFS data visualizer and editor. Import, browse, edit, and export tr
 Visit [gtfs-viz-production-f1a4.up.railway.app](https://gtfs-viz-production-f1a4.up.railway.app) or run locally:
 
 ```bash
-yarn install --ignore-engines && yarn build:extension && yarn dev
+yarn install --ignore-engines && yarn dev
 ```
 
 ### CLI
@@ -58,35 +60,60 @@ yarn cli import /path/to/feed.zip    # Uses node packages/cli/dist/index.js
 
 ### DuckDB Extension
 
-The CLI and web app use the GTFS DuckDB extension for all station analysis, pathway queries, and pathfinding. See the [extension docs](packages/duckdb-extension#readme) for standalone usage.
+Database functions come from the separate [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) extension, which the web app and CLI download and load (`INSTALL gtfs FROM <repository>; LOAD gtfs;`). Configure `GTFS_EXTENSION_REPOSITORY` for the CLI or `VITE_GTFS_EXTENSION_REPOSITORY` for the web app. The web app links to the docs at `/docs/` (override with `VITE_GTFS_DOCS_URL`); the CLI dashboard never shows the link. Without configuration, an already-installed compatible extension is required. See [configuration](packages/duckdb-client/README.md).
 
 ## Project Structure
 
 ```
 packages/
-  duckdb-extension/ DuckDB extension (C++ native + TypeScript API + SQL)
+  duckdb-client/     Thin extension client and raw-file transport
+  lib/              Rendering layers and visual adapters (no DuckDB dependency)
   web/              React web application (DuckDB WASM, Deck.gl, TanStack)
   cli/              CLI tool (npm: @gabrielahn/gtfs-viz-cli)
+  docs/             Documentation site served at /docs/ (see packages/docs/README.md)
 ```
 
 ## Development
 
 ```bash
 yarn install --ignore-engines
-yarn build              # Build all (extension -> web -> cli)
-yarn dev                # Web dev server at localhost:5173
-yarn build:extension    # Build DuckDB extension TS layer
+yarn build              # Build all (client -> lib -> web -> docs -> cli)
+yarn dev                # Web app at localhost:5173, docs at localhost:5173/docs/
+yarn dev:docs           # Docs alone at localhost:4391/docs/
+yarn build:client       # Build the thin extension client
+yarn build:lib          # Build standalone rendering library
 yarn build:cli          # Build CLI only
-yarn check              # Type-check all packages
+yarn run check          # Check all packages
+yarn test               # Consumer, rendering, and source/bundle boundary regressions
 ```
 
 ## Deploy
 
-Railway via [railpack.json](railpack.json): `yarn build` outputs to `dist/`, served by Caddy as SPA.
+Railway runs `yarn build:deploy` ([railpack.json](railpack.json)) and serves `dist/` with the [Caddyfile](Caddyfile) as one service:
+
+| Path | Content |
+| --- | --- |
+| `/` | Web app |
+| `/docs/` | Docs |
+| `/extensions/` | GTFS DuckDB browser build from the extension repo's `main` |
+
+`build:deploy` downloads the `main-latest` release of [gtfs-duckdb](https://github.com/gabrielAHN/gtfs-duckdb/releases/tag/main-latest), which its CI republishes on every push to `main`, verifies the checksums and copies the WASM files into `dist/extensions/`. That build is unsigned, so the deploy build enables unsigned extension loading in the browser. Set `GTFS_EXTENSION_SOURCE` to a URL, an archive or an extension checkout to use another build. Redeploy after the extension's `main` changes.
+
+Run the same build locally:
+
+```bash
+yarn preview:deploy                                   # app, docs and ../gtfs-duckdb at localhost:4000
+yarn preview:deploy --port 4391                       # same build on another port
+yarn preview:deploy --extension <url|archive|repo>    # another extension build
+yarn preview:deploy --skip-build                      # only refresh the extension files after rebuilding it
+```
+
+Requires `caddy`. With a local checkout, build the extension's WASM first (`scripts/build-wasm.sh`).
 
 ## Links
 
+- [Docs](https://gtfs-viz-production-f1a4.up.railway.app/docs/)
 - [CLI on npm](https://www.npmjs.com/package/@gabrielahn/gtfs-viz-cli)
 - [CLI docs](packages/cli#readme)
-- [DuckDB extension](packages/duckdb-extension#readme)
+- [DuckDB extension](packages/duckdb-client#readme)
 - [Agent skills](packages/cli/skills/gtfs-viz)

@@ -5,6 +5,7 @@ import { logger } from "@/lib/logger"
 import { BiImport, BiMap, BiTable, BiMenu } from "react-icons/bi"
 import { Button } from "@/components/ui/button"
 import ThemeSwitcher from "@/components/ui/ThemeSwitcher"
+import { DocsButton, GithubButton } from "@/components/contact"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
@@ -255,7 +256,9 @@ function Header() {
 
             <Separator />
 
-            <div className="px-2">
+            <div className="flex items-center gap-2 px-2">
+              <GithubButton />
+              <DocsButton />
               <ThemeSwitcher />
             </div>
           </div>
@@ -284,9 +287,11 @@ function Header() {
                   {isResetting ? "Resetting..." : "Import"}
                 </Button>
               )}
-              <div className="ml-2 pl-2">
-                <ThemeSwitcher />
+              <div className="ml-2 hidden items-center gap-2 pl-2 sm:flex">
+                <GithubButton />
+                <DocsButton />
               </div>
+              <ThemeSwitcher />
               <Button
                 variant="ghost"
                 size="icon"

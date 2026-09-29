@@ -1,6 +1,6 @@
 {
   "name": "@gabrielahn/gtfs-viz-cli",
-  "version": "1.5.3",
+  "version": "1.5.4",
   "description": "Lightweight GTFS data visualizer and editor — import, browse stations/stops/routes/pathways, edit connections, compare schedules, and export feeds from the terminal with DuckDB and a browser dashboard",
   "license": "MIT",
   "author": "Gabriel AHN",
@@ -9,7 +9,7 @@
     "url": "git+https://github.com/gabrielAHN/gtfs-viz.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://github.com/gabrielAHN/gtfs-viz/tree/main/packages/cli#readme",
+  "homepage": "https://gtfs-viz-production-f1a4.up.railway.app/docs/gtfs-viz/cli/",
   "keywords": [
     "gtfs",
     "transit",
@@ -39,14 +39,14 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node scripts/bundle.mjs && chmod +x dist/index.js && node scripts/copy-dashboard.mjs",
+    "build": "rm -rf dist .tsc-out && tsc -p tsconfig.json && node scripts/bundle.mjs && chmod +x dist/index.js && node scripts/copy-dashboard.mjs",
     "check": "tsc -p tsconfig.json --noEmit",
     "postinstall": "node scripts/postinstall.mjs",
     "preuninstall": "node scripts/preuninstall.mjs",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
-    "@gtfs-viz/duckdb-extension": "*",
+    "@gtfs-viz/duckdb-client": "*",
     "@types/node": "^22.10.5",
     "esbuild": "^0.28.0",
     "typescript": "~5.6.2"

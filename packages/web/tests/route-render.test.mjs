@@ -7,7 +7,7 @@ import vm from "node:vm"
 
 const require = createRequire(import.meta.url)
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), "utf8")
-const LIB = "../../duckdb-extension/lib/deckgl/"
+const LIB = "../../lib/lib/deckgl/"
 const loaded = {}
 const loadLib = (name) => {
   if (loaded[name]) return loaded[name]
@@ -214,6 +214,6 @@ test("routeShapeLayerProps hides the cleaned vs raw distinction from callers", (
 
 test("the web app consumes the layer from the library instead of a local copy", () => {
   const fanSource = read("../src/client/Routes/AllRoutes/RoutesMap/Components/FannedPathLayer.ts")
-  assert.match(fanSource, /from "@gtfs-viz\/duckdb-extension\/deckgl"/)
+  assert.match(fanSource, /from "@gtfs-viz\/lib\/deckgl"/)
   assert.doesNotMatch(fanSource, /vs:#main-end/)
 })

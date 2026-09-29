@@ -109,6 +109,12 @@ export default defineConfig({
     hmr: {
       overlay: true,
     },
+    proxy: {
+      "/docs": {
+        target: process.env.GTFS_DOCS_DEV_URL || "http://127.0.0.1:4391",
+        ws: true,
+      },
+    },
   },
   build: {
     outDir: "../dist",

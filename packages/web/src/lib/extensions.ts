@@ -1,117 +1,93 @@
-/**
- * GTFS extension for the web app.
- *
- * installGtfsExtension() runs the full extension: macros, views, tables, indexes.
- * Incremental functions re-run installInit() after edits.
- */
+import { createExtensionClient } from "@gtfs-viz/duckdb-client/client"
 
-import {
-  installExtension,
-  installMacros,
-  installInit,
-  reinstallMacros as _reinstallMacros,
-  recreateStopsView as _recreateStopsView,
-  recreatePathwaysView as _recreatePathwaysView,
-} from "@gtfs-viz/duckdb-extension"
-import type { SqlExecutor } from "@gtfs-viz/duckdb-extension"
-import { logger } from "@/lib/logger"
+const webRepository = (repository: string | undefined) =>
+  repository && repository.startsWith("/") && typeof location !== "undefined"
+    ? `${location.origin}${repository.replace(/\/$/, "")}`
+    : repository
 
-function createExecutor(conn: any): SqlExecutor {
-  return async (sql: string) => {
-    await conn.query(sql)
+export const getExtensionRepository = (conn: any): string | undefined =>
+  conn.__gtfsVizCliNative
+    ? conn.extensionRepository
+    : webRepository(import.meta.env.VITE_GTFS_EXTENSION_REPOSITORY)
+
+const connections = new WeakMap<object, Promise<ReturnType<typeof createExtensionClient>>>()
+
+export async function downloaded(conn: any) {
+  const repository = getExtensionRepository(conn)
+  let pending = connections.get(conn)
+  if (!pending) {
+    pending = (async () => {
+      const client = createExtensionClient(conn, { repository })
+      if (repository !== undefined) await client.install()
+      await client.load()
+      return client
+    })()
+    connections.set(conn, pending)
   }
+  return pending
 }
 
-/**
- * Install the full GTFS extension: macros, views, tables, indexes.
- * Call after GTFS data (stops/pathways) has been loaded.
- */
 export const installGtfsExtension = async (conn: any): Promise<void> => {
-  await installExtension(createExecutor(conn))
+  const client = await downloaded(conn)
+  if (client) {
+    await client.prepare()
+    await client.init()
+  }
 }
 
 export const reinstallMacros = async (conn: any): Promise<void> => {
-  const res = await conn.query(
-    `SELECT COUNT(*) AS n FROM information_schema.tables WHERE table_name = 'stops'`,
-  )
-  if (Number(res.toArray()[0]?.n ?? 0) === 0) return
-  await _reinstallMacros(createExecutor(conn))
+  await downloaded(conn)
 }
 
-/**
- * Install only enum macros + edit tables (before CSV import).
- */
 export const installEnumsAndEditTables = async (conn: any): Promise<void> => {
-  await installMacros(createExecutor(conn))
+  const client = await downloaded(conn)
+  if (client) await client.prepare()
 }
 
 export const createStationsTable = async (conn: any): Promise<void> => {
-  await conn.query(
-    "CREATE OR REPLACE TABLE StationsTable AS SELECT * FROM get_stations_table_data()",
-  )
+  await downloaded(conn)
+  await conn.query("PRAGMA gtfs_refresh")
 }
 
 export const createStopsTable = async (conn: any): Promise<void> => {
-  await conn.query("CREATE OR REPLACE TABLE StopsTable AS SELECT * FROM get_stops_table_data()")
+  await downloaded(conn)
+  await conn.query("PRAGMA gtfs_refresh")
 }
 
-export const createEditStopTable = async (conn: any): Promise<void> => {
-  await installMacros(createExecutor(conn))
-}
+export const createEditStopTable = installEnumsAndEditTables
+export const createEditPathwayTable = installEnumsAndEditTables
+export const createEditRouteTable = installEnumsAndEditTables
 
-export const createEditPathwayTable = async (conn: any): Promise<void> => {
-  await installMacros(createExecutor(conn))
-}
-
-export const createEditRouteTable = async (conn: any): Promise<void> => {
-  await installMacros(createExecutor(conn))
+export const refreshRoutesTables = async (conn: any): Promise<void> => {
+  const client = await downloaded(conn)
+  if (client) await client.refresh()
 }
 
 export const createStopsView = async (conn: any): Promise<void> => {
-  await conn.query("ALTER TABLE stops ADD COLUMN IF NOT EXISTS level_id VARCHAR")
-  await installInit(createExecutor(conn))
+  await downloaded(conn)
+  await refreshRoutesTables(conn)
 }
 
-export const createPathwaysView = async (conn: any): Promise<void> => {
-  await installInit(createExecutor(conn))
-}
-
-export const loadPathwayQueryProcedures = async (_conn: any): Promise<void> => {
-  // All macros are registered by installInit — no-op
-}
-
-export const recreatePathwayNetwork = async (conn: any): Promise<void> => {
-  await conn.query("DROP VIEW IF EXISTS pathway_network")
-  await installInit(createExecutor(conn))
-}
+export const createPathwaysView = refreshRoutesTables
+export const loadPathwayQueryProcedures = async (_conn: any): Promise<void> => {}
+export const recreatePathwayNetwork = refreshRoutesTables
 
 export const reloadQueryMacros = async (conn: any): Promise<void> => {
-  try {
-    const result = await conn.query(`
-      SELECT COUNT(*) as count
-      FROM information_schema.views
-      WHERE table_name = 'pathway_network'
-    `)
-    const count = result.toArray()[0]?.count || 0
-    if (Number(count) > 0) {
-      await installInit(createExecutor(conn))
-    }
-  } catch (error) {
-    logger.warn("Could not check for pathway_network view:", error)
-  }
+  await downloaded(conn)
+  const result = await conn.query(
+    "SELECT COUNT(*) as count FROM information_schema.views WHERE table_name = 'pathway_network'",
+  )
+  if (Number(result.toArray()[0]?.count || 0) > 0) await refreshRoutesTables(conn)
 }
 
 export const recreateStopsView = async (conn: any): Promise<void> => {
-  await _recreateStopsView(createExecutor(conn))
+  const client = await downloaded(conn)
+  if (client) await client.refresh()
 }
 
 export const recreatePathwaysView = async (conn: any): Promise<void> => {
-  await _recreatePathwaysView(createExecutor(conn))
+  const client = await downloaded(conn)
+  if (client) await client.refresh()
 }
 
-export const refreshRoutesTables = async (conn: any): Promise<void> => {
-  await installInit(createExecutor(conn))
-}
-
-// Re-export for backward compat
 export const installEnums = installEnumsAndEditTables

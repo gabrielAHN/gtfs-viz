@@ -57,8 +57,12 @@ export const queryWithSpatial = async (conn: any, sql: string) => {
   }
 }
 
-export const createCliNativeConnection = (profile: CliLaunchProfile) => ({
+export const createCliNativeConnection = (
+  profile: CliLaunchProfile,
+  extensionRepository?: string,
+) => ({
   __gtfsVizCliNative: true,
+  extensionRepository,
   query: async (sql: string) => {
     const response = await fetch(buildCliApiUrl(profile, "/sql"), {
       method: "POST",
@@ -85,6 +89,7 @@ export const fetchCliNativeDataset = async (profile: CliLaunchProfile) => {
     throw new Error(body.error || `CLI dataset status failed with HTTP ${response.status}`)
   }
   return body as {
+    extensionRepository?: string
     status: "ready"
     counts: {
       stops: number

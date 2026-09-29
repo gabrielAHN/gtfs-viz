@@ -1,6 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { getNativeExtensionRepository } from "../duckdb/runner.js";
 
 export type StatusValue = "starting" | "dashboard-connected" | "importing" | "ready" | "error";
 
@@ -22,6 +23,7 @@ export type SessionStatus = {
 };
 
 export type DatasetMetadata = {
+  extensionRepository?: string;
   status: "ready";
   sourcePath: string;
   feedPath: string;
@@ -109,7 +111,7 @@ export const readDatasetState = async () => {
     }
   }
 
-  return state;
+  return { ...state, extensionRepository: await getNativeExtensionRepository(state.dbPath) };
 };
 
 export const writeDatasetState = async (metadata: DatasetMetadata) => {

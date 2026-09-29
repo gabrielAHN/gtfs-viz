@@ -1,0 +1,95 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    name: Build, check and test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: yarn
+
+      - run: yarn install --frozen-lockfile --ignore-engines
+      - run: yarn build
+      - run: yarn run check
+      - run: yarn test
+
+  extension-integration:
+    name: GTFS DuckDB integration
+    needs: build
+    runs-on: ubuntu-24.04
+    env:
+      EXTENSION_REPOSITORY: gabrielAHN/gtfs-duckdb
+      EXTENSION_BRANCH: ${{ vars.GTFS_EXTENSION_BRANCH || 'main' }}
+      GTFS_STAGED_REPOSITORY: ${{ github.workspace }}/build/staged-repository
+      DUCKDB_BIN: ${{ github.workspace }}/build/duckdb-cli/duckdb
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: yarn
+
+      - name: Download staged extension repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id=$(gh run list --repo "$EXTENSION_REPOSITORY" --workflow MainDistributionPipeline.yml --branch "$EXTENSION_BRANCH" --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          if [ -z "$run_id" ]; then
+            echo "::error::No successful $EXTENSION_REPOSITORY build on $EXTENSION_BRANCH"
+            exit 1
+          fi
+          echo "Using $EXTENSION_REPOSITORY run $run_id ($EXTENSION_BRANCH)"
+          gh run download "$run_id" --repo "$EXTENSION_REPOSITORY" --name gtfs-unsigned-development-repository --dir "$GTFS_STAGED_REPOSITORY"
+          cat "$GTFS_STAGED_REPOSITORY/manifest.json"
+
+      - name: Install DuckDB CLI v1.5.4 and spatial
+        run: |
+          mkdir -p build/duckdb-cli
+          curl -fsSL -o build/duckdb-cli/cli.zip https://github.com/duckdb/duckdb/releases/download/v1.5.4/duckdb_cli-linux-amd64.zip
+          unzip -q build/duckdb-cli/cli.zip -d build/duckdb-cli
+          echo "$GITHUB_WORKSPACE/build/duckdb-cli" >> "$GITHUB_PATH"
+          echo "GTFS_DEPENDENCY_CACHE=$HOME/.duckdb/extensions" >> "$GITHUB_ENV"
+          "$DUCKDB_BIN" :memory: -c "INSTALL spatial; SELECT version(); PRAGMA platform;"
+          gunzip -c "$GTFS_STAGED_REPOSITORY/v1.5.4/linux_amd64/gtfs.duckdb_extension.gz" > build/gtfs.duckdb_extension
+          echo "GTFS_EXTENSION=$GITHUB_WORKSPACE/build/gtfs.duckdb_extension" >> "$GITHUB_ENV"
+
+      - run: yarn install --frozen-lockfile --ignore-engines
+      - run: npx playwright install --with-deps chromium
+      - run: yarn build
+
+      - name: Tests with the downloaded extension
+        run: yarn test
+
+      - name: Native client and CLI dashboard
+        run: node packages/duckdb-client/tests/integration/consumer-native.mjs --cli-e2e
+
+      - name: Browser client (unsigned development loading)
+        run: node packages/duckdb-client/tests/integration/consumer-wasm.mjs --unsigned-only
+
+      - name: Web app downloads the extension
+        run: node packages/duckdb-client/tests/integration/consumer-app.mjs
+
+      - name: Web app reports a missing repository
+        run: node packages/duckdb-client/tests/integration/consumer-app.mjs --missing-config
+
+      - name: Strict browser signature check (known DuckDB-WASM MVP failure)
+        continue-on-error: true
+        run: node packages/duckdb-client/tests/integration/consumer-wasm.mjs

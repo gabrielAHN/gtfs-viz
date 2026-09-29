@@ -1,0 +1,33 @@
+{
+  "name": "@gtfs-viz/duckdb-client",
+  "version": "0.1.0",
+  "description": "Downloads and loads the GTFS DuckDB extension for GTFS Viz",
+  "license": "MIT",
+  "author": "Gabriel AHN",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gabrielAHN/gtfs-viz.git",
+    "directory": "packages/duckdb-client"
+  },
+  "type": "module",
+  "exports": {
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    },
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "~5.6.2"
+  }
+}

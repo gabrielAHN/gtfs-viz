@@ -20,9 +20,6 @@ const loadRouteBands = ({ executeRows, queryRows }) => {
       exports,
       require: (id) => {
         if (id === "./runner.js") return { executeRows, queryRows }
-        if (id === "@gtfs-viz/duckdb-extension") {
-          return { ROUTE_SHAPE_MACRO_VERSION: routeShapeMacroVersion }
-        }
         assert.fail(`unexpected import: ${id}`)
       },
     },
@@ -55,7 +52,8 @@ test("a failed route-band rebuild preserves the existing derived rows", async ()
   }
   const routeBands = loadRouteBands({
     executeRows,
-    queryRows: async () => {
+    queryRows: async (_db, sql) => {
+      if (sql === "PRAGMA gtfs_route_cache_version") return [{ version: routeShapeMacroVersion }]
       throw new Error("summary query must not run after a build failure")
     },
   })
@@ -71,7 +69,7 @@ test("a successful route-band rebuild uses one transaction and returns its summa
   const calls = []
   const routeBands = loadRouteBands({
     executeRows: async (dbPath, sql) => calls.push({ dbPath, sql }),
-    queryRows: async () => [{ band_rows: 48, routes: 6, widest_bundle: 4 }],
+    queryRows: async (_db, sql) => sql === "PRAGMA gtfs_route_cache_version" ? [{ version: routeShapeMacroVersion }] : [{ band_rows: 48, routes: 6, widest_bundle: 4 }],
   })
 
   assert.deepEqual(
@@ -92,7 +90,7 @@ test("a successful route-band rebuild uses one transaction and returns its summa
     .map((statement) => statement.trim())
     .filter(Boolean)
   const position = (pattern) => statements.findIndex((statement) => pattern.test(statement))
-  const createVersion = position(/CREATE TABLE IF NOT EXISTS RouteShapeMacroVersion/i)
+  const createVersion = position(/PRAGMA gtfs_prepare_route_cache/i)
   const begin = position(/^BEGIN TRANSACTION$/i)
   const deleteLanes = position(/^DELETE FROM RouteShapeLanesTable$/i)
   const deleteBands = position(/^DELETE FROM RouteShapeBandsTable$/i)

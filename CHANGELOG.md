@@ -2,13 +2,34 @@
 
 All notable changes to GTFS Viz will be documented in this file.
 
+## [1.5.4] - 2026-09-29
+
+### Changed
+- Load the separate [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) extension instead of bundling the SQL toolbox; `@gtfs-viz/duckdb-client` installs and loads it, and rendering lives in `@gtfs-viz/lib`.
+- Import feeds in the web app and the CLI with the extension's `gtfs_import` pragma.
+- Serve the app, the docs at `/docs/` and the GTFS DuckDB browser build at `/extensions/` from one deployment.
+
+### Added
+- GTFS Tools docs with project pages, the function reference, agent skill categories, releases and upcoming features, each page also as markdown.
+- Share the light or dark theme between the app and the docs.
+
+### Fixed
+- Reopen a browser session by loading the extension instead of rebuilding the dataset.
+- Opening the stations table before selecting a row no longer crashes.
+
+### Build notes
+- Use Node 22.
+- `yarn install --frozen-lockfile --ignore-engines`, then `yarn build`, `yarn test` and `yarn run check`.
+- `yarn preview:deploy` runs the deploy build locally.
+- The CLI needs `GTFS_EXTENSION_REPOSITORY` pointing at a repository with a signed `gtfs` build.
+
 ## [1.5.3] - 2026-09-15
 
 ### Added
 - Render overlapping routes as parallel bands, with stable lane assignment through shared corridors.
 - Render compared trips in lanes using their GTFS shape geometry, with a stop-to-stop fallback.
 - Build route bands on demand with the DuckDB corridor macros and the CLI `route-bands` command.
-- Ship the reusable deck.gl route-shape layer from `@gtfs-viz/duckdb-extension/deckgl`.
+- Ship the reusable deck.gl route-shape layer from `@gtfs-viz/lib/deckgl`.
 
 ### Changed
 - Reduce corridor-processing time and peak memory, shrink persisted band data, defer route cleanup from import, and improve large-feed loading with persistent storage and controlled in-memory fallback.
@@ -32,10 +53,7 @@ All notable changes to GTFS Viz will be documented in this file.
     packages/cli/tests/spatial-http.integration.test.mjs
   ```
 
-- Run the corridor test:
-  `node --test packages/duckdb-extension/tests/corridor-lanes.test.mjs`.
-- Run the DuckDB profile portability test:
-  `node --test packages/duckdb-extension/tests/profile-feed.test.mjs`.
+- Corridor and DuckDB profile tests live in the [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) repository.
 - Run all route renderer and native bridge tests:
 
   ```sh

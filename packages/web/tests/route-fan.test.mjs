@@ -27,8 +27,8 @@ const load = (rel) => {
   return exports
 }
 const require = createRequire(import.meta.url)
-const fanCode = load("../../duckdb-extension/lib/deckgl/fan-code.ts")
-const fanLayer = load("../../duckdb-extension/lib/deckgl/fanned-path-layer.ts")
+const fanCode = load("../../lib/lib/deckgl/fan-code.ts")
+const fanLayer = load("../../lib/lib/deckgl/fanned-path-layer.ts")
 const exports = {
   ...fanCode,
   encodeFanZ: fanCode.encodeFanCode,
