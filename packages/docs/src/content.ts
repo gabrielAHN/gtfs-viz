@@ -394,7 +394,7 @@ export const parts: Part[] = [
             blocks: [
               {
                 type: "text",
-                text: "A DuckDB extension, `gtfs`, built from the DuckDB extension template. `LOAD gtfs` registers its functions; loading never creates or resets tables, the import and lifecycle pragmas do. These docs cover the 58 functions for working with GTFS data. The other 31 are internal to GTFS Viz's maps, such as route-band caches, map bounds and filter menus.",
+                text: "A DuckDB extension, `gtfs`, built from the DuckDB extension template. `LOAD gtfs` registers its functions; loading never creates or resets tables, the import and lifecycle pragmas do. These docs cover the 63 functions for working with GTFS data. The other 33 are internal: GTFS Viz's maps, such as route-band caches, map bounds and filter menus, and the colour helpers behind `gtfs_hex_to_hue`.",
               },
               {
                 type: "table",
@@ -514,7 +514,7 @@ export const parts: Part[] = [
         slug: "functions",
         title: "Functions",
         summary:
-          "Every function for working with GTFS data, in four groups, each with an example that runs on the MBTA subway feed.",
+          "Every function for working with GTFS data, in five groups, each with an example that runs on the MBTA subway feed.",
         sections: [],
       },
     ],
