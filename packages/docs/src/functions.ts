@@ -22,9 +22,9 @@ export type FunctionGroup = {
   categories: FunctionCategory[]
 }
 
-export const registeredCount = 89
+export const registeredCount = 96
 
-export const internalCount = 31
+export const internalCount = 33
 
 export const functionGroups: FunctionGroup[] = [
   {
@@ -102,6 +102,23 @@ export const functionGroups: FunctionGroup[] = [
         id: "helpers",
         title: "Helpers",
         body: "Scalar functions for any SQL expression: GTFS times and codes to readable values.",
+      },
+    ],
+  },
+  {
+    id: "for-fun",
+    title: "For fun",
+    body: "Turn a day's schedule into music: a note for every stop and every departure.",
+    categories: [
+      {
+        id: "sonify",
+        title: "Sonify",
+        body: "A note for every stop from its place in the network, and one for every departure. Both pick the services running on `p_date` from `calendar` and `calendar_dates`. They compute notes only; the sound stays in the app that plays them. To draw the routes under the notes, use `get_route_shapes_for_routes`.",
+      },
+      {
+        id: "notes",
+        title: "Notes",
+        body: "Scalar helpers the sonify functions use: a 0–1 value to a note on a scale, a note to a frequency, a route colour to a hue.",
       },
     ],
   },
@@ -1134,6 +1151,97 @@ export const functions: GtfsFunction[] = [
     description: "A GTFS colour such as `DA291C` to `#DA291C`, or the fallback when it is empty.",
     example: "SELECT gtfs_color_to_hex('DA291C', '#000000');",
     returns: ["#DA291C"],
+    usedByViz: false,
+  },
+  {
+    name: "gtfs_sonify_stops",
+    signature: "gtfs_sonify_stops(p_date, p_route_ids, low_midi, octaves, scale, p_pitch_axis)",
+    kind: "table",
+    group: "for-fun",
+    category: "sonify",
+    description:
+      "A note for every stop served on `p_date` (`YYYY-MM-DD` or `YYYYMMDD`; NULL counts every service), from its place in the network. Pitch follows latitude, or longitude with `p_pitch_axis := 'lon'` (`'auto'` picks the longer axis), quantized to `scale` (semitone offsets) over `octaves` from `low_midi`. Pan follows longitude, from -1 to 1. Both are measured over every stop of the day, so a stop keeps its note whatever `p_route_ids` selects.",
+    example: "SELECT * FROM gtfs_sonify_stops(p_date := '2026-04-22', p_route_ids := ['Red']);",
+    returns: [
+      "stop_id",
+      "stop_name",
+      "lat",
+      "lon",
+      "route_ids",
+      "pitch_pos",
+      "pan",
+      "midi",
+      "freq_hz",
+    ],
+    usedByViz: false,
+  },
+  {
+    name: "gtfs_sonify_events",
+    signature:
+      "gtfs_sonify_events(p_date, p_from, p_to, p_route_ids, low_midi, octaves, scale, p_pitch_axis)",
+    kind: "table",
+    group: "for-fun",
+    category: "sonify",
+    description:
+      "A note for every departure from `p_from` up to `p_to`, in time order, on the services running on `p_date`. The trip leaving a stop plays that stop's note from `gtfs_sonify_stops`. `density` is departures per minute over 15 minutes, relative to the busiest minute. `velocity` rises with it and with `accent`, which marks a trip's first and last stop. `hue` is the route colour's hue, for a sound per line. Everything is computed over every route first, so `p_route_ids` returns exactly those routes' rows of the unfiltered result: a line plays its part of the whole.",
+    example:
+      "SELECT * FROM gtfs_sonify_events(p_date := '2026-04-22', p_from := '08:00:00', p_to := '09:00:00', p_route_ids := ['Red'], p_pitch_axis := 'lon');",
+    returns: [
+      "trip_id",
+      "route_id",
+      "route_name",
+      "route_color_hex",
+      "hue",
+      "voice",
+      "stop_id",
+      "stop_name",
+      "stop_sequence",
+      "lat",
+      "lon",
+      "t_sec",
+      "t",
+      "midi",
+      "freq_hz",
+      "pan",
+      "density",
+      "accent",
+      "velocity",
+    ],
+    usedByViz: false,
+  },
+  {
+    name: "gtfs_note_midi",
+    signature: "gtfs_note_midi(value, low_midi, octaves, scale)",
+    kind: "scalar",
+    group: "for-fun",
+    category: "notes",
+    description:
+      "A value from 0 to 1 to a MIDI note on `scale` (semitone offsets, the major pentatonic `[0, 2, 4, 7, 9]` by default) over `octaves` from `low_midi` (45 by default).",
+    example: "SELECT gtfs_note_midi(0.5);",
+    returns: ["61"],
+    usedByViz: false,
+  },
+  {
+    name: "gtfs_midi_to_hz",
+    signature: "gtfs_midi_to_hz(midi)",
+    kind: "scalar",
+    group: "for-fun",
+    category: "notes",
+    description: "A MIDI note to its frequency in Hz, with A4 (69) at 440 Hz.",
+    example: "SELECT gtfs_midi_to_hz(69);",
+    returns: ["440.0"],
+    usedByViz: false,
+  },
+  {
+    name: "gtfs_hex_to_hue",
+    signature: "gtfs_hex_to_hue(hex)",
+    kind: "scalar",
+    group: "for-fun",
+    category: "notes",
+    description:
+      "The hue, from 0 to 1, of a `#RRGGBB` or `RRGGBB` colour. NULL when it is not a colour.",
+    example: "SELECT gtfs_hex_to_hue('#DA291C');",
+    returns: ["0.0114"],
     usedByViz: false,
   },
 ]

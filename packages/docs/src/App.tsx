@@ -739,8 +739,8 @@ function FunctionsOverview() {
         ))}
       </div>
       <p className="text-base text-muted-foreground">
-        {internalCount} more functions are internal to GTFS Viz: caches, map bounds and filter menus
-        for its maps. They are not covered here.
+        {internalCount} more functions are internal: caches, map bounds and filter menus for GTFS
+        Viz's maps, and helpers behind other functions. They are not covered here.
       </p>
     </div>
   )

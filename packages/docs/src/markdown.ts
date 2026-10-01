@@ -99,7 +99,7 @@ function functionsMarkdown() {
         `- [${group.title}](${docsBase}${groupFile(group.id)}): ${group.body} (${functions.filter((fn) => fn.group === group.id).length} functions)`,
     ),
     "",
-    `${internalCount} more functions are internal to GTFS Viz (caches, map bounds and filter menus) and are not covered here.`,
+    `${internalCount} more functions are internal (caches, map bounds and filter menus for GTFS Viz's maps, and helpers behind other functions) and are not covered here.`,
     "",
   ]
 }
