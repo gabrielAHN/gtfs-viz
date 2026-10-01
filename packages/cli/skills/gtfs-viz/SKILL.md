@@ -350,7 +350,7 @@ See the [function reference](https://gtfs-viz-production-f1a4.up.railway.app/doc
 
 ## DuckDB Extension
 
-The CLI loads the separate [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) for station analysis, pathway queries, and pathfinding.
+The CLI loads the separate [GTFS DuckDB](https://gtfs-viz-production-f1a4.up.railway.app/docs/gtfs-duckdb/usage/) for station analysis, pathway queries, and pathfinding.
 
 Every CLI DuckDB session reduces its worker count, uses a host-aware memory limit capped at 4 GB,
 disables insertion-order preservation, and can spill beside the persistent database. Override these
