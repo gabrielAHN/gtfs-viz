@@ -707,6 +707,33 @@ export type Release = {
 export const releases: Release[] = [
   {
     repo: "gtfs-duckdb",
+    version: "1.0.1",
+    title: "Sonification",
+    date: "2026-10-01",
+    status: "In review",
+    pr: 5,
+    highlights: [
+      { area: "Extension", text: "96 functions available after `LOAD gtfs`, up from 89" },
+      {
+        area: "For fun",
+        text: "`gtfs_sonify_stops` gives every stop served on a day a note from its place in the network",
+      },
+      {
+        area: "For fun",
+        text: "`gtfs_sonify_events` turns every departure into its stop's note; a route filter returns its part of the whole",
+      },
+      {
+        area: "For fun",
+        text: "Both pick the day's services from `calendar` and `calendar_dates`",
+      },
+      {
+        area: "For fun",
+        text: "`gtfs_note_midi`, `gtfs_midi_to_hz` and `gtfs_hex_to_hue` helpers",
+      },
+    ],
+  },
+  {
+    repo: "gtfs-duckdb",
     version: "1.0.0",
     title: "First release",
     date: "2026-09-29",
