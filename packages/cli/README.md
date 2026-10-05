@@ -6,7 +6,7 @@ Lightweight GTFS data visualizer and editor. Browse, edit, and export transit fe
 [![GitHub](https://img.shields.io/badge/GitHub-gabrielAHN%2Fgtfs--viz-181717?logo=github)](https://github.com/gabrielAHN/gtfs-viz)
 [![Docs](https://img.shields.io/badge/docs-gtfs--viz-blue)](https://gtfs-viz-production-f1a4.up.railway.app/docs/)
 
-**[Docs](https://gtfs-viz-production-f1a4.up.railway.app/docs/gtfs-viz/cli/)** | **[GitHub](https://github.com/gabrielAHN/gtfs-viz)** | **[Web App](https://gtfs-viz-production-f1a4.up.railway.app)** | **[DuckDB Extension](https://github.com/gabrielAHN/gtfs-viz/tree/main/packages/duckdb-client)** | **[Agent Skills](https://github.com/gabrielAHN/gtfs-viz/tree/main/packages/cli/skills/gtfs-viz)**
+**[CLI docs](https://gtfs-viz-production-f1a4.up.railway.app/docs/gtfs-viz/cli/)** | **[Web App](https://gtfs-viz-production-f1a4.up.railway.app)** | **[GTFS DuckDB](https://gtfs-viz-production-f1a4.up.railway.app/docs/gtfs-duckdb/)** | **[Function reference](https://gtfs-viz-production-f1a4.up.railway.app/docs/gtfs-duckdb/functions/)** | **[Agent skill](https://gtfs-viz-production-f1a4.up.railway.app/docs/agents/)** | **[Releases](https://gtfs-viz-production-f1a4.up.railway.app/docs/gtfs-viz/releases/)**
 
 ## Features
 
@@ -120,7 +120,7 @@ yarn cli stations
 
 ## DuckDB Extension
 
-The CLI loads the [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) extension like the web app and imports feeds with its `gtfs_import` pragma. See the [function reference](https://gtfs-viz-production-f1a4.up.railway.app/docs/gtfs-duckdb/functions/).
+The CLI loads the [GTFS DuckDB](https://gtfs-viz-production-f1a4.up.railway.app/docs/gtfs-duckdb/usage/) extension like the web app and imports feeds with its `gtfs_import` pragma. See the [function reference](https://gtfs-viz-production-f1a4.up.railway.app/docs/gtfs-duckdb/functions/).
 
 ## Version and Updates
 
@@ -158,8 +158,8 @@ Default locations:
 | Google / Gemini CLI | `$GEMINI_HOME/skills` or `~/.gemini/skills` |
 | Generic Agent Skills | `~/.agents/skills` |
 
-Installs: [SKILL.md](https://github.com/gabrielAHN/gtfs-viz/blob/main/packages/cli/skills/gtfs-viz/SKILL.md) | [commands.md](https://github.com/gabrielAHN/gtfs-viz/blob/main/packages/cli/skills/gtfs-viz/references/commands.md) | [tables.md](https://github.com/gabrielAHN/gtfs-viz/blob/main/packages/cli/skills/gtfs-viz/references/tables.md) | [gtfs-schedule-reference.md](https://github.com/gabrielAHN/gtfs-viz/blob/main/packages/cli/skills/gtfs-viz/references/gtfs-schedule-reference.md) | [examples.sql](https://github.com/gabrielAHN/gtfs-viz/blob/main/packages/cli/skills/gtfs-viz/references/examples.sql)
+Installs `SKILL.md` with its references: `commands.md`, `tables.md`, `edits.md`, `gtfs-schedule-reference.md` and `examples.sql`. The [agent skill docs](https://gtfs-viz-production-f1a4.up.railway.app/docs/agents/) cover what it teaches.
 
 ## Extension prerequisite
 
-Configure `GTFS_EXTENSION_REPOSITORY` to a repository serving a compatible signed [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) extension artifact, or install it beforehand. Missing configuration or artifacts fail with guidance.
+Configure `GTFS_EXTENSION_REPOSITORY` to a repository serving a compatible signed [GTFS DuckDB](https://gtfs-viz-production-f1a4.up.railway.app/docs/gtfs-duckdb/usage/#install) extension artifact, or install it beforehand. Missing configuration or artifacts fail with guidance.
