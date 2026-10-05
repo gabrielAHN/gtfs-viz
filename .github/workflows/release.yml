@@ -14,8 +14,37 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
+  version-bump:
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      release: ${{ steps.bump.outputs.release }}
+    steps:
+      - name: Check for a version bump
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          PATCHES=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" \
+            --jq '.[] | select(.filename == "package.json" or .filename == "packages/cli/package.json") | .patch')
+          if grep -Eq '^\+[[:space:]]*"version":' <<< "$PATCHES"; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "#$PR bumps the version — releasing"
+          else
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "#$PR does not bump the version — skipping release and publish"
+          fi
+
+  release:
+    needs: version-bump
+    if: needs.version-bump.outputs.release == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
