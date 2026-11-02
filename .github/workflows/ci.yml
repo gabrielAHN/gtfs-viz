@@ -60,15 +60,15 @@ jobs:
           gh run download "$run_id" --repo "$EXTENSION_REPOSITORY" --name gtfs-unsigned-development-repository --dir "$GTFS_STAGED_REPOSITORY"
           cat "$GTFS_STAGED_REPOSITORY/manifest.json"
 
-      - name: Install DuckDB CLI v1.5.4 and spatial
+      - name: Install DuckDB CLI v2.0.0, spatial, httpfs and aws
         run: |
           mkdir -p build/duckdb-cli
-          curl -fsSL -o build/duckdb-cli/cli.zip https://github.com/duckdb/duckdb/releases/download/v1.5.4/duckdb_cli-linux-amd64.zip
-          unzip -q build/duckdb-cli/cli.zip -d build/duckdb-cli
+          curl -fsSL -o build/duckdb-cli/cli.tar.gz https://github.com/duckdb/duckdb/releases/download/v2.0.0/duckdb-cli-linux-amd64.tar.gz
+          tar -xzf build/duckdb-cli/cli.tar.gz -C build/duckdb-cli
           echo "$GITHUB_WORKSPACE/build/duckdb-cli" >> "$GITHUB_PATH"
           echo "GTFS_DEPENDENCY_CACHE=$HOME/.duckdb/extensions" >> "$GITHUB_ENV"
-          "$DUCKDB_BIN" :memory: -c "INSTALL spatial; SELECT version(); PRAGMA platform;"
-          gunzip -c "$GTFS_STAGED_REPOSITORY/v1.5.4/linux_amd64/gtfs.duckdb_extension.gz" > build/gtfs.duckdb_extension
+          "$DUCKDB_BIN" :memory: -c "INSTALL spatial; INSTALL httpfs; INSTALL aws; SELECT version(); PRAGMA platform;"
+          gunzip -c "$GTFS_STAGED_REPOSITORY/v2.0.0/linux_amd64/gtfs.duckdb_extension.gz" > build/gtfs.duckdb_extension
           echo "GTFS_EXTENSION=$GITHUB_WORKSPACE/build/gtfs.duckdb_extension" >> "$GITHUB_ENV"
 
       - run: yarn install --frozen-lockfile --ignore-engines

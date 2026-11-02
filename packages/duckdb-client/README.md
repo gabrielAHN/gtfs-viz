@@ -3,7 +3,7 @@
 Downloads and loads the [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) extension and moves GTFS files into DuckDB for the web app and CLI. All database functions, normalization and schema live in the extension; this package only calls them.
 
 ```sql
-INSTALL gtfs FROM '<repository>';
+INSTALL gtfs FROM '<repository>';  -- or: INSTALL gtfs FROM community
 LOAD gtfs;
 PRAGMA gtfs_import('<feed directory>');
 ```
@@ -12,9 +12,9 @@ PRAGMA gtfs_import('<feed directory>');
 
 ## Configuration
 
-- CLI: `GTFS_EXTENSION_REPOSITORY=https://…`. Native imports persist the repository in `<database>.extension.json`, so reopened databases and the dashboard load the same extension.
+- CLI: installs from the DuckDB community repository (`INSTALL gtfs FROM community`, signed; needs a DuckDB v2.0.0 CLI) unless `GTFS_EXTENSION_REPOSITORY=https://…` selects another repository. Native imports persist the repository in `<database>.extension.json`, so reopened databases and the dashboard load the same extension.
 - Web: set `VITE_GTFS_EXTENSION_REPOSITORY` before `dev`/`build`.
-- Without configuration only `LOAD gtfs` is attempted from the local extension cache. A missing or incompatible artifact fails with configuration guidance; there is no fallback.
+- `createExtensionClient` accepts an HTTP(S) repository URL or exactly `'community'` (installed by keyword). Without a repository it only attempts `LOAD gtfs` from the local extension cache. A missing or incompatible artifact fails with configuration guidance; there is no fallback.
 - Signature checks are never relaxed by the app. Unsigned loading is used only inside isolated integration tests.
 
 Browser imports that would skip indexes are rejected until the extension supports selective initialization. Import routes, trips, stop times, shapes and at least one calendar file.
@@ -29,7 +29,7 @@ Integration harnesses consume a staged extension repository produced by the exte
 
 ```sh
 export GTFS_STAGED_REPOSITORY=/path/to/staged-repository
-DUCKDB_BIN=/path/to/duckdb-1.5.4 GTFS_DEPENDENCY_CACHE=/path/to/extension-cache \
+DUCKDB_BIN=/path/to/duckdb-2.0.0 GTFS_DEPENDENCY_CACHE=/path/to/extension-cache \
   node packages/duckdb-client/tests/integration/consumer-native.mjs --cli-e2e
 node packages/duckdb-client/tests/integration/consumer-wasm.mjs --unsigned-only
 node packages/duckdb-client/tests/integration/consumer-wasm.mjs
