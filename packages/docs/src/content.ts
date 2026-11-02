@@ -267,7 +267,7 @@ export const parts: Part[] = [
               {
                 type: "code",
                 lang: "bash",
-                code: "gtfs-viz import /absolute/path/to/feed.zip\ngtfs-viz status\ngtfs-viz tables",
+                code: "gtfs-viz import /absolute/path/to/feed.zip\ngtfs-viz import https://example.com/gtfs/feed.zip\ngtfs-viz import s3://my-bucket/gtfs/feed.zip\ngtfs-viz status\ngtfs-viz tables",
               },
               {
                 type: "text",
@@ -570,6 +570,7 @@ export const agentPage: DocPage = {
               head: ["Task", "Command"],
               rows: [
                 ["Import a feed", "`gtfs-viz import /abs/path/feed.zip`"],
+                ["Import from a URL or bucket", "`gtfs-viz import https://example.com/gtfs/feed.zip` or `s3://my-bucket/gtfs/feed.zip`"],
                 ["Check the loaded feed", "`gtfs-viz status`"],
                 ["Update the CLI", "`gtfs-viz update`"],
                 ["Help for one command", "`gtfs-viz h <command>`"],

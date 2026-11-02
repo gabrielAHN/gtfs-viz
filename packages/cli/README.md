@@ -10,7 +10,7 @@ Lightweight GTFS data visualizer and editor. Browse, edit, and export transit fe
 
 ## Features
 
-- Import GTFS zips — data stored locally in DuckDB
+- Import GTFS zips from a local path, an HTTP(S) URL or an S3/R2 bucket — data stored locally in DuckDB
 - Browse stations, stops, routes, and pathways with filters
 - Edit stations, stops, routes, and pathway connections
 - Compare trip schedules and route shapes
@@ -24,7 +24,7 @@ Lightweight GTFS data visualizer and editor. Browse, edit, and export transit fe
 npm install -g @gabrielahn/gtfs-viz-cli
 ```
 
-Requires [DuckDB CLI](https://duckdb.org/docs/installation) (`duckdb` on PATH or `DUCKDB_BIN`).
+Requires the [DuckDB CLI](https://duckdb.org/docs/installation) v2.0.0 (`duckdb` on PATH or `DUCKDB_BIN`); see [Extension prerequisite](#extension-prerequisite).
 
 Installing or updating the CLI preserves imported feeds, the current session database, and other
 local data by default. To intentionally clear that data during installation, explicitly opt in:
@@ -44,6 +44,8 @@ defaults can be overridden with `GTFS_VIZ_DUCKDB_THREADS`, `GTFS_VIZ_DUCKDB_MEMO
 
 ```bash
 gtfs-viz import /path/to/feed.zip     # Import GTFS zip
+gtfs-viz import https://example.com/gtfs/feed.zip  # ...or download one
+gtfs-viz import s3://my-bucket/gtfs/feed.zip       # ...or read one from a bucket
 gtfs-viz stations --name "Park"       # Filter stations
 gtfs-viz routes --type Bus            # Filter routes
 gtfs-viz station "Park Street"        # Open dashboard
@@ -56,7 +58,7 @@ gtfs-viz examples                     # See all commands
 
 | Command | Description |
 | --- | --- |
-| `import <feed.zip>` | Import GTFS zip into local DuckDB |
+| `import <feed.zip\|https://…\|s3://…\|r2://…>` | Import a GTFS zip (local path, URL or bucket object) into local DuckDB |
 | `stations [--name --pathways --wheelchair]` | Browse stations with filters |
 | `stops [--name --location-type --wheelchair]` | Browse stops with filters |
 | `routes [--route-id --route-name --type]` | Browse routes with filters |
@@ -84,6 +86,57 @@ gtfs-viz examples                     # See all commands
 | `update [--check]` | Update the CLI to the latest npm release |
 
 Output modes: no flags opens the dashboard. `--data` for terminal table, `--format json` for JSON, `--url` to open dashboard and print URL, `--url-only` to print URL without opening, `--view <view>` to pick a specific page (e.g. `--view map`).
+
+## Importing feeds
+
+| Source | Example | How it is read |
+| --- | --- | --- |
+| Local zip | `gtfs-viz import /path/to/feed.zip` | Copied into the local dataset |
+| HTTP(S) URL | `gtfs-viz import https://example.com/gtfs/feed.zip` | Downloaded with Node's `fetch`, following redirects |
+| S3 object | `gtfs-viz import s3://my-bucket/gtfs/feed.zip` (also `s3a://`, `s3n://`) | Read by the DuckDB CLI (`httpfs`) |
+| R2 object | `gtfs-viz import r2://my-bucket/gtfs/feed.zip` | Read by the DuckDB CLI with an R2 secret |
+
+Remote feeds are downloaded to `~/.gtfs-viz-cli/downloads/` first, must be a zip archive, and are
+deleted after the import. A failed download or a file that is not a zip leaves the current dataset
+untouched. The dataset records the source without its query string, fragment or credentials, so a
+pre-signed URL's signature is used for the download but never stored or printed. URLs with an
+embedded user name or password are refused. Other schemes (`gs://`, `az://`, `hf://`, `ftp://`, …)
+are not supported.
+
+### Authentication
+
+`s3://` and `r2://` objects authenticate through [DuckDB secrets](https://duckdb.org/docs/stable/configuration/secrets_manager),
+tried in this order:
+
+1. Any DuckDB secret whose scope matches the URL, including persistent secrets you already have:
+
+   ```bash
+   duckdb -c "CREATE PERSISTENT SECRET (TYPE s3, KEY_ID 'AKIA…', SECRET '…', REGION 'us-east-1')"
+   ```
+
+2. For `s3://`: AWS credentials from environment variables (`AWS_ACCESS_KEY_ID`,
+   `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_REGION`), an AWS profile (`AWS_PROFILE`) or
+   an SSO login (`aws sso login`), through a temporary `credential_chain` secret:
+
+   ```bash
+   AWS_PROFILE=transit gtfs-viz import s3://my-bucket/gtfs/feed.zip
+   ```
+
+3. For `s3://`: an anonymous request, for public buckets.
+
+R2 and S3-compatible stores such as MinIO need a secret:
+
+```bash
+# Cloudflare R2
+duckdb -c "CREATE PERSISTENT SECRET (TYPE r2, KEY_ID '…', SECRET '…', ACCOUNT_ID 'your-account-id')"
+gtfs-viz import r2://my-bucket/gtfs/feed.zip
+
+# MinIO or another S3-compatible endpoint
+duckdb -c "CREATE PERSISTENT SECRET (TYPE s3, KEY_ID '…', SECRET '…', ENDPOINT 'minio.example.com:9000', URL_STYLE 'path', USE_SSL true)"
+gtfs-viz import s3://my-bucket/gtfs/feed.zip
+```
+
+Persistent secrets live in `~/.duckdb/stored_secrets`. gtfs-viz never prints or stores secret values.
 
 Direct review links:
 
@@ -162,4 +215,13 @@ Installs `SKILL.md` with its references: `commands.md`, `tables.md`, `edits.md`,
 
 ## Extension prerequisite
 
-Configure `GTFS_EXTENSION_REPOSITORY` to a repository serving a compatible signed [GTFS DuckDB](https://gtfs-viz-production-f1a4.up.railway.app/docs/gtfs-duckdb/usage/#install) extension artifact, or install it beforehand. Missing configuration or artifacts fail with guidance.
+By default the CLI installs the signed [GTFS DuckDB](https://gtfs-viz-production-f1a4.up.railway.app/docs/gtfs-duckdb/usage/#install)
+extension from the DuckDB community repository (`INSTALL gtfs FROM community`). Community builds
+exist only for the latest DuckDB, so use a DuckDB **v2.0.0** CLI (`duckdb --version`).
+
+Set `GTFS_EXTENSION_REPOSITORY` to an `https://…` repository serving a compatible signed artifact to
+use another source. Each imported dataset remembers the repository it was built with.
+
+If gtfs is already installed from another repository, DuckDB refuses to switch origins. Either run
+`duckdb -c "FORCE INSTALL gtfs FROM community"` or set `GTFS_EXTENSION_REPOSITORY` to the original
+repository; the CLI never forces a reinstall itself.

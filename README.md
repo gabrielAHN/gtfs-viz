@@ -37,6 +37,7 @@ yarn install --ignore-engines && yarn dev
 ```bash
 npm install -g @gabrielahn/gtfs-viz-cli
 gtfs-viz import /path/to/feed.zip
+gtfs-viz import https://example.com/gtfs/feed.zip   # or s3://my-bucket/gtfs/feed.zip
 gtfs-viz stations --name "Park"
 gtfs-viz routes --type Bus
 gtfs-viz station "Park Street"

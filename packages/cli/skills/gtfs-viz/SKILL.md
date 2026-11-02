@@ -75,9 +75,16 @@ gtfs-viz station_pathways "Park Street" --data
 
 ```bash
 gtfs-viz import /absolute/path/to/feed.zip
+gtfs-viz import https://example.com/gtfs/feed.zip
+gtfs-viz import s3://my-bucket/gtfs/feed.zip      # also s3a://, s3n://
+gtfs-viz import r2://my-bucket/gtfs/feed.zip
 ```
 
-Use plain or quoted paths. Do not use backticks. Import is one-shot; a new import replaces the current dataset. Data is stored at `~/.gtfs-viz-cli/current`. Datasets auto-expire after 7 days.
+Use plain or quoted paths or URLs. Do not use backticks. Import is one-shot; a new import replaces the current dataset. Data is stored at `~/.gtfs-viz-cli/current`. Datasets auto-expire after 7 days.
+
+Remote feeds download to `~/.gtfs-viz-cli/downloads/` first, must be a zip archive and are deleted after the import; a failed download leaves the current dataset untouched. Query strings (pre-signed URLs) are used for the download but never stored or printed. URLs with an embedded user name or password are refused, and other schemes (`gs://`, `az://`, `hf://`, …) are not supported.
+
+`s3://` and `r2://` objects authenticate through DuckDB secrets: first any matching secret (including persistent ones, e.g. `duckdb -c "CREATE PERSISTENT SECRET (TYPE s3, KEY_ID '…', SECRET '…', REGION 'us-east-1')"`); then, for `s3://`, AWS environment variables, an AWS profile or SSO through a temporary `credential_chain` secret; then an anonymous request. `r2://` needs `CREATE PERSISTENT SECRET (TYPE r2, KEY_ID '…', SECRET '…', ACCOUNT_ID '…')`. MinIO and other S3-compatible stores use an s3 secret with `ENDPOINT`, `URL_STYLE 'path'` and `USE_SSL`. Never ask the user to paste secret values into a command you run; ask them to create the secret themselves.
 
 ## Browse & Filter
 
@@ -375,4 +382,4 @@ defaults with `GTFS_VIZ_DUCKDB_THREADS`, `GTFS_VIZ_DUCKDB_MEMORY_LIMIT`, or
 
 ## Extension prerequisite
 
-Configure `GTFS_EXTENSION_REPOSITORY` to a repository serving a compatible signed `gtfs` extension artifact, or install it beforehand. Missing configuration or artifacts fail with guidance.
+The CLI installs the signed `gtfs` extension from the DuckDB community repository by default (`INSTALL gtfs FROM community`), which needs a DuckDB v2.0.0 CLI (`duckdb --version`). Set `GTFS_EXTENSION_REPOSITORY` to an `https://…` repository to use another source. If gtfs is already installed from a different repository, run `duckdb -c "FORCE INSTALL gtfs FROM community"` or set `GTFS_EXTENSION_REPOSITORY` to the original repository; the CLI never forces a reinstall.

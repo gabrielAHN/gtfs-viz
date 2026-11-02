@@ -35,13 +35,20 @@ gtfs-viz update --provider openai
 ## Import & Status
 
 ```bash
-gtfs-viz import <feed.zip>          # Import GTFS zip into local DuckDB
+gtfs-viz import <feed.zip|https://…|s3://…|r2://…>  # Import a GTFS zip (local, URL or bucket) into local DuckDB
+gtfs-viz import /path/to/feed.zip
+gtfs-viz import https://example.com/gtfs/feed.zip
+gtfs-viz import s3://my-bucket/gtfs/feed.zip  # also s3a://, s3n://; r2://my-bucket/feed.zip for Cloudflare R2
 gtfs-viz status                     # Show dataset info and session state
 gtfs-viz tables                     # List available DuckDB tables
 gtfs-viz stop                       # Stop background dashboard session
 gtfs-viz restart                    # Stop session and remove local import
 gtfs-viz clean                      # Stop daemon and remove all local data
 ```
+
+Remote feeds download to `~/.gtfs-viz-cli/downloads/`, must be zip archives and are deleted after the import; failures leave the current dataset untouched. `s3://`/`r2://` authenticate with DuckDB secrets: a matching (persistent) secret, else for `s3://` AWS env vars/profile/SSO via `credential_chain`, else anonymous. `r2://` needs `CREATE PERSISTENT SECRET (TYPE r2, KEY_ID …, SECRET …, ACCOUNT_ID …)`; MinIO/S3-compatible stores need an s3 secret with `ENDPOINT`. See `gtfs-viz h import`.
+
+The `gtfs` extension installs from the DuckDB community repository (needs a DuckDB v2.0.0 CLI) unless `GTFS_EXTENSION_REPOSITORY` selects another repository.
 
 ## Browse Data
 
