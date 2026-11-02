@@ -393,3 +393,18 @@ test("parse errors never contain the input after scheme://", async (t) => {
     }, input)
   }
 })
+
+// A parsed label can extend the raw input (https://h is shown as https://h/), so a message that
+// already names the label is left as it is, while the raw input itself is still replaced.
+test("redactSource keeps the parsed label intact when the raw input is a prefix of it", async (t) => {
+  const { redactSource } = await loadSourceModule(t)
+  for (const [input, message] of [
+    ["https://h", "Download failed for https://h/: HTTP 404 Not Found"],
+    ["HTTPS://example.test", "Download failed for https://example.test/: HTTP 404 Not Found"],
+    ["https://example.test?sig=querysecret0123", "Download failed for https://example.test/: HTTP 404 Not Found"],
+  ]) {
+    assert.equal(redactSource(message, input), message, input)
+  }
+  assert.equal(redactSource("request to https://h failed", "https://h"), "request to https://h/ failed")
+  assert.equal(redactSource("request to https://h?sig=querysecret0123 failed", "https://h?sig=querysecret0123"), "request to https://h/ failed")
+})

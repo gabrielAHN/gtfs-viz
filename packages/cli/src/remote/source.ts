@@ -106,8 +106,17 @@ export const redactSource = (message: string, input: string): string => {
   // Messages may name the source with its scheme in lower case, as the parsed URL does. A bare
   // "scheme://" holds nothing to hide and would otherwise match the forms quoted in messages.
   const label = source.parsed ? source.parsed.label : opaqueLabel(source.scheme);
+  // The input as given and with its scheme in lower case, replaced in one pass so that an inserted
+  // label is never scanned again.
+  const replaceRaw = (text: string) =>
+    text
+      .split(input)
+      .map((part) => part.split(`${source.scheme}://${source.raw}`).join(label))
+      .join(label);
   let redacted = message;
-  if (source.raw) redacted = redacted.split(input).join(label).split(`${source.scheme}://${source.raw}`).join(label);
+  // A parsed label can extend the raw input (https://h is shown as https://h/), so the label's own
+  // occurrences are kept as they are.
+  if (source.raw) redacted = source.parsed ? redacted.split(label).map(replaceRaw).join(label) : replaceRaw(redacted);
   const { userInfo, rest } = source;
   const queryStart = rest.search(/[?#]/);
   const hidden: [string, string][] = [];
