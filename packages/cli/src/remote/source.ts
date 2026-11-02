@@ -13,6 +13,8 @@ export type FeedSource =
       label: string;
     };
 
+export const IMPORT_USAGE = "gtfs-viz import <feed.zip|https://…|s3://…|r2://…>";
+
 export const SUPPORTED_SOURCES =
   "a local .zip path, an http:// or https:// URL, an s3://… object (also s3a:// and s3n://) or an r2://… object";
 

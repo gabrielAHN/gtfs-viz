@@ -48,6 +48,7 @@ import {
   currentDbPath,
   currentFeedPath,
   currentExtractDir,
+  downloadsDir,
 } from "./session/metadata.js";
 import type {
   DatasetMetadata,
@@ -56,6 +57,8 @@ import type {
   DaemonMetadata,
 } from "./session/metadata.js";
 import { isDaemonRunning, stopDaemon } from "./session/daemon.js";
+import { IMPORT_USAGE, parseFeedSource, redactSource, sourceLabel } from "./remote/source.js";
+import { downloadFeed } from "./remote/download.js";
 
 import { realpathSync } from "node:fs";
 
@@ -360,8 +363,11 @@ const validateFeed = async (feedPath: string) => {
   return resolved;
 };
 
-const importDataset = async (feedArg: string) => {
-  const feedPath = await validateFeed(feedArg);
+// What the dataset records about its source: never a query string, fragment or URL credentials.
+type FeedDisplay = { sourcePath: string; fileName: string };
+
+// Imports a local, already validated zip. Nothing under currentDataDir changes before stops.txt is found.
+const importDataset = async (feedPath: string, display: FeedDisplay) => {
   const fileStat = await stat(feedPath);
   const entries = await listZipEntries(feedPath);
   const stopsEntry = findGtfsEntry(entries, "stops.txt");
@@ -414,11 +420,11 @@ const importDataset = async (feedArg: string) => {
 
   const metadata: DatasetMetadata = {
     status: "ready",
-    sourcePath: feedPath,
+    sourcePath: display.sourcePath,
     feedPath: currentFeedPath,
     dbPath: currentDbPath,
     importedAt: new Date().toISOString(),
-    fileName: path.basename(feedPath),
+    fileName: display.fileName,
     fileSize: fileStat.size,
     counts: {
       stops: Number(counts?.stops || 0),
@@ -923,12 +929,29 @@ const timeIntervalCondition = (value: string | undefined, column: string) => {
   return `${column} <= ${values[0]}`;
 };
 
-const commandImport = async (args: Args) => {
-  const feedArg = args.positionals[0];
-  if (!feedArg) throw new Error("Usage: gtfs-viz import <feed.zip>");
+// Local paths import as before. Remote sources download to downloads/<random>.zip and are validated
+// before the daemon stops or the current dataset changes; the download is always removed.
+const importSource = async (feedArg: string) => {
+  const source = parseFeedSource(feedArg);
+  if (source.kind === "local") {
+    await stopDaemon().catch(() => {});
+    const feedPath = await validateFeed(source.path);
+    return importDataset(feedPath, { sourcePath: feedPath, fileName: path.basename(feedPath) });
+  }
+  const download = await downloadFeed(source, downloadsDir);
   try {
     await stopDaemon().catch(() => {});
-    const metadata = await importDataset(feedArg);
+    return await importDataset(download.file, { sourcePath: source.sourcePath, fileName: source.fileName });
+  } finally {
+    await rm(download.file, { force: true });
+  }
+};
+
+const commandImport = async (args: Args) => {
+  const feedArg = args.positionals[0];
+  if (!feedArg) throw new Error(`Usage: ${IMPORT_USAGE}`);
+  try {
+    const metadata = await importSource(feedArg);
     console.log(`Imported ${metadata.fileName}`);
     console.log(
       `Stops: ${metadata.counts.stops}  Stations: ${metadata.counts.stations}  Pathways: ${metadata.counts.pathways}  Routes: ${metadata.counts.routes}`,
@@ -938,8 +961,8 @@ const commandImport = async (args: Args) => {
     console.log(`Dashboard: ${daemon.dashboardUrl}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`Import failed: ${path.basename(feedArg)}`);
-    console.error(message);
+    console.error(`Import failed: ${sourceLabel(feedArg)}`);
+    console.error(redactSource(message, feedArg));
     process.exit(1);
   }
 };
@@ -1618,14 +1641,14 @@ const commandRestartSession = async () => {
   await rm(currentDataDir, { recursive: true, force: true }).catch(() => {});
   console.log(stopped ? "Session stopped." : "No running session found.");
   console.log("Removed local DuckDB data.");
-  console.log("Run gtfs-viz import /path/to/feed.zip to start fresh.");
+  console.log(`Run ${IMPORT_USAGE} to start fresh.`);
 };
 
 const commandClean = async () => {
   await stopDaemon().catch(() => {});
   await rm(dataRoot, { recursive: true, force: true }).catch(() => {});
   console.log("Stopped daemon and removed all local data.");
-  console.log("Run gtfs-viz import /path/to/feed.zip to start fresh.");
+  console.log(`Run ${IMPORT_USAGE} to start fresh.`);
 };
 
 const commandExport = async (args: Args) => {

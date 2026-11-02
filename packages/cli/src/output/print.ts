@@ -1,4 +1,5 @@
 import { getFlagString } from "../args.js";
+import { IMPORT_USAGE } from "../remote/source.js";
 
 const TRUNCATE_AT = 50;
 const ESC = String.fromCharCode(27);
@@ -81,12 +82,39 @@ export const printResult = (
 };
 
 const commandHelp: Record<string, string> = {
-  import: `gtfs-viz import <feed.zip>
+  import: `${IMPORT_USAGE}
 
-  Import a GTFS zip file into the local DuckDB database.
+  Import a GTFS zip file into the local DuckDB database. Remote feeds download to
+  ~/.gtfs-viz-cli/downloads first, must be a zip archive, and are deleted after the
+  import; a failed download never changes the current dataset.
 
-  Arguments:
-    <feed.zip>        Path to the GTFS zip file (required)`,
+  Arguments (one is required):
+    <feed.zip>        Path to a local GTFS zip file
+    <https://…>       HTTP(S) URL of a GTFS zip (redirects are followed; a pre-signed
+                      URL's query string is used for the download but never stored)
+    <s3://…>          S3 object (also s3a:// and s3n://), read through DuckDB
+    <r2://…>          Cloudflare R2 object, read through DuckDB
+
+  Authentication for s3:// and r2:// uses DuckDB secrets, in this order:
+    1. Any DuckDB secret that matches the URL, including persistent secrets:
+         duckdb -c "CREATE PERSISTENT SECRET (TYPE s3, KEY_ID '…', SECRET '…', REGION 'us-east-1')"
+    2. s3:// only: AWS credentials from environment variables (AWS_ACCESS_KEY_ID,
+       AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN, AWS_REGION), an AWS profile or an
+       SSO login, through a temporary credential_chain secret.
+    3. s3:// only: an anonymous request, for public buckets.
+  r2:// needs a secret:
+         duckdb -c "CREATE PERSISTENT SECRET (TYPE r2, KEY_ID '…', SECRET '…', ACCOUNT_ID '…')"
+  S3-compatible stores such as MinIO use an s3 secret with an ENDPOINT:
+         duckdb -c "CREATE PERSISTENT SECRET (TYPE s3, KEY_ID '…', SECRET '…', ENDPOINT 'minio.example.com:9000', URL_STYLE 'path', USE_SSL true)"
+  Secret values are never printed or stored by gtfs-viz.
+
+  The gtfs DuckDB extension installs from the DuckDB community repository, which
+  needs a DuckDB v2.0.0 CLI; GTFS_EXTENSION_REPOSITORY selects another repository.
+
+  Examples:
+    gtfs-viz import /path/to/feed.zip
+    gtfs-viz import https://example.com/gtfs/feed.zip
+    gtfs-viz import s3://my-bucket/gtfs/feed.zip`,
 
   export: `gtfs-viz export [flags]
 
@@ -671,7 +699,7 @@ const commandHelp: Record<string, string> = {
   restart: `gtfs-viz restart
 
   Stop the dashboard daemon and remove the local DuckDB/feed import.
-  Run gtfs-viz import <feed.zip> again before opening dashboard views.`,
+  Run ${IMPORT_USAGE} again before opening dashboard views.`,
 
   clean: `gtfs-viz clean
 
@@ -719,7 +747,8 @@ export const printHelp = () => {
   console.log(`Usage: gtfs-viz <command> [flags]
 
 Import & Status:
-  import <feed.zip>                  Import a GTFS zip into local DuckDB
+  import <feed.zip|https://…|s3://…|r2://…>
+                                     Import a GTFS zip (local, URL or bucket) into local DuckDB
   status                             Show dataset info and session state
   tables                             List available DuckDB tables
 
@@ -773,6 +802,8 @@ Run gtfs-viz h <command>, gtfs-viz help <command>, or gtfs-viz <command> -h for 
 export const printExamples = () => {
   console.log(`Import & browse:
   gtfs-viz import /path/to/feed.zip
+  gtfs-viz import https://example.com/gtfs/feed.zip
+  gtfs-viz import s3://my-bucket/gtfs/feed.zip
   gtfs-viz status
   gtfs-viz stations
   gtfs-viz stations --name "Park" --pathways "✅"

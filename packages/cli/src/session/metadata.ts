@@ -2,6 +2,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { getNativeExtensionRepository } from "../duckdb/runner.js";
+import { IMPORT_USAGE } from "../remote/source.js";
 
 export type StatusValue = "starting" | "dashboard-connected" | "importing" | "ready" | "error";
 
@@ -58,6 +59,7 @@ export const currentDbPath = path.join(currentDataDir, "gtfs.duckdb");
 export const currentFeedPath = path.join(currentDataDir, "feed.zip");
 export const currentExtractDir = path.join(currentDataDir, "extract");
 export const currentStatePath = path.join(currentDataDir, "state.json");
+export const downloadsDir = path.join(dataRoot, "downloads");
 const daemonFile = path.join(dataRoot, "daemon.json");
 
 export const ensureSessionsDir = async () => {
@@ -96,7 +98,7 @@ const DATASET_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export const readDatasetState = async () => {
   const raw = await readFile(currentStatePath, "utf8").catch(() => {
-    throw new Error("No GTFS dataset imported. Run gtfs-viz import /path/to/feed.zip first.");
+    throw new Error(`No GTFS dataset imported. Run ${IMPORT_USAGE} first.`);
   });
   const state = JSON.parse(raw) as DatasetMetadata;
 
@@ -106,7 +108,7 @@ export const readDatasetState = async () => {
     if (age > DATASET_MAX_AGE_MS) {
       await rm(currentDataDir, { recursive: true, force: true }).catch(() => {});
       throw new Error(
-        `Dataset expired (imported ${Math.floor(age / 86400000)} days ago). Run gtfs-viz import /path/to/feed.zip to reimport.`
+        `Dataset expired (imported ${Math.floor(age / 86400000)} days ago). Run ${IMPORT_USAGE} to reimport.`
       );
     }
   }
