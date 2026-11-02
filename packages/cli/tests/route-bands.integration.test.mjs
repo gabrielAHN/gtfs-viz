@@ -52,7 +52,7 @@ test("a real DuckDB failure rolls back both route-band tables", async (t) => {
   t.after(() => rm(temporaryDirectory, { recursive: true, force: true }))
   const databasePath = path.join(temporaryDirectory, "rollback.duckdb")
   const runDuckDb = (args) =>
-    execFileAsync(duckdb, ["-unsigned", "-cmd", `SET extension_directory='${process.env.GTFS_DEPENDENCY_CACHE}'; LOAD '${process.env.GTFS_EXTENSION}';`, ...args], {
+    execFileAsync(duckdb, ["-unsigned", "-cmd", `SET extension_directories=['${process.env.GTFS_DEPENDENCY_CACHE}']; LOAD '${process.env.GTFS_EXTENSION}';`, ...args], {
       maxBuffer: 10 * 1024 * 1024,
       env: { ...process.env, HOME: os.homedir() },
     }).then(({ stdout }) => stdout)

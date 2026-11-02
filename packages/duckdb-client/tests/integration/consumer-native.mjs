@@ -31,7 +31,7 @@ let daemon;
 let browser;
 try {
   const wrapper = join(dir, 'duckdb-test.cjs');
-  await writeFile(wrapper, `#!/usr/bin/env node\nconst {spawnSync}=require('node:child_process'); const home=process.env.GTFS_TEST_HOME; const r=spawnSync(${JSON.stringify(binary)},[...(process.env.GTFS_TEST_UNSIGNED==='1'?['-unsigned']:[]),'-cmd',"SET home_directory='"+home+"'; SET extension_directory='"+home+"/extensions'",...process.argv.slice(2)],{stdio:'inherit'}); process.exit(r.status??1);\n`);
+  await writeFile(wrapper, `#!/usr/bin/env node\nconst {spawnSync}=require('node:child_process'); const home=process.env.GTFS_TEST_HOME; const r=spawnSync(${JSON.stringify(binary)},[...(process.env.GTFS_TEST_UNSIGNED==='1'?['-unsigned']:[]),'-cmd',"SET home_directory='"+home+"'; SET extension_directories=['"+home+"/extensions']",...process.argv.slice(2)],{stdio:'inherit'}); process.exit(r.status??1);\n`);
   await chmod(wrapper, 0o700);
   process.env.DUCKDB_BIN = wrapper;
   process.env.GTFS_TEST_HOME = join(dir, 'positive');
@@ -140,8 +140,8 @@ try {
   process.env.GTFS_TEST_UNSIGNED = '0';
   process.env.GTFS_TEST_HOME = join(dir, 'strict');
   await mkdir(process.env.GTFS_TEST_HOME);
-  delete process.env.GTFS_EXTENSION_REPOSITORY;
-  await assert.rejects(runner.executeRows(join(dir, 'strict', 'missing.duckdb'), 'PRAGMA gtfs_prepare'), /Configure GTFS_EXTENSION_REPOSITORY/);
+  process.env.GTFS_EXTENSION_REPOSITORY = `${repository}/missing-repository`;
+  await assert.rejects(runner.executeRows(join(dir, 'strict', 'missing.duckdb'), 'PRAGMA gtfs_prepare'), /404[\s\S]*GTFS_EXTENSION_REPOSITORY/);
   process.env.GTFS_EXTENSION_REPOSITORY = repository;
   await assert.rejects(runner.executeRows(join(dir, 'strict', 'data.duckdb'), 'PRAGMA gtfs_prepare'), /unsigned|signature/i);
   console.log(JSON.stringify({ status: 'PASS', version, platform, scope: 'actual CLI import builder, subprocess runner, CSV import, persisted repository, reopen, edit/refresh, repeated import, default signature rejection', requests }));
