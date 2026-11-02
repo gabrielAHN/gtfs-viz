@@ -151,18 +151,25 @@ const validateZip = async (source: RemoteFeedSource, file: string) => {
   }
 };
 
-// Ctrl-C or SIGTERM mid-download: kill any running DuckDB child (an s3/r2 download), remove the
-// partial file synchronously, uninstall the handlers and re-raise the signal, so the CLI dies by it
-// and the parent shell sees a signal death. Returns a function that uninstalls the handlers.
-const removeOnSignal = (file: string) => {
+export type SignalCleanup = { add: (file: string) => void; dispose: () => void };
+
+// Until disposed, Ctrl-C or SIGTERM kills any running DuckDB child (an s3/r2 download or the
+// import), removes the added files synchronously, uninstalls the handlers and re-raises the signal,
+// so the CLI dies by it and the parent shell sees a signal death.
+export const cleanupOnSignal = (): SignalCleanup => {
+  const files = new Set<string>();
   const signals = [["SIGINT", 130], ["SIGTERM", 143]] as const;
   const handlers = signals.map(([signal, status]) => {
     const handler = () => {
       try {
         killRunningChildren();
-        rmSync(file, { force: true });
+        for (const file of files) {
+          try {
+            rmSync(file, { force: true });
+          } catch {}
+        }
       } finally {
-        uninstall();
+        dispose();
         process.kill(process.pid, signal);
         // Only reached if the re-raised signal does not end the process.
         setTimeout(() => process.exit(status), 1000);
@@ -171,17 +178,19 @@ const removeOnSignal = (file: string) => {
     process.on(signal, handler);
     return [signal, handler] as const;
   });
-  const uninstall = () => handlers.forEach(([signal, handler]) => process.off(signal, handler));
-  return uninstall;
+  const dispose = () => handlers.forEach(([signal, handler]) => process.off(signal, handler));
+  return { add: (file) => void files.add(file), dispose };
 };
 
 // Downloads a remote feed to <directory>/<random>.zip and validates it. The file is removed on
 // failure or on SIGINT/SIGTERM while downloading; on success the caller owns it and must delete it
-// after importing.
-export const downloadFeed = async (source: RemoteFeedSource, directory: string) => {
+// after importing. A caller that passes its own cleanup keeps the file covered by it until the
+// caller deletes the file; otherwise the handlers are removed when the download ends.
+export const downloadFeed = async (source: RemoteFeedSource, directory: string, cleanup?: SignalCleanup) => {
   await mkdir(directory, { recursive: true });
   const file = path.join(directory, `${randomUUID()}.zip`);
-  const uninstallSignalHandlers = removeOnSignal(file);
+  const own = cleanup ? undefined : cleanupOnSignal();
+  (cleanup ?? own)?.add(file);
   try {
     if (source.kind === "http") await downloadHttp(source, file);
     else await downloadObject(source, file);
@@ -190,6 +199,6 @@ export const downloadFeed = async (source: RemoteFeedSource, directory: string) 
     await rm(file, { force: true });
     throw error;
   } finally {
-    uninstallSignalHandlers();
+    own?.dispose();
   }
 };

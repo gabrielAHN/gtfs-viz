@@ -60,7 +60,7 @@ import { isDaemonRunning, stopDaemon } from "./session/daemon.js";
 import { IMPORT_USAGE, parseFeedSource, redactSource, sourceLabel } from "./remote/source.js";
 import type { FeedSource } from "./remote/source.js";
 import { safeTerminalText } from "./output/safe-text.js";
-import { downloadFeed } from "./remote/download.js";
+import { cleanupOnSignal, downloadFeed } from "./remote/download.js";
 
 import { realpathSync } from "node:fs";
 
@@ -939,12 +939,19 @@ const importSource = async (source: FeedSource) => {
     const feedPath = await validateFeed(source.path);
     return importDataset(feedPath, { sourcePath: feedPath, fileName: path.basename(feedPath) });
   }
-  const download = await downloadFeed(source, downloadsDir);
+  // Ctrl-C or SIGTERM until the downloaded file is deleted, including during the DuckDB import,
+  // kills DuckDB, removes the file and re-raises the signal.
+  const cleanup = cleanupOnSignal();
   try {
-    await stopDaemon().catch(() => {});
-    return await importDataset(download.file, { sourcePath: source.sourcePath, fileName: source.fileName });
+    const download = await downloadFeed(source, downloadsDir, cleanup);
+    try {
+      await stopDaemon().catch(() => {});
+      return await importDataset(download.file, { sourcePath: source.sourcePath, fileName: source.fileName });
+    } finally {
+      await rm(download.file, { force: true });
+    }
   } finally {
-    await rm(download.file, { force: true });
+    cleanup.dispose();
   }
 };
 
