@@ -25,13 +25,18 @@ const R2_HINT =
 
 const sqlLiteral = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
-// DuckDB's own error text, without the CLI's agent-mode hint line.
-const duckDbMessage = (error: unknown) =>
-  (error instanceof Error ? error.message : String(error))
-    .split(/\r?\n/)
-    .filter((line) => line.trim() && !/^hint: -agent /.test(line))
-    .join(" ")
-    .trim();
+// DuckDB's own error text, without the CLI's agent-mode hint line or WARNING blocks (such as the
+// credential_chain region warning). A WARNING block runs to the next blank line or error line.
+const duckDbMessage = (error: unknown) => {
+  const lines: string[] = [];
+  let inWarning = false;
+  for (const line of (error instanceof Error ? error.message : String(error)).split(/\r?\n/)) {
+    if (/^WARNING:/.test(line)) inWarning = true;
+    else if (!line.trim() || /^[A-Z][A-Za-z ]*Error:/.test(line)) inWarning = false;
+    if (!inWarning && line.trim() && !/^hint: -agent /.test(line)) lines.push(line);
+  }
+  return lines.join(" ").trim();
+};
 
 // Every statement runs in a :memory: database; output is plain lines so stdout WARNINGs never break parsing.
 const runSql = (sql: string) => runDuckDbCommand(["-bail", "-noheader", "-list", ":memory:", "-c", sql]);
@@ -68,6 +73,7 @@ const downloadObject = async (source: ObjectFeedSource, file: string) => {
     return;
   }
   if (source.secretType === "r2") throw new Error(`No DuckDB secret matches ${source.sourcePath}. ${R2_HINT}`);
+  let secretError: string;
   try {
     await runSql(
       `CREATE TEMPORARY SECRET ${TEMPORARY_SECRET} (TYPE s3, PROVIDER credential_chain);\nSELECT ${sqlLiteral(SECRET_READY)};\n${copy}`,
@@ -76,13 +82,14 @@ const downloadObject = async (source: ObjectFeedSource, file: string) => {
   } catch (error) {
     // The secret was created, so the COPY itself failed: report it rather than retrying anonymously.
     if ((error as DuckDbProcessError).stdout?.includes(SECRET_READY)) throw failed(error);
+    secretError = duckDbMessage(error);
   }
   try {
     await runSql(copy);
   } catch (error) {
     throw failed(
       error,
-      "No DuckDB secret matched and credential_chain found no AWS credentials, so the object was requested anonymously. ",
+      `No DuckDB secret matched and credential_chain could not create a secret (${secretError}), so the object was requested anonymously. `,
     );
   }
 };

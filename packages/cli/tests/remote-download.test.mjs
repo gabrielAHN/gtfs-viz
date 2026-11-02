@@ -33,7 +33,8 @@ if (/which_secret/.test(sql)) {
 }
 for (const statement of sql.split(/;\\s*/).map((part) => part.trim()).filter(Boolean)) {
   if (/^CREATE TEMPORARY SECRET/.test(statement)) {
-    if (config.credentialChain === "fail") fail("Invalid Configuration Error: Secret Validation Failure: no profile 'default' found in config file")
+    if (config.credentialChain === "fail-warning") process.stderr.write("WARNING:\\nSet region explicitly using REGION 'us-east-1' in your CREATE SECRET statement.\\n\\n")
+    if (/^fail/.test(config.credentialChain ?? "")) fail("Invalid Configuration Error: Secret Validation Failure: no profile 'default' found in config file")
     process.stdout.write("true\\n")
     continue
   }
@@ -116,6 +117,32 @@ test("when credential_chain finds no credentials the COPY is retried anonymously
   assert.match(calls[1], /PROVIDER credential_chain/)
   assert.doesNotMatch(calls[2], /SECRET/)
   assert.match(calls[2], /^COPY \(SELECT content FROM read_blob\('s3:\/\/public-bucket\/feeds\/feed\.zip'\)\)/)
+})
+
+test("when credential_chain cannot create a secret, the anonymous failure includes DuckDB's reason", async (t) => {
+  const env = await setup(t)
+  await env.configure({ secrets: [], credentialChain: "fail", copy: "404" })
+  await assert.rejects(env.downloadFeed(env.parse("s3://private-bucket/feed.zip"), env.downloads), (error) => {
+    assert.match(error.message, /HTTP 404 Not Found/)
+    assert.ok(
+      error.message.includes("credential_chain could not create a secret (Invalid Configuration Error: Secret Validation Failure: no profile 'default' found in config file), so the object was requested anonymously"),
+      error.message,
+    )
+    assert.doesNotMatch(error.message, /found no AWS credentials/)
+    return true
+  })
+  assert.equal((await env.calls()).length, 3)
+  assert.deepEqual(await env.leftovers(), [])
+})
+
+test("DuckDB WARNING lines are left out of the credential_chain reason", async (t) => {
+  const env = await setup(t)
+  await env.configure({ secrets: [], credentialChain: "fail-warning", copy: "404" })
+  await assert.rejects(env.downloadFeed(env.parse("s3://private-bucket/feed.zip"), env.downloads), (error) => {
+    assert.ok(error.message.includes("could not create a secret (Invalid Configuration Error: Secret Validation Failure: no profile 'default' found in config file)"), error.message)
+    assert.doesNotMatch(error.message, /WARNING|Set region/)
+    return true
+  })
 })
 
 test("a failed COPY after the secret was created is reported with a credentials hint and no retry", async (t) => {
