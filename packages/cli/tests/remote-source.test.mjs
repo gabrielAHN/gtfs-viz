@@ -85,6 +85,45 @@ test("credentials embedded in a URL are refused without echoing them", async (t)
   }
 })
 
+// The user info runs to the last @ before the first / after scheme://, so a password that contains an
+// unencoded ? or # is still user info: it is refused before any parsing or request and never displayed.
+const PASSWORD_INPUTS = [
+  ["http://user:LEAKPART?rest@127.0.0.1:9/f.zip", "http://127.0.0.1:9/f.zip"],
+  ["http://user:LEAKHASH#rest@127.0.0.1:9/f.zip", "http://127.0.0.1:9/f.zip"],
+  ["http://user:123?LEAKNUM@host/f.zip", "http://host/f.zip"],
+  ["https://user:LEAKPART?a#b@example.test/feeds/f.zip?sig=querysecret0123", "https://example.test/feeds/f.zip"],
+  ["s3://AKID:LEAKPART?x@bucket/f.zip", "s3://bucket/f.zip"],
+  ["r2://AKID:LEAKHASH#x@bucket/f.zip", "r2://bucket/f.zip"],
+  ["gs://user:LEAKPART?x@bucket/f.zip", "gs://bucket/f.zip"],
+]
+const LEAKS = ["LEAKPART", "LEAKHASH", "LEAKNUM", "user:", "AKID", "querysecret"]
+
+test("a password containing ? or # is refused before parsing and never displayed", async (t) => {
+  const { parseFeedSource, sourceLabel, redactSource } = await loadSourceModule(t)
+  for (const [input, label] of PASSWORD_INPUTS) {
+    assert.equal(sourceLabel(input), label, input)
+    for (const message of [`Invalid URL: ${input}`, `request to ${input} failed`, `Import failed: ${input.slice(0, input.indexOf("@"))}`]) {
+      const redacted = redactSource(message, input)
+      for (const leaked of LEAKS) assert.ok(!redacted.includes(leaked), `${leaked} leaked: ${redacted}`)
+    }
+    assert.throws(() => parseFeedSource(input), (error) => {
+      if (!input.startsWith("gs:")) assert.match(error.message, /embedded credentials/, input)
+      for (const leaked of LEAKS) assert.ok(!error.message.includes(leaked), `${leaked} leaked: ${error.message}`)
+      return true
+    }, input)
+  }
+})
+
+test("an @ in the path or key is not user info", async (t) => {
+  const { parseFeedSource, sourceLabel, redactSource } = await loadSourceModule(t)
+  assert.equal(sourceLabel("https://host/@team/feed.zip?sig=querysecret0123"), "https://host/@team/feed.zip")
+  assert.equal(parseFeedSource("https://host/@team/feed.zip").label, "https://host/@team/feed.zip")
+  assert.equal(sourceLabel("s3://bucket/a@b/feed.zip"), "s3://bucket/a@b/feed.zip")
+  assert.equal(parseFeedSource("s3://bucket/a@b/feed.zip").sourcePath, "s3://bucket/a@b/feed.zip")
+  const message = "Download failed for https://host/@team/feed.zip: HTTP 404 Not Found"
+  assert.equal(redactSource(message, "https://host/@team/feed.zip"), message)
+})
+
 test("object references must name one object without a query, fragment or wildcard", async (t) => {
   const { parseFeedSource } = await loadSourceModule(t)
   for (const input of ["s3://bucket", "s3://bucket/", "s3:///feed.zip", "r2://bucket"]) {

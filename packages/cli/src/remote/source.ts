@@ -30,14 +30,21 @@ const credentialsRefused = () =>
     "URLs with embedded credentials are not supported. Remove the user name and password from the URL: use a pre-signed URL for HTTP(S), or a DuckDB secret for s3:// and r2:// objects.",
   );
 
+// What follows scheme://, split into the user info and the rest. The authority runs to the first "/"
+// (or the end) and is deliberately not cut at "?" or "#", so a password containing them is still user
+// info; an "@" after the first "/" belongs to the path. The user info ends at the authority's last "@".
+const splitUserInfo = (rest: string): { userInfo?: string; rest: string } => {
+  const slash = rest.indexOf("/");
+  const at = (slash === -1 ? rest : rest.slice(0, slash)).lastIndexOf("@");
+  return at === -1 ? { rest } : { userInfo: rest.slice(0, at), rest: rest.slice(at + 1) };
+};
+
 // The scheme plus everything before any query or fragment, without user info.
 export const sourceLabel = (input: string): string => {
   const match = SCHEME.exec(input);
   if (!match) return path.basename(input);
-  let rest = input.slice(match[0].length).split(/[?#]/, 1)[0];
-  const at = rest.lastIndexOf("@");
-  if (at !== -1) rest = rest.slice(at + 1);
-  return `${match[1].toLowerCase()}://${rest}`;
+  const { rest } = splitUserInfo(input.slice(match[0].length));
+  return `${match[1].toLowerCase()}://${rest.split(/[?#]/, 1)[0]}`;
 };
 
 // Removes the raw source, its query/fragment (also percent-encoded) and its user info from a message.
@@ -45,7 +52,7 @@ export const redactSource = (message: string, input: string): string => {
   const match = SCHEME.exec(input);
   if (!match) return message;
   let redacted = message.split(input).join(sourceLabel(input));
-  const rest = input.slice(match[0].length);
+  const { userInfo, rest } = splitUserInfo(input.slice(match[0].length));
   const queryStart = rest.search(/[?#]/);
   const hidden: string[] = [];
   if (queryStart !== -1) {
@@ -56,9 +63,11 @@ export const redactSource = (message: string, input: string): string => {
       if (value.length >= 3) hidden.push(value, encodeURIComponent(value));
     }
   }
-  const authority = queryStart === -1 ? rest : rest.slice(0, queryStart);
-  const at = authority.lastIndexOf("@");
-  if (at !== -1) hidden.push(authority.slice(0, at + 1), authority.slice(0, at));
+  if (userInfo) {
+    hidden.push(`${userInfo}@`, userInfo, encodeURIComponent(userInfo));
+    const password = userInfo.slice(userInfo.indexOf(":") + 1);
+    if (password.length >= 3) hidden.push(password, encodeURIComponent(password));
+  }
   for (const value of hidden.sort((a, b) => b.length - a.length)) {
     if (value) redacted = redacted.split(value).join("");
   }
@@ -76,7 +85,9 @@ const fileNameFrom = (pathname: string) => {
   return decoded;
 };
 
-const parseHttp = (input: string): FeedSource => {
+const parseHttp = (input: string, rest: string): FeedSource => {
+  // Checked on the raw text before URL parsing, which would end the authority at "?" or "#".
+  if (splitUserInfo(rest).userInfo !== undefined) throw credentialsRefused();
   let url: URL;
   try {
     url = new URL(input);
@@ -90,9 +101,9 @@ const parseHttp = (input: string): FeedSource => {
 };
 
 const parseObject = (scheme: string, secretType: "s3" | "r2", rest: string): FeedSource => {
+  if (splitUserInfo(rest).userInfo !== undefined) throw credentialsRefused();
   const slash = rest.indexOf("/");
   const authority = slash === -1 ? rest : rest.slice(0, slash);
-  if (authority.includes("@")) throw credentialsRefused();
   if (/[?#]/.test(rest)) {
     throw new Error(
       `${scheme}:// sources cannot carry a query string or fragment. Name the object as ${scheme}://<bucket>/<key> and configure credentials or endpoints with a DuckDB secret.`,
@@ -109,8 +120,9 @@ export const parseFeedSource = (input: string): FeedSource => {
   const match = SCHEME.exec(input);
   if (!match) return { kind: "local", path: input, label: path.basename(input) };
   const scheme = match[1].toLowerCase();
-  if (scheme === "http" || scheme === "https") return parseHttp(input);
+  const rest = input.slice(match[0].length);
+  if (scheme === "http" || scheme === "https") return parseHttp(input, rest);
   const secretType = objectSchemes[scheme];
-  if (secretType) return parseObject(scheme, secretType, input.slice(match[0].length));
+  if (secretType) return parseObject(scheme, secretType, rest);
   throw new Error(`Unsupported import source scheme "${scheme}://". Use ${SUPPORTED_SOURCES}.`);
 };

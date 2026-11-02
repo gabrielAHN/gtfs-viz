@@ -88,6 +88,32 @@ test("failure headers never show query strings or URL credentials", async (t) =>
   }
 })
 
+test("a password containing ? or # is refused before any request and never printed", async (t) => {
+  const env = await setup(t)
+  let requests = 0
+  const server = http.createServer((req, res) => { requests += 1; res.writeHead(404).end() })
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve))
+  t.after(() => new Promise((resolve) => server.close(resolve)))
+  const host = `127.0.0.1:${server.address().port}`
+  const statePath = path.join(env.dataRoot, "current", "state.json")
+  await mkdir(path.dirname(statePath), { recursive: true })
+  await writeFile(statePath, '{"previous":"dataset"}')
+  for (const input of [
+    // Parsed naively this is host 127.0.0.1, port <port>, query "?LEAKNUM@…": it must not be fetched.
+    `http://${host}?LEAKNUM@${host}/f.zip`,
+    `http://user:LEAKPART?rest@${host}/f.zip`,
+    `http://user:LEAKHASH#rest@${host}/f.zip`,
+  ]) {
+    const result = await env.cli("import", input)
+    assert.equal(requests, 0, `${input} was requested`)
+    assert.notEqual(result.code, 0, input)
+    assert.ok(result.stderr.startsWith(`Import failed: http://${host}/f.zip\n`), result.stderr)
+    assert.match(result.stderr, /embedded credentials/)
+    for (const leaked of ["LEAKPART", "LEAKHASH", "LEAKNUM", "user:"]) assert.ok(!(result.stdout + result.stderr).includes(leaked), `${leaked}: ${result.stderr}`)
+  }
+  assert.equal(await readFile(statePath, "utf8"), '{"previous":"dataset"}')
+})
+
 test("local paths keep their existing errors", async (t) => {
   const env = await setup(t)
   const missing = await env.cli("import", "missing/feed.zip")
