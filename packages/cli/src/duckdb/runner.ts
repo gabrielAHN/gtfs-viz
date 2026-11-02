@@ -28,10 +28,18 @@ export const extensionStartupArgs = async (dbPath: string): Promise<string[]> =>
 const duckDbErrorPattern =
   /(^|\n)(Binder|Catalog|Conversion|HTTP|IO|Invalid Input|Parser|Permission|Transaction) Error:|(^|\n)Error:|Failed to /;
 
+// DuckDB 2.0 switches to "agent mode" output when AI_AGENT is set and stdout is not a TTY.
+const childEnvironment = () => {
+  const env = { ...process.env };
+  delete env.AI_AGENT;
+  return env;
+};
+
 export const runProcess = (command: string, args: string[], options: { cwd?: string } = {}) =>
   new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
+      env: childEnvironment(),
       stdio: ["ignore", "pipe", "pipe"],
     });
     const stdout: Buffer[] = [];
