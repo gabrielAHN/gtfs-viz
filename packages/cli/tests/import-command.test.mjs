@@ -114,6 +114,15 @@ test("a password containing ? or # is refused before any request and never print
   assert.equal(await readFile(statePath, "utf8"), '{"previous":"dataset"}')
 })
 
+test("a remote source with control characters is refused without printing them", async (t) => {
+  const env = await setup(t)
+  const result = await env.cli("import", "s3://bucket/\u001b[31mINJECTED\nline.zip")
+  assert.notEqual(result.code, 0)
+  assert.match(result.stderr, /control characters/)
+  assert.doesNotMatch(result.stdout + result.stderr, /[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/)
+  assert.equal((result.stdout + result.stderr).split("\n").filter((line) => line.includes("INJECTED")).length <= 1, true, result.stderr)
+})
+
 test("local paths keep their existing errors", async (t) => {
   const env = await setup(t)
   const missing = await env.cli("import", "missing/feed.zip")

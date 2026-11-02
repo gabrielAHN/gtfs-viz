@@ -169,6 +169,25 @@ test("object references must name one object without a query, fragment or wildca
   }
 })
 
+test("remote sources with control characters are refused without echoing them", async (t) => {
+  const { parseFeedSource, sourceLabel } = await loadSourceModule(t)
+  for (const input of [
+    "s3://bucket/x\nINJECTED.zip",
+    "r2://bucket/\u001b[31mINJECTED.zip",
+    "https://example.test/a\tINJECTED.zip",
+    "http://example.test/\u0085INJECTED.zip",
+    "s3a://bucket/\u007fINJECTED.zip",
+    "https://example.test/f.zip?sig=\u0000INJECTED",
+  ]) {
+    assert.throws(() => parseFeedSource(input), (error) => {
+      assert.match(error.message, /control characters/i)
+      assert.ok(!error.message.includes("INJECTED"), error.message)
+      return true
+    }, JSON.stringify(input))
+    assert.doesNotMatch(sourceLabel(input), /[\u0000-\u001f\u007f-\u009f]/, JSON.stringify(input))
+  }
+})
+
 test("unsupported schemes fail with the supported forms and without leaking credentials", async (t) => {
   const { parseFeedSource } = await loadSourceModule(t)
   for (const input of ["gs://bucket/feed.zip", "gcs://bucket/feed.zip", "az://container/feed.zip", "abfss://c@acct.dfs.core.windows.net/feed.zip", "hf://datasets/x/feed.zip", "ftp://host/feed.zip", "file:///tmp/feed.zip", "gs://user:pw0123@bucket/feed.zip?sig=sigsecret"]) {

@@ -25,6 +25,10 @@ const SCHEME = /^([A-Za-z][A-Za-z0-9+.-]+):\/\//;
 
 const objectSchemes: Record<string, "s3" | "r2"> = { s3: "s3", s3a: "s3", s3n: "s3", r2: "r2" };
 
+// C0 and C1 control characters (tab, newline, escape, DEL, CSI, …): never part of a usable source,
+// and printing them could rewrite the terminal.
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/g;
+
 const credentialsRefused = () =>
   new Error(
     "URLs with embedded credentials are not supported. Remove the user name and password from the URL: use a pre-signed URL for HTTP(S), or a DuckDB secret for s3:// and r2:// objects.",
@@ -44,7 +48,7 @@ export const sourceLabel = (input: string): string => {
   const match = SCHEME.exec(input);
   if (!match) return path.basename(input);
   const { rest } = splitUserInfo(input.slice(match[0].length));
-  return `${match[1].toLowerCase()}://${rest.split(/[?#]/, 1)[0]}`;
+  return `${match[1].toLowerCase()}://${rest.split(/[?#]/, 1)[0]}`.replace(CONTROL_CHARACTERS, "\ufffd");
 };
 
 // Shown instead of a long query value or a password found elsewhere in a message.
@@ -134,8 +138,13 @@ export const parseFeedSource = (input: string): FeedSource => {
   if (!match) return { kind: "local", path: input, label: path.basename(input) };
   const scheme = match[1].toLowerCase();
   const rest = input.slice(match[0].length);
-  if (scheme === "http" || scheme === "https") return parseHttp(input, rest);
   const secretType = objectSchemes[scheme];
+  if ((scheme === "http" || scheme === "https" || secretType) && rest.search(CONTROL_CHARACTERS) !== -1) {
+    throw new Error(
+      `${scheme}:// sources cannot contain control characters such as tabs, newlines or escape sequences. Check how the source was quoted.`,
+    );
+  }
+  if (scheme === "http" || scheme === "https") return parseHttp(input, rest);
   if (secretType) return parseObject(scheme, secretType, rest);
   throw new Error(`Unsupported import source scheme "${scheme}://". Use ${SUPPORTED_SOURCES}.`);
 };
