@@ -35,6 +35,14 @@ if (/which_secret/.test(sql)) {
 for (const statement of sql.split(/;\\s*/).map((part) => part.trim()).filter(Boolean)) {
   if (/^CREATE TEMPORARY SECRET/.test(statement)) {
     if (config.credentialChain === "fail-warning") process.stderr.write("WARNING:\\nSet region explicitly using REGION 'us-east-1' in your CREATE SECRET statement.\\n\\n")
+    if (/^fail-ansi/.test(config.credentialChain ?? "")) {
+      // DuckDB 2.0 colours its WARNING blocks (ESC[90m … ESC[00m); errors may carry colour or OSC 8 links.
+      // "fail-ansi" writes both to stderr; "fail-ansi-stdout" writes both to stdout and nothing to stderr.
+      const stream = config.credentialChain === "fail-ansi" ? process.stderr : process.stdout
+      stream.write("\\u001b[90mWARNING:\\n\\u001b[00m\\u001b[90mSet region explicitly using REGION 'us-east-1' in your CREATE SECRET statement.\\n\\n\\u001b[00m")
+      stream.write("\\u001b]8;;file:///config\\u0007\\u001b[1mInvalid Configuration Error\\u001b[0m: Secret Validation Failure: no profile 'default' found in config file\\u001b]8;;\\u001b\\\\\\n")
+      process.exit(1)
+    }
     if (/^fail/.test(config.credentialChain ?? "")) fail("Invalid Configuration Error: Secret Validation Failure: no profile 'default' found in config file")
     process.stdout.write("true\\n")
     continue
@@ -144,6 +152,20 @@ test("DuckDB WARNING lines are left out of the credential_chain reason", async (
     assert.doesNotMatch(error.message, /WARNING|Set region/)
     return true
   })
+})
+
+test("coloured DuckDB WARNING blocks and escape sequences never reach the message", async (t) => {
+  const env = await setup(t)
+  for (const credentialChain of ["fail-ansi", "fail-ansi-stdout"]) {
+    await env.configure({ secrets: [], credentialChain, copy: "404" })
+    await assert.rejects(env.downloadFeed(env.parse("s3://private-bucket/feed.zip"), env.downloads), (error) => {
+      assert.ok(error.message.includes("could not create a secret (Invalid Configuration Error: Secret Validation Failure: no profile 'default' found in config file)"), `${credentialChain}: ${JSON.stringify(error.message)}`)
+      assert.doesNotMatch(error.message, /WARNING|Set region|deprecated/, credentialChain)
+      assert.doesNotMatch(error.message, /[\u0000-\u001f\u007f-\u009f]/, `${credentialChain}: ${JSON.stringify(error.message)}`)
+      return true
+    })
+  }
+  assert.deepEqual(await env.leftovers(), [])
 })
 
 test("a failed COPY after the secret was created is reported with a credentials hint and no retry", async (t) => {

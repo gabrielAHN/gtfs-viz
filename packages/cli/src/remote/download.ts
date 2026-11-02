@@ -25,12 +25,20 @@ const R2_HINT =
 
 const sqlLiteral = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
+// Terminal escape sequences: CSI (colours such as ESC[90m), OSC (titles, OSC 8 links; ended by BEL or
+// ESC \), any other ESC sequence, and the remaining C0/C1 controls except tab and line breaks.
+const ESCAPE_SEQUENCES =
+  /\u001b\[[0-9;?]*[ -/]*[@-~]|\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)?|\u001b[@-_]?|[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/g;
+
 // DuckDB's own error text, without the CLI's agent-mode hint line or WARNING blocks (such as the
 // credential_chain region warning). A WARNING block runs to the next blank line or error line.
+// DuckDB 2.0 colours WARNING blocks, so escape sequences are stripped first, whichever stream the
+// text came from, and never printed.
 const duckDbMessage = (error: unknown) => {
   const lines: string[] = [];
   let inWarning = false;
-  for (const line of (error instanceof Error ? error.message : String(error)).split(/\r?\n/)) {
+  const text = (error instanceof Error ? error.message : String(error)).replace(ESCAPE_SEQUENCES, "");
+  for (const line of text.split(/\r\n|\r|\n/)) {
     if (/^WARNING:/.test(line)) inWarning = true;
     else if (!line.trim() || /^[A-Z][A-Za-z ]*Error:/.test(line)) inWarning = false;
     if (!inWarning && line.trim() && !/^hint: -agent /.test(line)) lines.push(line);
