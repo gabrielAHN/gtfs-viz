@@ -109,10 +109,18 @@ const downloadHttp = async (source: HttpFeedSource, file: string) => {
     throw new Error(`Download failed for ${source.sourcePath}: ${status}`);
   }
   if (!response.body) throw new Error(`Download failed for ${source.sourcePath}: the response body is empty`);
-  await pipeline(
-    Readable.fromWeb(response.body as unknown as NodeReadableStream<Uint8Array>),
-    createWriteStream(file, { flags: "wx" }),
-  );
+  try {
+    await pipeline(
+      Readable.fromWeb(response.body as unknown as NodeReadableStream<Uint8Array>),
+      createWriteStream(file, { flags: "wx" }),
+    );
+  } catch (error) {
+    // A connection cut mid-body surfaces as undici's bare "terminated"; name the source and the cause.
+    const message = error instanceof Error ? error.message : String(error);
+    const cause = (error as { cause?: unknown }).cause;
+    const detail = cause instanceof Error && cause.message !== message ? ` (${cause.message})` : "";
+    throw new Error(`Download failed for ${source.sourcePath}: ${message}${detail}`, { cause: error });
+  }
 };
 
 // Returns the size of a non-empty file that starts with the zip local-file signature.

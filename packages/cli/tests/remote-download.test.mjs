@@ -199,6 +199,12 @@ const startServer = async (t) => {
     if (url.pathname === "/empty") return res.writeHead(200).end()
     if (url.pathname === "/page.html") return res.writeHead(200, { "content-type": "text/html" }).end("<!doctype html>")
     if (url.pathname === "/forbidden.zip") return res.writeHead(403).end("denied")
+    if (url.pathname === "/cut.zip") {
+      // Promises more bytes than it sends, then drops the connection mid-body.
+      res.writeHead(200, { "content-length": 100000 })
+      res.write(Buffer.concat([ZIP, Buffer.alloc(5000)]))
+      return setTimeout(() => res.socket.destroy(), 50)
+    }
     res.writeHead(404).end("missing")
   })
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve))
@@ -235,5 +241,17 @@ test("http failures report the status and redacted URL and leave no temporary fi
       return true
     }, input)
   }
+  assert.deepEqual(await env.leftovers(), [])
+})
+
+test("a connection cut mid-download names the source and leaves no temporary file", async (t) => {
+  const env = await setup(t)
+  const base = await startServer(t)
+  await assert.rejects(env.downloadFeed(env.parse(`${base}/cut.zip?sig=querysecret0123`), env.downloads), (error) => {
+    assert.ok(error.message.startsWith(`Download failed for ${base}/cut.zip: `), error.message)
+    assert.match(error.message, /terminated/)
+    assert.ok(!error.message.includes("querysecret"), error.message)
+    return true
+  })
   assert.deepEqual(await env.leftovers(), [])
 })
