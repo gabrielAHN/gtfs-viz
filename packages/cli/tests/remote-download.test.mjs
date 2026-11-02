@@ -1,7 +1,8 @@
 // Remote feed downloads: http(s) through fetch, s3/r2 objects through the DuckDB CLI with
 // secret lookup -> credential_chain -> anonymous fallback, zip validation and temp-file cleanup.
 import assert from "node:assert/strict"
-import { chmod, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises"
+import { spawn } from "node:child_process"
+import { chmod, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises"
 import http from "node:http"
 import os from "node:os"
 import path from "node:path"
@@ -254,4 +255,60 @@ test("a connection cut mid-download names the source and leaves no temporary fil
     return true
   })
   assert.deepEqual(await env.leftovers(), [])
+})
+
+// A child process downloads from a loopback server that sends part of the body and then stalls, and
+// is signalled once the partial file exists: the file is removed and the exit status is 128 + signal.
+test("Ctrl-C or SIGTERM during a download removes the partial file", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "gtfs-viz-remote-signal-"))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const downloadModule = await bundle(directory, "../src/remote/download.ts", "download")
+  const sourceModule = await bundle(directory, "../src/remote/source.ts", "source")
+  const script = path.join(directory, "child.mjs")
+  await writeFile(script, [
+    `import { downloadFeed } from ${JSON.stringify(pathToFileURL(downloadModule).href)}`,
+    `import { parseFeedSource } from ${JSON.stringify(pathToFileURL(sourceModule).href)}`,
+    "const [url, downloads] = process.argv.slice(2)",
+    "await downloadFeed(parseFeedSource(url), downloads)",
+    'process.stdout.write("finished\\n")',
+  ].join("\n"))
+  const server = http.createServer((req, res) => {
+    res.writeHead(200, { "content-length": 100000 })
+    res.write(Buffer.concat([ZIP, Buffer.alloc(5000)]))
+  })
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve))
+  t.after(() => new Promise((resolve) => { server.closeAllConnections(); server.close(resolve) }))
+  const url = `http://127.0.0.1:${server.address().port}/stall.zip`
+  for (const [signal, status] of [["SIGINT", 130], ["SIGTERM", 143]]) {
+    const downloads = path.join(directory, `downloads-${signal}`)
+    const child = spawn(process.execPath, [script, url, downloads], { stdio: ["ignore", "pipe", "pipe"] })
+    let output = ""
+    child.stdout.on("data", (chunk) => (output += chunk))
+    child.stderr.on("data", (chunk) => (output += chunk))
+    const exited = new Promise((resolve) => child.on("close", (code, killedBy) => resolve({ code, signal: killedBy })))
+    const deadline = Date.now() + 10000
+    let partial = []
+    while (Date.now() < deadline) {
+      partial = await readdir(downloads).catch(() => [])
+      if (partial.length && (await stat(path.join(downloads, partial[0])).catch(() => ({ size: 0 }))).size > 0) break
+      await new Promise((resolve) => setTimeout(resolve, 25))
+    }
+    assert.equal(partial.length, 1, `no partial download appeared: ${output}`)
+    child.kill(signal)
+    const result = await exited
+    assert.deepEqual(await readdir(downloads), [], `${signal} left the partial download behind`)
+    assert.deepEqual(result, { code: status, signal: null }, `${signal}: ${output}`)
+  }
+})
+
+test("the signal handlers are removed once a download finishes or fails", async (t) => {
+  const env = await setup(t)
+  const base = await startServer(t)
+  const listeners = () => [process.listenerCount("SIGINT"), process.listenerCount("SIGTERM")]
+  const before = listeners()
+  const result = await env.downloadFeed(env.parse(`${base}/feed.zip`), env.downloads)
+  assert.deepEqual(listeners(), before)
+  await rm(result.file)
+  await assert.rejects(env.downloadFeed(env.parse(`${base}/missing.zip`), env.downloads), /404/)
+  assert.deepEqual(listeners(), before)
 })

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createWriteStream } from "node:fs";
+import { createWriteStream, rmSync } from "node:fs";
 import { mkdir, open, rm } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
@@ -143,11 +143,30 @@ const validateZip = async (source: RemoteFeedSource, file: string) => {
   }
 };
 
+// Ctrl-C or SIGTERM mid-download: remove the partial file synchronously, then exit with the usual
+// 128 + signal status. Returns a function that uninstalls the handlers.
+const removeOnSignal = (file: string) => {
+  const uninstall = ([["SIGINT", 130], ["SIGTERM", 143]] as const).map(([signal, status]) => {
+    const handler = () => {
+      try {
+        rmSync(file, { force: true });
+      } finally {
+        process.exit(status);
+      }
+    };
+    process.on(signal, handler);
+    return () => process.off(signal, handler);
+  });
+  return () => uninstall.forEach((off) => off());
+};
+
 // Downloads a remote feed to <directory>/<random>.zip and validates it. The file is removed on
-// failure; on success the caller owns it and must delete it after importing.
+// failure or on SIGINT/SIGTERM while downloading; on success the caller owns it and must delete it
+// after importing.
 export const downloadFeed = async (source: RemoteFeedSource, directory: string) => {
   await mkdir(directory, { recursive: true });
   const file = path.join(directory, `${randomUUID()}.zip`);
+  const uninstallSignalHandlers = removeOnSignal(file);
   try {
     if (source.kind === "http") await downloadHttp(source, file);
     else await downloadObject(source, file);
@@ -155,5 +174,7 @@ export const downloadFeed = async (source: RemoteFeedSource, directory: string) 
   } catch (error) {
     await rm(file, { force: true });
     throw error;
+  } finally {
+    uninstallSignalHandlers();
   }
 };
