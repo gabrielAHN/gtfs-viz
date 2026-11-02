@@ -97,8 +97,8 @@ Output modes: no flags opens the dashboard. `--data` for terminal table, `--form
 | R2 object | `gtfs-viz import r2://my-bucket/gtfs/feed.zip` | Read by the DuckDB CLI with an R2 secret |
 
 Remote feeds are downloaded to `~/.gtfs-viz-cli/downloads/` first, must be a zip archive, and are
-deleted after the import. A failed download or a file that is not a zip leaves the current dataset
-untouched. The dataset records the source without its query string, fragment or credentials, so a
+deleted after the import. Download and validation failures (not a zip, no `stops.txt`) leave the
+current dataset untouched; a failure during the DuckDB import itself still clears it, as for local files. The dataset records the source without its query string, fragment or credentials, so a
 pre-signed URL's signature is used for the download but never stored or printed. URLs with an
 embedded user name or password are refused. Other schemes (`gs://`, `az://`, `hf://`, `ftp://`, …)
 are not supported.

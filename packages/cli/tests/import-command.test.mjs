@@ -143,6 +143,7 @@ test("usage, help and hints show every import form", async (t) => {
   for (const text of [USAGE, "CREATE PERSISTENT SECRET", "credential_chain", "AWS_ACCESS_KEY_ID", "SSO", "ENDPOINT", "TYPE r2", "ACCOUNT_ID"]) {
     assert.ok(help.stdout.includes(text), `${text} missing from:\n${help.stdout}`)
   }
+  assert.ok(help.stdout.replace(/\s+/g, " ").includes("a failure during the DuckDB import itself still clears it, as for local files"), help.stdout)
   const general = await env.cli("help")
   assert.ok(general.stdout.includes("import <feed.zip|https://…|s3://…|r2://…>"), general.stdout)
   const examples = await env.cli("examples")

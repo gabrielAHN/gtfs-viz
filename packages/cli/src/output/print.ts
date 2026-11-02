@@ -86,7 +86,9 @@ const commandHelp: Record<string, string> = {
 
   Import a GTFS zip file into the local DuckDB database. Remote feeds download to
   ~/.gtfs-viz-cli/downloads first, must be a zip archive, and are deleted after the
-  import; a failed download never changes the current dataset.
+  import. Download and validation failures (not a zip, no stops.txt) leave the
+  current dataset untouched; a failure during the DuckDB import itself still
+  clears it, as for local files.
 
   Arguments (one is required):
     <feed.zip>        Path to a local GTFS zip file

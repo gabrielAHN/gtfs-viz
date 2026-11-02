@@ -46,7 +46,7 @@ gtfs-viz restart                    # Stop session and remove local import
 gtfs-viz clean                      # Stop daemon and remove all local data
 ```
 
-Remote feeds download to `~/.gtfs-viz-cli/downloads/`, must be zip archives and are deleted after the import; failures leave the current dataset untouched. `s3://`/`r2://` authenticate with DuckDB secrets: a matching (persistent) secret, else for `s3://` AWS env vars/profile/SSO via `credential_chain`, else anonymous. `r2://` needs `CREATE PERSISTENT SECRET (TYPE r2, KEY_ID …, SECRET …, ACCOUNT_ID …)`; MinIO/S3-compatible stores need an s3 secret with `ENDPOINT`. See `gtfs-viz h import`.
+Remote feeds download to `~/.gtfs-viz-cli/downloads/`, must be zip archives and are deleted after the import. Download and validation failures (not a zip, no `stops.txt`) leave the current dataset untouched; a failure during the DuckDB import itself still clears it, as for local files. `s3://`/`r2://` authenticate with DuckDB secrets: a matching (persistent) secret, else for `s3://` AWS env vars/profile/SSO via `credential_chain`, else anonymous. `r2://` needs `CREATE PERSISTENT SECRET (TYPE r2, KEY_ID …, SECRET …, ACCOUNT_ID …)`; MinIO/S3-compatible stores need an s3 secret with `ENDPOINT`. See `gtfs-viz h import`.
 
 The `gtfs` extension installs from the DuckDB community repository (needs a DuckDB v2.0.0 CLI) unless `GTFS_EXTENSION_REPOSITORY` selects another repository.
 
