@@ -18,19 +18,29 @@ export const getNativeExtensionRepository = async (dbPath: string): Promise<stri
   return stored ?? (process.env.GTFS_EXTENSION_REPOSITORY || "community");
 };
 
-export const extensionStartupArgs = async (dbPath: string): Promise<string[]> => {
+// The repository in use and the -cmd startup args that install and load gtfs from it. Building the
+// client validates the repository: "community" or an http(s) URL without credentials or query.
+const extensionStartup = async (dbPath: string) => {
   const repository = await getNativeExtensionRepository(dbPath);
   const args: string[] = [];
   const client = createExtensionClient({ query: async sql => { args.push("-cmd", sql); } }, { repository });
   await client.install();
   await client.load();
-  return args;
+  return { repository, args };
 };
 
-const gtfsGuidance = (message: string) =>
-  /origin is different/i.test(message)
-    ? 'gtfs is already installed from a different repository. Run duckdb -c "FORCE INSTALL gtfs FROM community" to switch to the community build, or set GTFS_EXTENSION_REPOSITORY to the original repository. FORCE INSTALL is never run automatically.'
-    : "gtfs installs from the DuckDB community repository unless GTFS_EXTENSION_REPOSITORY selects another repository; community builds need a DuckDB v2.0.0 CLI (check duckdb --version). No fallback was attempted.";
+export const extensionStartupArgs = async (dbPath: string): Promise<string[]> =>
+  (await extensionStartup(dbPath)).args;
+
+const gtfsGuidance = (message: string, repository: string) => {
+  if (/origin is different/i.test(message)) {
+    return 'gtfs is already installed from a different repository. Run duckdb -c "FORCE INSTALL gtfs FROM community" to switch to the community build, or set GTFS_EXTENSION_REPOSITORY to the original repository. FORCE INSTALL is never run automatically.';
+  }
+  if (repository === "community") {
+    return "gtfs installs from the DuckDB community repository unless GTFS_EXTENSION_REPOSITORY selects another repository; community builds need a DuckDB v2.0.0 CLI (check duckdb --version). No fallback was attempted.";
+  }
+  return `gtfs installs from ${repository} (recorded for this dataset or set by GTFS_EXTENSION_REPOSITORY). Check that the repository is reachable and has a gtfs artifact for this DuckDB version and platform (check duckdb --version). No fallback was attempted.`;
+};
 
 const duckDbErrorPattern =
   /(^|\n)(Binder|Catalog|Conversion|HTTP|IO|Invalid Input|Parser|Permission|Transaction) Error:|(^|\n)Error:|Failed to /;
@@ -96,19 +106,21 @@ export const runDuckDbCommand = async (args: string[]) => {
   }
 };
 
-export const runDuckDb = async (args: string[]) => {
+// `repository` is the gtfs repository the startup args install from; without it, the configured default.
+export const runDuckDb = async (args: string[], repository = process.env.GTFS_EXTENSION_REPOSITORY || "community") => {
   try {
     return await runDuckDbCommand(args);
   } catch (error) {
     const processError = error as Error;
     if (!/gtfs/i.test(processError.message)) throw error;
-    throw new Error(`gtfs execution failed: ${processError.message}. ${gtfsGuidance(processError.message)}`, { cause: error });
+    throw new Error(`gtfs execution failed: ${processError.message}. ${gtfsGuidance(processError.message, repository)}`, { cause: error });
   }
 };
 
 export const queryRows = async (dbPath: string, sql: string) => {
   const configuredSql = `${buildDuckDbSessionSql(dbPath)}\n${sql}`;
-  const { stdout } = await runDuckDb(["-bail", "-readonly", "-json", ...await extensionStartupArgs(dbPath), dbPath, "-c", configuredSql]);
+  const { repository, args } = await extensionStartup(dbPath);
+  const { stdout } = await runDuckDb(["-bail", "-readonly", "-json", ...args, dbPath, "-c", configuredSql], repository);
   const trimmed = stdout.trim();
   if (!trimmed) return [];
   return JSON.parse(trimmed) as Record<string, unknown>[];
@@ -116,7 +128,8 @@ export const queryRows = async (dbPath: string, sql: string) => {
 
 export const executeRows = async (dbPath: string, sql: string) => {
   const configuredSql = `${buildDuckDbSessionSql(dbPath)}\n${sql}`;
-  const { stdout } = await runDuckDb(["-bail", "-json", ...await extensionStartupArgs(dbPath), dbPath, "-c", configuredSql]);
+  const { repository, args } = await extensionStartup(dbPath);
+  const { stdout } = await runDuckDb(["-bail", "-json", ...args, dbPath, "-c", configuredSql], repository);
   const trimmed = stdout.trim();
   if (!trimmed) return [];
   try {

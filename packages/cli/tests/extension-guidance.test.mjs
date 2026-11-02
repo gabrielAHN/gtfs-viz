@@ -124,6 +124,48 @@ test("the CLI runner explains community and GTFS_EXTENSION_REPOSITORY when gtfs 
   })
 })
 
+test("a failed install from a custom repository does not claim the community DuckDB v2.0.0 requirement", async () => {
+  const { createExtensionClient } = await clientModule()
+  await assert.rejects(
+    createExtensionClient({ query: async () => { throw new Error("HTTP Error: Failed to download extension (HTTP 404)") } }, { repository: "https://example.test/ext" }).install(),
+    (error) => {
+      assert.match(error.message, /HTTP 404/)
+      assert.match(error.message, /DuckDB version\/platform/)
+      assert.doesNotMatch(error.message, /v2\.0\.0|community/i)
+      return true
+    },
+  )
+})
+
+test("the CLI runner guidance names a custom repository instead of the community requirements", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "gtfs-viz-guidance-"))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const runnerPath = await bundleRunner(directory)
+  const fake = await fakeDuckDb(directory, { stderr: "IO Error: Failed to download extension \"gtfs\" (HTTP 404)\n", code: 1 })
+  const cases = [
+    // From GTFS_EXTENSION_REPOSITORY, and from the repository recorded for an imported dataset.
+    { name: "env", env: "http://127.0.0.1:1/repo", stored: undefined, expected: "http://127.0.0.1:1/repo" },
+    { name: "stored", env: undefined, stored: "https://example.test/ext", expected: "https://example.test/ext" },
+  ]
+  withEnv(t, { DUCKDB_BIN: fake.file, GTFS_EXTENSION_REPOSITORY: undefined })
+  for (const { name, env, stored, expected } of cases) {
+    if (env === undefined) delete process.env.GTFS_EXTENSION_REPOSITORY
+    else process.env.GTFS_EXTENSION_REPOSITORY = env
+    const runner = await import(`${pathToFileURL(runnerPath).href}?case=custom-${name}`)
+    await mkdir(path.join(directory, name))
+    const dbPath = path.join(directory, name, "gtfs.duckdb")
+    if (stored) await writeFile(`${dbPath}.extension.json`, JSON.stringify({ repository: stored }))
+    await assert.rejects(runner.executeRows(dbPath, "SELECT 1"), (error) => {
+      assert.match(error.message, /HTTP 404/)
+      assert.ok(error.message.includes(`gtfs installs from ${expected}`), error.message)
+      assert.match(error.message, /DuckDB version and platform/)
+      assert.match(error.message, /GTFS_EXTENSION_REPOSITORY/)
+      assert.doesNotMatch(error.message, /v2\.0\.0|community/i)
+      return true
+    }, name)
+  }
+})
+
 test("the CLI runner explains FORCE INSTALL for a different origin and runs DuckDB only once", async (t) => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "gtfs-viz-guidance-"))
   t.after(() => rm(directory, { recursive: true, force: true }))

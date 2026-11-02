@@ -20,9 +20,10 @@ function repositoryLiteral(repository: string): string {
   return `'${repository.replaceAll("'", "''")}'`;
 }
 
-const installGuidance = (message: string) => /origin is different/i.test(message)
+// The community note (DuckDB v2.0.0) applies only to the community repository.
+const installGuidance = (community: boolean) => (message: string) => /origin is different/i.test(message)
   ? ORIGIN_NOTE
-  : `Check repository reachability, browser CORS, and the artifact for this DuckDB version/platform. ${COMMUNITY_NOTE} No fallback was attempted.`;
+  : `Check repository reachability, browser CORS, and the artifact for this DuckDB version/platform. ${community ? `${COMMUNITY_NOTE} ` : ''}No fallback was attempted.`;
 
 export function createExtensionClient(executor: SqlExecutor, options: ExtensionClientOptions) {
   const repository = options?.repository === undefined ? undefined : repositoryLiteral(options.repository);
@@ -35,7 +36,7 @@ export function createExtensionClient(executor: SqlExecutor, options: ExtensionC
     }
   };
   return {
-    install: () => { if (repository === undefined) throw new Error('Configure GTFS_EXTENSION_REPOSITORY (CLI) or VITE_GTFS_EXTENSION_REPOSITORY (web) with a gtfs repository URL, or with "community" for the DuckDB community repository (needs DuckDB v2.0.0).'); return run('install', `INSTALL gtfs FROM ${repository}`, installGuidance); },
+    install: () => { if (repository === undefined) throw new Error('Configure GTFS_EXTENSION_REPOSITORY (CLI) or VITE_GTFS_EXTENSION_REPOSITORY (web) with a gtfs repository URL, or with "community" for the DuckDB community repository (needs DuckDB v2.0.0).'); return run('install', `INSTALL gtfs FROM ${repository}`, installGuidance(repository === 'community')); },
     load: () => run('load', 'LOAD gtfs', 'Configure GTFS_EXTENSION_REPOSITORY (CLI) or VITE_GTFS_EXTENSION_REPOSITORY (web), or install a compatible gtfs artifact first. Verify its signature. Signature policy was not changed; no fallback was attempted.'),
     prepare: () => run('prepare', 'PRAGMA gtfs_prepare', 'Await load() on this database before preparing edit tables.'),
     init: () => run('init', 'PRAGMA gtfs_init', 'Await load(), prepare(), and normalized source-table import before initializing.'),
