@@ -1,4 +1,5 @@
 import path from "node:path";
+import { FORMATTING_CHARACTERS } from "../output/safe-text.js";
 
 // What `gtfs-viz import <source>` accepts. Remote sources download first, then import as a local zip.
 export type FeedSource =
@@ -29,10 +30,10 @@ const objectSchemes: Record<string, "s3" | "r2"> = { s3: "s3", s3a: "s3", s3n: "
 // and printing them could rewrite the terminal.
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/g;
 
-// Replaced with U+FFFD when a source is displayed: C0/C1 controls, and bidi or invisible formatting
-// characters that could disguise it (zero-width and directional marks, embeddings, isolates, word
-// joiner, BOM).
-const UNSAFE_DISPLAY = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g;
+// Percent-encoded where an object key is shown or stored (the request uses the exact key): C0/C1
+// controls, whitespace, and bidi or invisible formatting characters. URL parsing does the same for
+// http(s) paths, but nothing parses s3:// or r2:// keys.
+const UNSAFE_KEY_CHARACTERS = new RegExp(`[\\u0000-\\u001f\\u007f-\\u009f\\s${FORMATTING_CHARACTERS}]`, "g");
 
 // S3, R2 and MinIO bucket names never contain ":", "@", "%" or other punctuation, so anything else
 // between scheme:// and the first "/" may be credentials (an AWS secret key often contains "/").
@@ -41,6 +42,13 @@ const BUCKET = /^[A-Za-z0-9._-]+$/;
 const credentialsRefused = () =>
   new Error(
     "URLs with embedded credentials are not supported. Remove the user name and password from the URL: use a pre-signed URL for HTTP(S), or a DuckDB secret for s3:// and r2:// objects.",
+  );
+
+// Some forms cannot be told apart from credentials: every URL parser reads http://user:8080/pw@host/
+// (and http://user:/pw@host/, http://token/pw@host/) as a host, a port and a path holding "@".
+const unencodedAtRefused = () =>
+  new Error(
+    "An unencoded @ in an http(s) URL is not accepted, because it may hide a user name or password: percent-encode an @ in the path as %40, and never put a user name or password in a URL (use a pre-signed URL instead).",
   );
 
 // What follows scheme://, split into the user info and the rest. The authority runs to the first "/"
@@ -54,54 +62,50 @@ const splitUserInfo = (rest: string): { userInfo?: string; rest: string } => {
 
 const isHttp = (scheme: string) => scheme === "http" || scheme === "https";
 
-const parsesAsUrl = (url: string) => {
-  try {
-    new URL(url);
-    return true;
-  } catch {
-    return false;
-  }
-};
+// URL parsers skip any further "/" or "\\" after http(s):// before the authority, so
+// http:///user:pass@host/ still carries user info.
+const authorityText = (scheme: string, rest: string) => (isHttp(scheme) ? rest.replace(/^[/\\]+/, "") : rest);
 
-// A source split into its parts. It is opaque when only its scheme may be shown: an http(s) URL that
-// does not parse once any user info is removed, or another scheme whose authority is not a valid
-// bucket name. Either may hide credentials that are not recognisable as user info, such as a
-// password containing "/".
+const opaqueLabel = (scheme: string) => `${scheme}://…`;
+
+// A source that has a scheme, split into its parts. It is opaque when it does not parse and validate:
+// then only its scheme may ever be shown, since its text may hold credentials in any form.
 const splitSource = (input: string) => {
   const match = SCHEME.exec(input);
   if (!match) return undefined;
   const scheme = match[1].toLowerCase();
   const raw = input.slice(match[0].length);
-  const { userInfo, rest } = splitUserInfo(raw);
-  const opaque = isHttp(scheme) ? !parsesAsUrl(`${scheme}://${rest}`) : !BUCKET.test(rest.split("/", 1)[0]);
-  return { scheme, raw, userInfo, rest, opaque };
+  const { userInfo, rest } = splitUserInfo(authorityText(scheme, raw));
+  let parsed: FeedSource | undefined;
+  try {
+    parsed = parseFeedSource(input);
+  } catch {}
+  return { scheme, raw, userInfo, rest, parsed, opaque: !parsed };
 };
 
-const opaqueLabel = (scheme: string) => `${scheme}://…`;
-
-// The scheme plus everything before any query or fragment, without user info; only the scheme when
-// the source is opaque.
+// How a source is shown: the label of the parsed and validated source (never its raw text), or only
+// "<scheme>://…" when it does not parse or validate. A local path is shown by its base name.
 export const sourceLabel = (input: string): string => {
   const source = splitSource(input);
   if (!source) return path.basename(input);
-  if (source.opaque) return opaqueLabel(source.scheme);
-  return `${source.scheme}://${source.rest.split(/[?#]/, 1)[0]}`.replace(UNSAFE_DISPLAY, "\ufffd");
+  return source.parsed ? source.parsed.label : opaqueLabel(source.scheme);
 };
 
 // Shown instead of a long query value or a password found elsewhere in a message.
 const PLACEHOLDER = "…";
 
-// Removes the raw source, its query/fragment (also percent-encoded) and its user info from a message.
-// Individual query values of 8+ characters (signatures, tokens) become a placeholder; shorter values
-// such as format=zip are left alone so ordinary words in the message stay intact. For an opaque
-// source, everything after scheme:// is hidden too, and so is everything before its last "@" (the
-// likely user info), whole and piece by piece.
+// Removes the raw source, its query/fragment (also percent-encoded) and its user info from a message,
+// such as a DuckDB or fetch error that echoes the URL. Individual query values of 8+ characters
+// (signatures, tokens) become a placeholder; shorter values such as format=zip are left alone so
+// ordinary words in the message stay intact. For an opaque source, everything after scheme:// is
+// hidden too, and so is everything before its last "@" (the likely user info), whole and piece by
+// piece; the CLI never needs this, since an opaque source is refused with a message of its own.
 export const redactSource = (message: string, input: string): string => {
   const source = splitSource(input);
   if (!source) return message;
   // Messages may name the source with its scheme in lower case, as the parsed URL does. A bare
   // "scheme://" holds nothing to hide and would otherwise match the forms quoted in messages.
-  const label = sourceLabel(input);
+  const label = source.parsed ? source.parsed.label : opaqueLabel(source.scheme);
   let redacted = message;
   if (source.raw) redacted = redacted.split(input).join(label).split(`${source.scheme}://${source.raw}`).join(label);
   const { userInfo, rest } = source;
@@ -143,8 +147,8 @@ export const redactSource = (message: string, input: string): string => {
 };
 
 // Path separators, C0/C1 controls, and bidi or invisible formatting characters that could disguise
-// the name when printed (zero-width and directional marks, embeddings, isolates, word joiner, BOM).
-const UNSAFE_FILE_NAME = /[/\\\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/;
+// the name when printed.
+const UNSAFE_FILE_NAME = new RegExp(`[/\\\\\\u0000-\\u001f\\u007f-\\u009f${FORMATTING_CHARACTERS}]`);
 
 // The decoded last path segment when it names a .zip file, else feed.zip.
 const fileNameFrom = (pathname: string) => {
@@ -159,7 +163,7 @@ const fileNameFrom = (pathname: string) => {
 
 const parseHttp = (scheme: string, input: string, rest: string): FeedSource => {
   // Checked on the raw text before URL parsing, which would end the authority at "?" or "#".
-  if (splitUserInfo(rest).userInfo !== undefined) throw credentialsRefused();
+  if (splitUserInfo(authorityText(scheme, rest)).userInfo !== undefined) throw credentialsRefused();
   let url: URL;
   try {
     url = new URL(input);
@@ -170,8 +174,11 @@ const parseHttp = (scheme: string, input: string, rest: string): FeedSource => {
       `Invalid URL: ${opaqueLabel(scheme)} could not be parsed. Check the host and port; never put a user name or password in the URL (use a pre-signed URL instead).`,
     );
   }
+  // The URL parser decides what is user info (extra slashes, backslashes, upper-case schemes, …).
   if (url.username || url.password) throw credentialsRefused();
+  if (url.pathname.includes("@") || input.split(/[?#]/, 1)[0].includes("@")) throw unencodedAtRefused();
   url.hash = "";
+  // Built from the parsed URL, which percent-encodes controls, spaces and non-ASCII in the path.
   const sourcePath = `${url.protocol}//${url.host}${url.pathname}`;
   return { kind: "http", url: url.href, sourcePath, fileName: fileNameFrom(url.pathname), label: sourcePath };
 };
@@ -196,7 +203,8 @@ const parseObject = (scheme: string, secretType: "s3" | "r2", rest: string): Fee
   if (!authority || !key) throw new Error(`Name one object as ${scheme}://<bucket>/<key>.`);
   if (/[*[]/.test(key)) throw new Error(`Wildcards are not supported: name one object as ${scheme}://<bucket>/<key>.`);
   const url = `${scheme}://${authority}/${key}`;
-  return { kind: "object", secretType, url, sourcePath: url, fileName: fileNameFrom(key), label: url };
+  const shown = `${scheme}://${authority}/${key.replace(UNSAFE_KEY_CHARACTERS, (character) => encodeURIComponent(character))}`;
+  return { kind: "object", secretType, url, sourcePath: shown, fileName: fileNameFrom(key), label: shown };
 };
 
 export const parseFeedSource = (input: string): FeedSource => {

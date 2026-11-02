@@ -79,10 +79,11 @@ test("a downloaded feed that fails to import is deleted and leaves the dataset a
 
 test("failure headers never show query strings or URL credentials", async (t) => {
   const env = await setup(t)
+  // Refused sources are shown only by their scheme.
   const cases = [
-    ["http://user:urlpassword@127.0.0.1:9/feeds/f.zip?sig=querysecret", "http://127.0.0.1:9/feeds/f.zip"],
-    ["gs://user:urlpassword@bucket/feed.zip?sig=querysecret", "gs://bucket/feed.zip"],
-    ["s3://bucket/feed.zip?s3_secret_access_key=querysecret", "s3://bucket/feed.zip"],
+    ["http://user:urlpassword@127.0.0.1:9/feeds/f.zip?sig=querysecret", "http://…"],
+    ["gs://user:urlpassword@bucket/feed.zip?sig=querysecret", "gs://…"],
+    ["s3://bucket/feed.zip?s3_secret_access_key=querysecret", "s3://…"],
   ]
   for (const [input, label] of cases) {
     const result = await env.cli("import", input)
@@ -111,7 +112,7 @@ test("a password containing ? or # is refused before any request and never print
     const result = await env.cli("import", input)
     assert.equal(requests, 0, `${input} was requested`)
     assert.notEqual(result.code, 0, input)
-    assert.ok(result.stderr.startsWith(`Import failed: http://${host}/f.zip\n`), result.stderr)
+    assert.ok(result.stderr.startsWith("Import failed: http://…\n"), result.stderr)
     assert.match(result.stderr, /embedded credentials/)
     for (const leaked of ["LEAKPART", "LEAKHASH", "LEAKNUM", "user:"]) assert.ok(!(result.stdout + result.stderr).includes(leaked), `${leaked}: ${result.stderr}`)
   }

@@ -58,6 +58,7 @@ import type {
 } from "./session/metadata.js";
 import { isDaemonRunning, stopDaemon } from "./session/daemon.js";
 import { IMPORT_USAGE, parseFeedSource, redactSource, sourceLabel } from "./remote/source.js";
+import type { FeedSource } from "./remote/source.js";
 import { downloadFeed } from "./remote/download.js";
 
 import { realpathSync } from "node:fs";
@@ -931,8 +932,7 @@ const timeIntervalCondition = (value: string | undefined, column: string) => {
 
 // Local paths import as before. Remote sources download to downloads/<random>.zip and are validated
 // before the daemon stops or the current dataset changes; the download is always removed.
-const importSource = async (feedArg: string) => {
-  const source = parseFeedSource(feedArg);
+const importSource = async (source: FeedSource) => {
   if (source.kind === "local") {
     await stopDaemon().catch(() => {});
     const feedPath = await validateFeed(source.path);
@@ -947,11 +947,25 @@ const importSource = async (feedArg: string) => {
   }
 };
 
+const importFailed = (label: string, message: string): never => {
+  console.error(`Import failed: ${label}`);
+  console.error(message);
+  process.exit(1);
+};
+
 const commandImport = async (args: Args) => {
   const feedArg = args.positionals[0];
   if (!feedArg) throw new Error(`Usage: ${IMPORT_USAGE}`);
+  // A source is only ever shown as parsed and validated. One that does not parse is shown as
+  // "<scheme>://…", with the refusal message, which never contains any of the input.
+  let source: FeedSource;
   try {
-    const metadata = await importSource(feedArg);
+    source = parseFeedSource(feedArg);
+  } catch (error) {
+    return importFailed(sourceLabel(feedArg), error instanceof Error ? error.message : String(error));
+  }
+  try {
+    const metadata = await importSource(source);
     console.log(`Imported ${metadata.fileName}`);
     console.log(
       `Stops: ${metadata.counts.stops}  Stations: ${metadata.counts.stations}  Pathways: ${metadata.counts.pathways}  Routes: ${metadata.counts.routes}`,
@@ -960,10 +974,8 @@ const commandImport = async (args: Args) => {
     const daemon = await spawnDaemon();
     console.log(`Dashboard: ${daemon.dashboardUrl}`);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`Import failed: ${sourceLabel(feedArg)}`);
-    console.error(redactSource(message, feedArg));
-    process.exit(1);
+    // DuckDB and fetch errors may echo the URL with its query string.
+    importFailed(source.label, redactSource(error instanceof Error ? error.message : String(error), feedArg));
   }
 };
 

@@ -100,14 +100,15 @@ test("credentials embedded in a URL are refused without echoing them", async (t)
 
 // The user info runs to the last @ before the first / after scheme://, so a password that contains an
 // unencoded ? or # is still user info: it is refused before any parsing or request and never displayed.
+// A refused source is labelled only by its scheme.
 const PASSWORD_INPUTS = [
-  ["http://user:LEAKPART?rest@127.0.0.1:9/f.zip", "http://127.0.0.1:9/f.zip"],
-  ["http://user:LEAKHASH#rest@127.0.0.1:9/f.zip", "http://127.0.0.1:9/f.zip"],
-  ["http://user:123?LEAKNUM@host/f.zip", "http://host/f.zip"],
-  ["https://user:LEAKPART?a#b@example.test/feeds/f.zip?sig=querysecret0123", "https://example.test/feeds/f.zip"],
-  ["s3://AKID:LEAKPART?x@bucket/f.zip", "s3://bucket/f.zip"],
-  ["r2://AKID:LEAKHASH#x@bucket/f.zip", "r2://bucket/f.zip"],
-  ["gs://user:LEAKPART?x@bucket/f.zip", "gs://bucket/f.zip"],
+  ["http://user:LEAKPART?rest@127.0.0.1:9/f.zip", "http://…"],
+  ["http://user:LEAKHASH#rest@127.0.0.1:9/f.zip", "http://…"],
+  ["http://user:123?LEAKNUM@host/f.zip", "http://…"],
+  ["https://user:LEAKPART?a#b@example.test/feeds/f.zip?sig=querysecret0123", "https://…"],
+  ["s3://AKID:LEAKPART?x@bucket/f.zip", "s3://…"],
+  ["r2://AKID:LEAKHASH#x@bucket/f.zip", "r2://…"],
+  ["gs://user:LEAKPART?x@bucket/f.zip", "gs://…"],
 ]
 const LEAKS = ["LEAKPART", "LEAKHASH", "LEAKNUM", "user:", "AKID", "querysecret"]
 
@@ -197,18 +198,18 @@ test("valid bucket names, @ in keys and ordinary hosts still parse", async (t) =
     assert.throws(() => parseFeedSource(input), /Invalid bucket name in the s3:\/\/ source/, input)
     assert.equal(sourceLabel(input), "s3://…", input)
   }
-  assert.equal(sourceLabel("https://[::1]:8080/@x/feed.zip?sig=querysecret0123"), "https://[::1]:8080/@x/feed.zip")
+  assert.equal(sourceLabel("https://[::1]:8080/%40x/feed.zip?sig=querysecret0123"), "https://[::1]:8080/%40x/feed.zip")
   assert.equal(sourceLabel("https://example.test:8443/feed.zip"), "https://example.test:8443/feed.zip")
 })
 
-test("an @ in the path or key is not user info", async (t) => {
+test("an @ in an object key is not user info, and an http(s) path takes it percent-encoded as %40", async (t) => {
   const { parseFeedSource, sourceLabel, redactSource } = await loadSourceModule(t)
-  assert.equal(sourceLabel("https://host/@team/feed.zip?sig=querysecret0123"), "https://host/@team/feed.zip")
-  assert.equal(parseFeedSource("https://host/@team/feed.zip").label, "https://host/@team/feed.zip")
+  assert.equal(sourceLabel("https://host/%40team/feed.zip?sig=querysecret0123"), "https://host/%40team/feed.zip")
+  assert.equal(parseFeedSource("https://host/%40team/feed.zip").label, "https://host/%40team/feed.zip")
   assert.equal(sourceLabel("s3://bucket/a@b/feed.zip"), "s3://bucket/a@b/feed.zip")
   assert.equal(parseFeedSource("s3://bucket/a@b/feed.zip").sourcePath, "s3://bucket/a@b/feed.zip")
-  const message = "Download failed for https://host/@team/feed.zip: HTTP 404 Not Found"
-  assert.equal(redactSource(message, "https://host/@team/feed.zip"), message)
+  const message = "Download failed for https://host/%40team/feed.zip: HTTP 404 Not Found"
+  assert.equal(redactSource(message, "https://host/%40team/feed.zip"), message)
 })
 
 test("redactSource hides long query values behind a placeholder and leaves short words intact", async (t) => {
@@ -262,22 +263,22 @@ test("remote sources with control characters are refused without echoing them", 
   }
 })
 
-test("sourceLabel replaces bidi and invisible formatting characters as well as controls", async (t) => {
+test("sourceLabel percent-encodes bidi and invisible formatting characters as well as controls", async (t) => {
   const { sourceLabel, redactSource } = await loadSourceModule(t)
   const unsafe = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/
   for (const character of ["\u200b", "\u200f", "\u202a", "\u202e", "\u2060", "\u2066", "\u2069", "\ufeff"]) {
     for (const input of [`https://example.test/feeds/evil${character}gpj.zip`, `s3://bucket/evil${character}gpj.zip`, `r2://bucket/a/${character}.zip`]) {
       const label = sourceLabel(input)
       assert.doesNotMatch(label, unsafe, JSON.stringify(input))
-      assert.ok(label.includes("\ufffd"), JSON.stringify(label))
+      assert.ok(label.includes(encodeURIComponent(character)), JSON.stringify(label))
     }
   }
-  assert.equal(sourceLabel("s3://bucket/evil\u202egpj.zip"), "s3://bucket/evil\ufffdgpj.zip")
-  assert.equal(sourceLabel("https://example.test/caf\u00e9 \u2014 v2.zip"), "https://example.test/caf\u00e9 \u2014 v2.zip")
+  assert.equal(sourceLabel("s3://bucket/evil\u202egpj.zip"), "s3://bucket/evil%E2%80%AEgpj.zip")
+  assert.equal(sourceLabel("https://example.test/caf\u00e9 \u2014 v2.zip"), "https://example.test/caf%C3%A9%20%E2%80%94%20v2.zip")
   // Messages name an object by its lower-case URL, which redactSource also replaces with the label.
   for (const input of ["s3://bucket/evil\u202egpj.zip", "S3://bucket/evil\u202egpj.zip"]) {
     const redacted = redactSource("Download failed for s3://bucket/evil\u202egpj.zip: HTTP 404", input)
-    assert.equal(redacted, "Download failed for s3://bucket/evil\ufffdgpj.zip: HTTP 404", input)
+    assert.equal(redacted, "Download failed for s3://bucket/evil%E2%80%AEgpj.zip: HTTP 404", input)
   }
 })
 
@@ -295,12 +296,100 @@ test("unsupported schemes fail with the supported forms and without leaking cred
 test("sourceLabel and redactSource never expose queries, fragments or URL credentials", async (t) => {
   const { sourceLabel, redactSource } = await loadSourceModule(t)
   assert.equal(sourceLabel("/data/feeds/feed.zip"), "feed.zip")
-  assert.equal(sourceLabel("https://user:pw0123@example.test/a/feed.zip?sig=sigsecret#frag"), "https://example.test/a/feed.zip")
-  assert.equal(sourceLabel("gs://user:pw0123@bucket/feed.zip?sig=sigsecret"), "gs://bucket/feed.zip")
+  assert.equal(sourceLabel("https://user:pw0123@example.test/a/feed.zip?sig=sigsecret#frag"), "https://…")
+  assert.equal(sourceLabel("gs://user:pw0123@bucket/feed.zip?sig=sigsecret"), "gs://…")
+  assert.equal(sourceLabel("https://example.test/a/feed.zip?sig=sigsecret#frag"), "https://example.test/a/feed.zip")
   const input = "https://user:pw0123@example.test/a/feed.zip?sig=sigsecret&token=tokensecret"
   const message = `failed for ${input}; retry ${encodeURIComponent("?sig=sigsecret")} and tokensecret`
   const redacted = redactSource(message, input)
   for (const leaked of ["pw0123", "sigsecret", "tokensecret"]) assert.ok(!redacted.includes(leaked), redacted)
-  assert.ok(redacted.includes("https://example.test/a/feed.zip"), redacted)
+  assert.ok(redacted.includes("https://…"), redacted)
   assert.equal(redactSource("plain message", "/data/feed.zip"), "plain message")
+})
+
+// Parsers skip any further "/" or "\\" after http(s):, so these still carry user info, and every
+// URL parser reads the last three as a host, a port and a path holding "@". All are refused, shown
+// only as "<scheme>://…", and the error carries nothing of the input after scheme://.
+const AMBIGUOUS_INPUTS = [
+  ["http:///user:SECRETPW@host/feeds/sample.zip", "http://…", /embedded credentials/],
+  ["HTTP:///user:SECRETPW@host/feeds/sample.zip", "http://…", /embedded credentials/],
+  ["https:///user:SECRETPW@host/feeds/sample.zip", "https://…", /embedded credentials/],
+  ["http://\\/user:SECRETPW@host/feeds/sample.zip", "http://…", /embedded credentials/],
+  ["http:////TOKENONLYSECRET@host/feeds/sample.zip", "http://…", /embedded credentials/],
+  ["http:///user:123?LEAKSLASHNUM@host/f.zip", "http://…", /embedded credentials/],
+  ["http://user:123/SECRETPW@host/feeds/sample.zip", "http://…", /%40/],
+  ["http://user:/SECRETPW@host/feeds/sample.zip", "http://…", /%40/],
+  ["http://TOKENA/TOKENB@host/feeds/sample.zip", "http://…", /%40/],
+  ["https://host/@team/feed.zip?sig=querysecret0123", "https://…", /%40/],
+  ["HTTPS://host:8443/a/b@c.zip", "https://…", /%40/],
+  ["http://[::1]:8080/@x/feed.zip", "http://…", /%40/],
+]
+const AMBIGUOUS_LEAKS = ["SECRETPW", "TOKENONLYSECRET", "LEAKSLASHNUM", "TOKENA", "TOKENB", "user:", "@team", "/team", "querysecret", "host/", "host:"]
+
+test("extra slashes, digits or empty ports and unencoded @ in http(s) paths are refused and never displayed", async (t) => {
+  const { parseFeedSource, sourceLabel } = await loadSourceModule(t)
+  for (const [input, label, expected] of AMBIGUOUS_INPUTS) {
+    assert.equal(sourceLabel(input), label, input)
+    assert.throws(() => parseFeedSource(input), (error) => {
+      assert.match(error.message, expected, input)
+      if (expected.source === "%40") assert.match(error.message, /never put a user name or password in a URL/)
+      for (const leaked of AMBIGUOUS_LEAKS) assert.ok(!error.message.includes(leaked), `${leaked} leaked (${input}): ${error.message}`)
+      return true
+    }, input)
+  }
+})
+
+test("http(s) sources with %40, IPv6 hosts, ports, upper-case schemes or an @ in the query are accepted", async (t) => {
+  const { parseFeedSource } = await loadSourceModule(t)
+  for (const [input, label, url] of [
+    ["https://host:8443/%40team/feed.zip", "https://host:8443/%40team/feed.zip", "https://host:8443/%40team/feed.zip"],
+    ["http://[::1]:8080/%40x/feed.zip?sig=querysecret0123", "http://[::1]:8080/%40x/feed.zip", "http://[::1]:8080/%40x/feed.zip?sig=querysecret0123"],
+    ["HTTPS://Example.TEST/Feeds/feed.zip", "https://example.test/Feeds/feed.zip", "https://example.test/Feeds/feed.zip"],
+    ["https://host/feed.zip?owner=team@example.test", "https://host/feed.zip", "https://host/feed.zip?owner=team@example.test"],
+    ["https://host/feed.zip#a@b", "https://host/feed.zip", "https://host/feed.zip"],
+  ]) {
+    const source = parseFeedSource(input)
+    assert.equal(source.label, label, input)
+    assert.equal(source.sourcePath, label, input)
+    assert.equal(source.url, url, input)
+  }
+})
+
+test("object keys keep their exact bytes for the request but are shown and stored with unsafe characters percent-encoded", async (t) => {
+  const { parseFeedSource } = await loadSourceModule(t)
+  for (const [input, url, shown, fileName] of [
+    ["s3://bucket/path/evil\u202egpj.sample.zip", "s3://bucket/path/evil\u202egpj.sample.zip", "s3://bucket/path/evil%E2%80%AEgpj.sample.zip", "feed.zip"],
+    ["s3://bucket/pa\u200bth/sample.zip", "s3://bucket/pa\u200bth/sample.zip", "s3://bucket/pa%E2%80%8Bth/sample.zip", "sample.zip"],
+    ["S3A://bucket/a/\u2066x\u2069.zip", "s3a://bucket/a/\u2066x\u2069.zip", "s3a://bucket/a/%E2%81%A6x%E2%81%A9.zip", "feed.zip"],
+    ["r2://bucket/my feed.zip", "r2://bucket/my feed.zip", "r2://bucket/my%20feed.zip", "my feed.zip"],
+    ["s3://bucket/a\u00a0b/\ufeffc.zip", "s3://bucket/a\u00a0b/\ufeffc.zip", "s3://bucket/a%C2%A0b/%EF%BB%BFc.zip", "feed.zip"],
+    ["s3://bucket/caf\u00e9/@team/feed.zip", "s3://bucket/caf\u00e9/@team/feed.zip", "s3://bucket/caf\u00e9/@team/feed.zip", "feed.zip"],
+  ]) {
+    const source = parseFeedSource(input)
+    assert.equal(source.url, url, JSON.stringify(input))
+    assert.equal(source.sourcePath, shown, JSON.stringify(input))
+    assert.equal(source.label, shown, JSON.stringify(input))
+    assert.equal(source.fileName, fileName, JSON.stringify(input))
+  }
+})
+
+test("parse errors never contain the input after scheme://", async (t) => {
+  const { parseFeedSource } = await loadSourceModule(t)
+  const inputs = [
+    ...PASSWORD_INPUTS.map(([input]) => input),
+    ...SLASH_INPUTS.map(([input]) => input),
+    ...AMBIGUOUS_INPUTS.map(([input]) => input),
+    "s3://bucket/feed.zip?s3_secret_access_key=topsecret", "s3://bucket:9000/feed.zip", "https://[::1/feed.zip",
+    "gs://user:pw0123@bucket/feed.zip", "ftp://user:pw0123@host/feed.zip", "az://user:pw0123@container/feed.zip",
+  ]
+  for (const input of inputs) {
+    const rest = input.slice(input.indexOf("://") + 3)
+    // Every piece of the rest that is long enough to be a secret, split at URL punctuation, except
+    // placeholder words that the refusal messages use themselves.
+    const pieces = rest.split(/[/\\:@?#&=.[\]]+/).filter((piece) => piece.length >= 4 && !["user", "host", "bucket", "feed", "feeds", "sample", "path"].includes(piece))
+    assert.throws(() => parseFeedSource(input), (error) => {
+      for (const piece of pieces) assert.ok(!error.message.includes(piece), `${piece} leaked (${input}): ${error.message}`)
+      return true
+    }, input)
+  }
 })
