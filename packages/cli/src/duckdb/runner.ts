@@ -65,25 +65,42 @@ export const runProcess = (command: string, args: string[], options: { cwd?: str
       if (code === 0) {
         resolve({ stdout: stdoutText, stderr: stderrText });
       } else {
-        reject(new Error(stderrText || stdoutText || `${command} exited with ${code}`));
+        // Keep both streams: callers such as the S3 download inspect stdout of a failed run.
+        reject(
+          Object.assign(new Error(stderrText || stdoutText || `${command} exited with ${code}`), {
+            stdout: stdoutText,
+            stderr: stderrText,
+          }),
+        );
       }
     });
   });
 
-export const runDuckDb = async (args: string[]) => {
+export type DuckDbProcessError = Error & { stdout?: string; stderr?: string };
+
+// Runs the DuckDB CLI without gtfs extension guidance (used for downloads, which need no extension).
+export const runDuckDbCommand = async (args: string[]) => {
   try {
     const result = await runProcess(duckdbBin, args);
     if (duckDbErrorPattern.test(result.stderr)) {
-      throw new Error(result.stderr.trim());
+      throw Object.assign(new Error(result.stderr.trim()), result);
     }
     return result;
   } catch (error) {
-    const processError = error as NodeJS.ErrnoException;
-    if (processError.code === "ENOENT") {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       throw new Error(
         "DuckDB CLI not found. Install DuckDB or set DUCKDB_BIN to the duckdb executable.",
       );
     }
+    throw error;
+  }
+};
+
+export const runDuckDb = async (args: string[]) => {
+  try {
+    return await runDuckDbCommand(args);
+  } catch (error) {
+    const processError = error as Error;
     if (!/gtfs/i.test(processError.message)) throw error;
     throw new Error(`gtfs execution failed: ${processError.message}. ${gtfsGuidance(processError.message)}`, { cause: error });
   }
