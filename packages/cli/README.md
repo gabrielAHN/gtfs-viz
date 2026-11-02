@@ -138,13 +138,14 @@ gtfs-viz import s3://my-bucket/gtfs/feed.zip
 
 Persistent secrets live in `~/.duckdb/stored_secrets`. gtfs-viz never prints or stores secret values.
 
-Never put credentials in the source itself. URLs with a user name or password are refused, and so
-are bucket names that are not plain names (letters, digits, `.`, `_`, `-`), which is how an
-`s3://KEY:SECRET@bucket/…` with a `/` in the secret reads. One form cannot be told apart from an
-ordinary URL: in `http://user:8080/rest@host/feed.zip` every URL parser reads host `user`, port
-`8080` and path `/rest@host/feed.zip`, so a password that starts with digits followed by `/` would be
-sent as part of the request to the host `user`. Use a pre-signed URL for HTTP(S) and a DuckDB secret
-for buckets instead.
+Never put credentials in a URL or bucket source. URLs with a user name or password are refused, and
+so are bucket names that are not plain names (letters, digits, `.`, `_`, `-`), which is how an
+`s3://KEY:SECRET@bucket/…` with a `/` in the secret reads. An unencoded `@` in an http(s) URL before
+its query string is refused too, because forms such as `http://user:8080/rest@host/feed.zip` parse as
+a host, a port and a path, and would send part of a password to the wrong host. Percent-encode an
+`@` in an http(s) path as `%40` (`https://example.com/%40team/feed.zip`); `@` in an `s3://` or
+`r2://` key is fine. A refused source is shown only as its scheme, such as `https://…`. Use a
+pre-signed URL for HTTP(S) and a DuckDB secret for buckets instead.
 
 Direct review links:
 

@@ -97,6 +97,9 @@ const commandHelp: Record<string, string> = {
     <s3://…>          S3 object (also s3a:// and s3n://), read through DuckDB
     <r2://…>          Cloudflare R2 object, read through DuckDB
 
+  Never put a user name or password in a URL: such URLs are refused, and so is an
+  unencoded @ in an http(s) URL path (percent-encode it as %40).
+
   Authentication for s3:// and r2:// uses DuckDB secrets, in this order:
     1. Any DuckDB secret that matches the URL, including persistent secrets:
          duckdb -c "CREATE PERSISTENT SECRET (TYPE s3, KEY_ID '…', SECRET '…', REGION 'us-east-1')"
