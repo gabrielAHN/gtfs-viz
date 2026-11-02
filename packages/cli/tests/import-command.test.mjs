@@ -23,7 +23,7 @@ const run = (command, args, options = {}) =>
   })
 
 const setup = async (t) => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "gtfs-viz-import-command-"))
+  const root = path.resolve(await mkdtemp(path.join(os.tmpdir(), "gtfs-viz-import-command-")))
   t.after(() => rm(root, { recursive: true, force: true }))
   const home = path.join(root, "home")
   const packageRoot = path.join(root, "pkg")
