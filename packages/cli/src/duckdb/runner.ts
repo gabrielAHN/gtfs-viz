@@ -5,7 +5,9 @@ import { buildDuckDbSessionSql } from "./config.js";
 
 const duckdbBin = process.env.DUCKDB_BIN || "duckdb";
 
-export const getNativeExtensionRepository = async (dbPath: string): Promise<string | undefined> => {
+// Repository precedence: the one recorded at import (<db>.extension.json), then
+// GTFS_EXTENSION_REPOSITORY, then the DuckDB community repository (signed; needs DuckDB v2.0.0).
+export const getNativeExtensionRepository = async (dbPath: string): Promise<string> => {
   let stored: string | undefined;
   try {
     stored = JSON.parse(await readFile(`${dbPath}.extension.json`, "utf8")).repository;
@@ -13,17 +15,22 @@ export const getNativeExtensionRepository = async (dbPath: string): Promise<stri
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
-  return stored ?? process.env.GTFS_EXTENSION_REPOSITORY;
+  return stored ?? (process.env.GTFS_EXTENSION_REPOSITORY || "community");
 };
 
 export const extensionStartupArgs = async (dbPath: string): Promise<string[]> => {
   const repository = await getNativeExtensionRepository(dbPath);
   const args: string[] = [];
   const client = createExtensionClient({ query: async sql => { args.push("-cmd", sql); } }, { repository });
-  if (repository !== undefined) await client.install();
+  await client.install();
   await client.load();
   return args;
 };
+
+const gtfsGuidance = (message: string) =>
+  /origin is different/i.test(message)
+    ? 'gtfs is already installed from a different repository. Run duckdb -c "FORCE INSTALL gtfs FROM community" to switch to the community build, or set GTFS_EXTENSION_REPOSITORY to the original repository. FORCE INSTALL is never run automatically.'
+    : "gtfs installs from the DuckDB community repository unless GTFS_EXTENSION_REPOSITORY selects another repository; community builds need a DuckDB v2.0.0 CLI (check duckdb --version). No fallback was attempted.";
 
 const duckDbErrorPattern =
   /(^|\n)(Binder|Catalog|Conversion|HTTP|IO|Invalid Input|Parser|Permission|Transaction) Error:|(^|\n)Error:|Failed to /;
@@ -78,7 +85,7 @@ export const runDuckDb = async (args: string[]) => {
       );
     }
     if (!/gtfs/i.test(processError.message)) throw error;
-    throw new Error(`gtfs execution failed: ${processError.message}. Configure GTFS_EXTENSION_REPOSITORY with a matching signed repository or install a compatible extension. No fallback was attempted.`, { cause: error });
+    throw new Error(`gtfs execution failed: ${processError.message}. ${gtfsGuidance(processError.message)}`, { cause: error });
   }
 };
 
@@ -106,7 +113,7 @@ export const executeSqlFile = async (dbPath: string, _sqlPath: string, importSte
   const repository = await getNativeExtensionRepository(dbPath);
   if (!importSteps) throw new Error("Downloaded import requires explicit prepare/import/init stages");
   for (const step of importSteps) await executeRows(dbPath, step);
-  if (repository !== undefined) await writeFile(`${dbPath}.extension.json`, JSON.stringify({ repository }));
+  await writeFile(`${dbPath}.extension.json`, JSON.stringify({ repository }));
 };
 
 export const refreshDownloadedDataset = async (dbPath: string): Promise<boolean> => {
