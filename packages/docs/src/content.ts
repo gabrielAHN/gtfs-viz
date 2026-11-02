@@ -400,7 +400,7 @@ export const parts: Part[] = [
                 type: "table",
                 head: ["Build", "DuckDB", "Platforms"],
                 rows: [
-                  ["Native", "1.5.4", "Linux amd64/arm64, macOS amd64/arm64, Windows amd64/MinGW"],
+                  ["Native", "2.0.0", "Linux amd64/arm64, macOS amd64/arm64, Windows amd64/MinGW"],
                   ["WASM", "1.4.3", "`wasm_eh`, `wasm_mvp`"],
                 ],
               },
@@ -412,12 +412,12 @@ export const parts: Part[] = [
             blocks: [
               {
                 type: "text",
-                text: "Until it is in the DuckDB community repository, install from a repository URL. The `spatial` extension is required.",
+                text: "Native builds install from the DuckDB community repository and need DuckDB 2.0.0. The `spatial` extension is required. The browser build for DuckDB-WASM 1.4.3 installs from a repository URL, such as the `/extensions/` path GTFS Viz serves.",
               },
               {
                 type: "code",
                 lang: "sql",
-                code: "INSTALL spatial;\nLOAD spatial;\nINSTALL gtfs FROM '<repository>';\nLOAD gtfs;",
+                code: "INSTALL spatial;\nLOAD spatial;\nINSTALL gtfs FROM community;\nLOAD gtfs;",
               },
             ],
           },
@@ -570,7 +570,10 @@ export const agentPage: DocPage = {
               head: ["Task", "Command"],
               rows: [
                 ["Import a feed", "`gtfs-viz import /abs/path/feed.zip`"],
-                ["Import from a URL or bucket", "`gtfs-viz import https://example.com/gtfs/feed.zip` or `s3://my-bucket/gtfs/feed.zip`"],
+                [
+                  "Import from a URL or bucket",
+                  "`gtfs-viz import https://example.com/gtfs/feed.zip` or `s3://my-bucket/gtfs/feed.zip`",
+                ],
                 ["Check the loaded feed", "`gtfs-viz status`"],
                 ["Update the CLI", "`gtfs-viz update`"],
                 ["Help for one command", "`gtfs-viz h <command>`"],
@@ -708,6 +711,22 @@ export type Release = {
 export const releases: Release[] = [
   {
     repo: "gtfs-duckdb",
+    version: "1.0.2",
+    title: "Community extension",
+    date: "2026-11-02",
+    status: "Released",
+    pr: 7,
+    highlights: [
+      { area: "Install", text: "`INSTALL gtfs FROM community` installs the signed build" },
+      {
+        area: "Build",
+        text: "Native DuckDB 2.0.0 binaries; browser builds stay on DuckDB-WASM 1.4.3",
+      },
+      { area: "Extension", text: "Same 96 functions as 1.0.1" },
+    ],
+  },
+  {
+    repo: "gtfs-duckdb",
     version: "1.0.1",
     title: "Sonification",
     date: "2026-10-05",
@@ -748,6 +767,25 @@ export const releases: Release[] = [
         text: "Explicit `gtfs_prepare`, `gtfs_init` and `gtfs_refresh` lifecycle",
       },
       { area: "Build", text: "Native DuckDB 1.5.4 and DuckDB-WASM 1.4.3 binaries" },
+    ],
+  },
+  {
+    repo: "gtfs-viz",
+    version: "1.6.0",
+    title: "Remote imports",
+    date: "2026-11-02",
+    status: "Released",
+    pr: 24,
+    highlights: [
+      {
+        area: "CLI",
+        text: "`gtfs-viz import` takes an `https://` URL or an `s3://` or `r2://` object",
+      },
+      {
+        area: "CLI",
+        text: "Buckets authenticate with DuckDB secrets, AWS credentials or anonymously",
+      },
+      { area: "CLI", text: "Installs `gtfs` from the DuckDB community repository by default" },
     ],
   },
   {

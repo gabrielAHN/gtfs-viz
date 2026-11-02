@@ -61,7 +61,7 @@ yarn cli import /path/to/feed.zip    # Uses node packages/cli/dist/index.js
 
 ### DuckDB Extension
 
-Database functions come from the separate [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) extension, which the web app and CLI download and load (`INSTALL gtfs FROM <repository>; LOAD gtfs;`). Configure `GTFS_EXTENSION_REPOSITORY` for the CLI or `VITE_GTFS_EXTENSION_REPOSITORY` for the web app. The web app links to the docs at `/docs/` (override with `VITE_GTFS_DOCS_URL`); the CLI dashboard never shows the link. Without configuration, an already-installed compatible extension is required. See [configuration](packages/duckdb-client/README.md).
+Database functions come from the separate [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) extension, which the web app and CLI download and load (`INSTALL gtfs FROM <repository>; LOAD gtfs;`). The CLI installs it from the DuckDB community repository by default (needs a DuckDB v2.0.0 CLI); set `GTFS_EXTENSION_REPOSITORY` to use another repository. The web app installs from `VITE_GTFS_EXTENSION_REPOSITORY`; without it, the browser needs an already-loaded compatible extension. The web app links to the docs at `/docs/` (override with `VITE_GTFS_DOCS_URL`); the CLI dashboard never shows the link. See [configuration](packages/duckdb-client/README.md).
 
 ## Project Structure
 

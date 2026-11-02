@@ -2,6 +2,24 @@
 
 All notable changes to GTFS Viz will be documented in this file.
 
+## [1.6.0] - 2026-11-02
+
+### Added
+- `gtfs-viz import` also takes an `http(s)://` URL or an `s3://`, `s3a://`, `s3n://` or `r2://` object. The feed is downloaded and checked before the current dataset changes, and the download is deleted afterwards, also on Ctrl-C or SIGTERM.
+- Bucket access goes through DuckDB secrets: a matching secret (including persistent ones), then AWS environment variables, profile or SSO through `credential_chain`, then an anonymous request. S3-compatible stores such as MinIO use a secret's `ENDPOINT`; `r2://` needs an R2 secret.
+
+### Changed
+- The CLI installs the `gtfs` extension from the DuckDB community repository unless `GTFS_EXTENSION_REPOSITORY` names another repository. Community builds need a DuckDB v2.0.0 CLI.
+- DuckDB runs without `AI_AGENT`, so DuckDB 2.0's agent mode never changes its output.
+
+### Security
+- URLs with a user name or password are refused. An `@` in an http(s) path must be written as `%40`, so a URL can't hide credentials in its path.
+- Saved datasets, status output and errors show a source only as parsed, without its query string or credentials. A refused source is shown as `<scheme>://…`.
+- `import` and `status` print text from outside the CLI, such as a server's reason phrase or a stored source, without escape sequences, control or bidi characters.
+
+### Build notes
+- The extension integration job in CI runs on the DuckDB v2.0.0 CLI.
+
 ## [1.5.4] - 2026-09-29
 
 ### Changed
