@@ -5,7 +5,7 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream as NodeReadableStream } from "node:stream/web";
-import { runDuckDbCommand } from "../duckdb/runner.js";
+import { killRunningChildren, runDuckDbCommand } from "../duckdb/runner.js";
 import type { DuckDbProcessError } from "../duckdb/runner.js";
 import type { FeedSource } from "./source.js";
 
@@ -151,21 +151,28 @@ const validateZip = async (source: RemoteFeedSource, file: string) => {
   }
 };
 
-// Ctrl-C or SIGTERM mid-download: remove the partial file synchronously, then exit with the usual
-// 128 + signal status. Returns a function that uninstalls the handlers.
+// Ctrl-C or SIGTERM mid-download: kill any running DuckDB child (an s3/r2 download), remove the
+// partial file synchronously, uninstall the handlers and re-raise the signal, so the CLI dies by it
+// and the parent shell sees a signal death. Returns a function that uninstalls the handlers.
 const removeOnSignal = (file: string) => {
-  const uninstall = ([["SIGINT", 130], ["SIGTERM", 143]] as const).map(([signal, status]) => {
+  const signals = [["SIGINT", 130], ["SIGTERM", 143]] as const;
+  const handlers = signals.map(([signal, status]) => {
     const handler = () => {
       try {
+        killRunningChildren();
         rmSync(file, { force: true });
       } finally {
-        process.exit(status);
+        uninstall();
+        process.kill(process.pid, signal);
+        // Only reached if the re-raised signal does not end the process.
+        setTimeout(() => process.exit(status), 1000);
       }
     };
     process.on(signal, handler);
-    return () => process.off(signal, handler);
+    return [signal, handler] as const;
   });
-  return () => uninstall.forEach((off) => off());
+  const uninstall = () => handlers.forEach(([signal, handler]) => process.off(signal, handler));
+  return uninstall;
 };
 
 // Downloads a remote feed to <directory>/<random>.zip and validates it. The file is removed on

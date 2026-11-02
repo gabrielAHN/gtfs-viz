@@ -280,7 +280,8 @@ test("a connection cut mid-download names the source and leaves no temporary fil
 })
 
 // A child process downloads from a loopback server that sends part of the body and then stalls, and
-// is signalled once the partial file exists: the file is removed and the exit status is 128 + signal.
+// is signalled once the partial file exists: the file is removed and the child dies by that signal
+// (re-raised after cleanup, so the parent shell sees a signal death rather than an exit status).
 test("Ctrl-C or SIGTERM during a download removes the partial file", async (t) => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "gtfs-viz-remote-signal-"))
   t.after(() => rm(directory, { recursive: true, force: true }))
@@ -319,7 +320,79 @@ test("Ctrl-C or SIGTERM during a download removes the partial file", async (t) =
     child.kill(signal)
     const result = await exited
     assert.deepEqual(await readdir(downloads), [], `${signal} left the partial download behind`)
-    assert.deepEqual(result, { code: status, signal: null }, `${signal}: ${output}`)
+    assert.deepEqual(result, { code: null, signal }, `${signal}: ${output}`)
+  }
+})
+
+// A fake DuckDB that records its pid, writes part of the object to the COPY target and then keeps
+// "downloading", ignoring SIGINT and SIGTERM as a busy DuckDB may.
+const SLOW_DUCKDB = `#!/usr/bin/env node
+import { writeFileSync } from "node:fs"
+const args = process.argv.slice(2)
+const sql = args[args.indexOf("-c") + 1] ?? ""
+if (/which_secret/.test(sql)) { process.stdout.write("gtfs-viz-secret:s\\n"); process.exit(0) }
+process.on("SIGINT", () => {})
+process.on("SIGTERM", () => {})
+const copy = /TO '((?:[^']|'')*)' \\(FORMAT blob\\)/.exec(sql)
+if (copy) writeFileSync(copy[1].replaceAll("''", "'"), Buffer.from([0x50, 0x4b, 0x03, 0x04, 1, 2, 3, 4]))
+writeFileSync(process.env.FAKE_DUCKDB_PID, String(process.pid))
+setInterval(() => {}, 1000)
+`
+
+const alive = (pid) => {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Signalled while DuckDB is reading an s3 object (the signal goes to the CLI process only, as with
+// kill <pid>): the DuckDB child is killed, the partial file removed and the signal re-raised.
+test("Ctrl-C or SIGTERM during an s3 download kills the DuckDB child and removes the partial file", async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "gtfs-viz-remote-signal-s3-"))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const downloadModule = await bundle(directory, "../src/remote/download.ts", "download")
+  const sourceModule = await bundle(directory, "../src/remote/source.ts", "source")
+  const fake = path.join(directory, "slow-duckdb.mjs")
+  await writeFile(fake, SLOW_DUCKDB)
+  await chmod(fake, 0o755)
+  const script = path.join(directory, "child.mjs")
+  await writeFile(script, [
+    `import { downloadFeed } from ${JSON.stringify(pathToFileURL(downloadModule).href)}`,
+    `import { parseFeedSource } from ${JSON.stringify(pathToFileURL(sourceModule).href)}`,
+    "const [url, downloads] = process.argv.slice(2)",
+    "await downloadFeed(parseFeedSource(url), downloads)",
+    'process.stdout.write("finished\\n")',
+  ].join("\n"))
+  for (const signal of ["SIGINT", "SIGTERM"]) {
+    const downloads = path.join(directory, `downloads-${signal}`)
+    const pidFile = path.join(directory, `duckdb-${signal}.pid`)
+    const child = spawn(process.execPath, [script, "s3://bucket/slow/feed.zip", downloads], {
+      env: { ...process.env, DUCKDB_BIN: fake, FAKE_DUCKDB_PID: pidFile },
+      stdio: ["ignore", "pipe", "pipe"],
+    })
+    let output = ""
+    child.stdout.on("data", (chunk) => (output += chunk))
+    child.stderr.on("data", (chunk) => (output += chunk))
+    const exited = new Promise((resolve) => child.on("close", (code, killedBy) => resolve({ code, signal: killedBy })))
+    let duckdbPid = 0
+    const deadline = Date.now() + 10000
+    while (Date.now() < deadline && !duckdbPid) {
+      duckdbPid = Number(await readFile(pidFile, "utf8").catch(() => "0"))
+      if (!duckdbPid) await new Promise((resolve) => setTimeout(resolve, 25))
+    }
+    assert.ok(duckdbPid > 0, `the fake DuckDB never started: ${output}`)
+    t.after(() => { if (alive(duckdbPid)) process.kill(duckdbPid, "SIGKILL") })
+    assert.equal((await readdir(downloads)).length, 1, `no partial download appeared: ${output}`)
+    child.kill(signal)
+    const result = await exited
+    assert.deepEqual(result, { code: null, signal }, `${signal}: ${output}`)
+    assert.deepEqual(await readdir(downloads), [], `${signal} left the partial download behind`)
+    const gone = Date.now() + 3000
+    while (alive(duckdbPid) && Date.now() < gone) await new Promise((resolve) => setTimeout(resolve, 25))
+    assert.equal(alive(duckdbPid), false, `${signal}: DuckDB child ${duckdbPid} is still running`)
   }
 })
 

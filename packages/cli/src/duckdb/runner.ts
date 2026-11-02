@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { createExtensionClient } from "@gtfs-viz/duckdb-client/client";
 import { buildDuckDbSessionSql } from "./config.js";
@@ -52,6 +53,16 @@ const childEnvironment = () => {
   return env;
 };
 
+// Processes started by runProcess that have not exited yet (such as a DuckDB download).
+const runningChildren = new Set<ChildProcess>();
+
+// Kills every process started by runProcess that is still running, so a signal handler can stop a
+// DuckDB download before the CLI dies. SIGKILL, because DuckDB may not stop promptly on SIGINT/SIGTERM.
+export const killRunningChildren = () => {
+  for (const child of runningChildren) child.kill("SIGKILL");
+  runningChildren.clear();
+};
+
 export const runProcess = (command: string, args: string[], options: { cwd?: string } = {}) =>
   new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
     const child = spawn(command, args, {
@@ -59,6 +70,7 @@ export const runProcess = (command: string, args: string[], options: { cwd?: str
       env: childEnvironment(),
       stdio: ["ignore", "pipe", "pipe"],
     });
+    runningChildren.add(child);
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
 
@@ -68,8 +80,12 @@ export const runProcess = (command: string, args: string[], options: { cwd?: str
     child.stderr.on("data", (chunk) => {
       stderr.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     });
-    child.on("error", reject);
+    child.on("error", (error) => {
+      runningChildren.delete(child);
+      reject(error);
+    });
     child.on("close", (code) => {
+      runningChildren.delete(child);
       const stdoutText = Buffer.concat(stdout).toString("utf8");
       const stderrText = Buffer.concat(stderr).toString("utf8");
       if (code === 0) {
