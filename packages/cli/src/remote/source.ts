@@ -83,6 +83,10 @@ export const redactSource = (message: string, input: string): string => {
   return redacted;
 };
 
+// Path separators, C0/C1 controls, and bidi or invisible formatting characters that could disguise
+// the name when printed (zero-width and directional marks, embeddings, isolates, word joiner, BOM).
+const UNSAFE_FILE_NAME = /[/\\\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/;
+
 // The decoded last path segment when it names a .zip file, else feed.zip.
 const fileNameFrom = (pathname: string) => {
   const segment = pathname.split("/").pop() ?? "";
@@ -90,7 +94,7 @@ const fileNameFrom = (pathname: string) => {
   try {
     decoded = decodeURIComponent(segment);
   } catch {}
-  if (!/\.zip$/i.test(decoded) || /[/\\\u0000-\u001f\u007f]/.test(decoded)) return DEFAULT_FILE_NAME;
+  if (!/\.zip$/i.test(decoded) || UNSAFE_FILE_NAME.test(decoded)) return DEFAULT_FILE_NAME;
   return decoded;
 };
 

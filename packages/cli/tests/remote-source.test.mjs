@@ -49,6 +49,19 @@ test("http(s) URLs download from the full URL but display it without query, frag
   assert.equal(parseFeedSource("https://example.test/a/bad%E0.zip").fileName, "bad%E0.zip")
 })
 
+test("file names with C1 controls or bidi and invisible formatting characters fall back to feed.zip", async (t) => {
+  const { parseFeedSource } = await loadSourceModule(t)
+  for (const encoded of [
+    "%C2%9B31mred.zip", "%C2%80a.zip", "%C2%9Fa.zip",
+    "%E2%80%AEpiz.exe.zip", "%E2%80%AAa.zip", "%E2%80%8Ba.zip", "%E2%80%8Fa.zip",
+    "%E2%81%A0a.zip", "%E2%81%A9a.zip", "%EF%BB%BFa.zip",
+  ]) {
+    assert.equal(parseFeedSource(`https://example.test/${encoded}`).fileName, "feed.zip", encoded)
+  }
+  assert.equal(parseFeedSource("s3://bucket/\u202Epiz.exe.zip").fileName, "feed.zip")
+  assert.equal(parseFeedSource("https://example.test/caf%C3%A9%20%E2%80%94%20v2.zip").fileName, "café — v2.zip")
+})
+
 test("s3, s3a, s3n and r2 object references keep their exact key", async (t) => {
   const { parseFeedSource } = await loadSourceModule(t)
   assert.deepEqual(parseFeedSource("s3://bucket/path/sample.zip"), {
