@@ -124,6 +124,21 @@ test("an @ in the path or key is not user info", async (t) => {
   assert.equal(redactSource(message, "https://host/@team/feed.zip"), message)
 })
 
+test("redactSource hides long query values behind a placeholder and leaves short words intact", async (t) => {
+  const { redactSource } = await loadSourceModule(t)
+  assert.equal(
+    redactSource("Downloaded file is not a zip archive: https://h/f", "https://h/f?format=zip"),
+    "Downloaded file is not a zip archive: https://h/f",
+  )
+  const input = "https://h/f.zip?X-Amz-Signature=querysecret0123456789&format=zip"
+  assert.equal(
+    redactSource("rejected X-Amz-Signature=querysecret0123456789 (querysecret0123456789) for a zip", input),
+    "rejected X-Amz-Signature=… (…) for a zip",
+  )
+  const query = "?X-Amz-Signature=querysecret0123456789&format=zip"
+  assert.equal(redactSource(`GET ${input}, then ${encodeURIComponent(query)} and ${query}`, input), "GET https://h/f.zip, then  and ")
+})
+
 test("object references must name one object without a query, fragment or wildcard", async (t) => {
   const { parseFeedSource } = await loadSourceModule(t)
   for (const input of ["s3://bucket", "s3://bucket/", "s3:///feed.zip", "r2://bucket"]) {

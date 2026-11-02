@@ -47,29 +47,38 @@ export const sourceLabel = (input: string): string => {
   return `${match[1].toLowerCase()}://${rest.split(/[?#]/, 1)[0]}`;
 };
 
+// Shown instead of a long query value or a password found elsewhere in a message.
+const PLACEHOLDER = "…";
+
 // Removes the raw source, its query/fragment (also percent-encoded) and its user info from a message.
+// Individual query values of 8+ characters (signatures, tokens) become a placeholder; shorter values
+// such as format=zip are left alone so ordinary words in the message stay intact.
 export const redactSource = (message: string, input: string): string => {
   const match = SCHEME.exec(input);
   if (!match) return message;
   let redacted = message.split(input).join(sourceLabel(input));
   const { userInfo, rest } = splitUserInfo(input.slice(match[0].length));
   const queryStart = rest.search(/[?#]/);
-  const hidden: string[] = [];
+  const hidden: [string, string][] = [];
+  const hide = (value: string, replacement: string) => {
+    hidden.push([value, replacement], [encodeURIComponent(value), replacement]);
+  };
   if (queryStart !== -1) {
     const query = rest.slice(queryStart);
-    hidden.push(query, encodeURIComponent(query));
+    hide(query, "");
     for (const part of query.slice(1).split(/[&#]/)) {
       const value = part.slice(part.indexOf("=") + 1);
-      if (value.length >= 3) hidden.push(value, encodeURIComponent(value));
+      if (value.length >= 8) hide(value, PLACEHOLDER);
     }
   }
   if (userInfo) {
-    hidden.push(`${userInfo}@`, userInfo, encodeURIComponent(userInfo));
+    hide(`${userInfo}@`, "");
+    hide(userInfo, "");
     const password = userInfo.slice(userInfo.indexOf(":") + 1);
-    if (password.length >= 3) hidden.push(password, encodeURIComponent(password));
+    if (password.length >= 3) hide(password, PLACEHOLDER);
   }
-  for (const value of hidden.sort((a, b) => b.length - a.length)) {
-    if (value) redacted = redacted.split(value).join("");
+  for (const [value, replacement] of hidden.sort((a, b) => b[0].length - a[0].length)) {
+    if (value) redacted = redacted.split(value).join(replacement);
   }
   return redacted;
 };
