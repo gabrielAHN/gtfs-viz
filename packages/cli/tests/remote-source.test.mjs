@@ -173,6 +173,16 @@ test("a password containing an unencoded / is refused before any request and nev
   }
 })
 
+test("redactSource leaves refusal messages for short or empty sources readable", async (t) => {
+  const { parseFeedSource, redactSource } = await loadSourceModule(t)
+  for (const input of ["s3://", "s3://:", "r2://@", "s3://:@bucket/f.zip", "https://a:@example.test/f.zip", "https://", "http://:", "s3://a:b/c.zip", ...SLASH_INPUTS.map(([input]) => input)]) {
+    assert.throws(() => parseFeedSource(input), (error) => {
+      assert.equal(redactSource(error.message, input), error.message, input)
+      return true
+    }, input)
+  }
+})
+
 test("valid bucket names, @ in keys and ordinary hosts still parse", async (t) => {
   const { parseFeedSource, sourceLabel } = await loadSourceModule(t)
   for (const bucket of ["my-bucket", "my.bucket.name", "Legacy_Bucket", "b1"]) {
@@ -249,6 +259,25 @@ test("remote sources with control characters are refused without echoing them", 
       return true
     }, JSON.stringify(input))
     assert.doesNotMatch(sourceLabel(input), /[\u0000-\u001f\u007f-\u009f]/, JSON.stringify(input))
+  }
+})
+
+test("sourceLabel replaces bidi and invisible formatting characters as well as controls", async (t) => {
+  const { sourceLabel, redactSource } = await loadSourceModule(t)
+  const unsafe = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/
+  for (const character of ["\u200b", "\u200f", "\u202a", "\u202e", "\u2060", "\u2066", "\u2069", "\ufeff"]) {
+    for (const input of [`https://example.test/feeds/evil${character}gpj.zip`, `s3://bucket/evil${character}gpj.zip`, `r2://bucket/a/${character}.zip`]) {
+      const label = sourceLabel(input)
+      assert.doesNotMatch(label, unsafe, JSON.stringify(input))
+      assert.ok(label.includes("\ufffd"), JSON.stringify(label))
+    }
+  }
+  assert.equal(sourceLabel("s3://bucket/evil\u202egpj.zip"), "s3://bucket/evil\ufffdgpj.zip")
+  assert.equal(sourceLabel("https://example.test/caf\u00e9 \u2014 v2.zip"), "https://example.test/caf\u00e9 \u2014 v2.zip")
+  // Messages name an object by its lower-case URL, which redactSource also replaces with the label.
+  for (const input of ["s3://bucket/evil\u202egpj.zip", "S3://bucket/evil\u202egpj.zip"]) {
+    const redacted = redactSource("Download failed for s3://bucket/evil\u202egpj.zip: HTTP 404", input)
+    assert.equal(redacted, "Download failed for s3://bucket/evil\ufffdgpj.zip: HTTP 404", input)
   }
 })
 

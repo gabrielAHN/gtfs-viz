@@ -29,6 +29,11 @@ const objectSchemes: Record<string, "s3" | "r2"> = { s3: "s3", s3a: "s3", s3n: "
 // and printing them could rewrite the terminal.
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/g;
 
+// Replaced with U+FFFD when a source is displayed: C0/C1 controls, and bidi or invisible formatting
+// characters that could disguise it (zero-width and directional marks, embeddings, isolates, word
+// joiner, BOM).
+const UNSAFE_DISPLAY = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g;
+
 // S3, R2 and MinIO bucket names never contain ":", "@", "%" or other punctuation, so anything else
 // between scheme:// and the first "/" may be credentials (an AWS secret key often contains "/").
 const BUCKET = /^[A-Za-z0-9._-]+$/;
@@ -80,7 +85,7 @@ export const sourceLabel = (input: string): string => {
   const source = splitSource(input);
   if (!source) return path.basename(input);
   if (source.opaque) return opaqueLabel(source.scheme);
-  return `${source.scheme}://${source.rest.split(/[?#]/, 1)[0]}`.replace(CONTROL_CHARACTERS, "\ufffd");
+  return `${source.scheme}://${source.rest.split(/[?#]/, 1)[0]}`.replace(UNSAFE_DISPLAY, "\ufffd");
 };
 
 // Shown instead of a long query value or a password found elsewhere in a message.
@@ -94,12 +99,17 @@ const PLACEHOLDER = "…";
 export const redactSource = (message: string, input: string): string => {
   const source = splitSource(input);
   if (!source) return message;
-  let redacted = message.split(input).join(sourceLabel(input));
+  // Messages may name the source with its scheme in lower case, as the parsed URL does. A bare
+  // "scheme://" holds nothing to hide and would otherwise match the forms quoted in messages.
+  const label = sourceLabel(input);
+  let redacted = message;
+  if (source.raw) redacted = redacted.split(input).join(label).split(`${source.scheme}://${source.raw}`).join(label);
   const { userInfo, rest } = source;
   const queryStart = rest.search(/[?#]/);
   const hidden: [string, string][] = [];
+  // Values under 3 characters hold no secret, and hiding them would mangle punctuation such as ":".
   const hide = (value: string, replacement: string) => {
-    hidden.push([value, replacement], [encodeURIComponent(value), replacement]);
+    if (value.length >= 3) hidden.push([value, replacement], [encodeURIComponent(value), replacement]);
   };
   if (queryStart !== -1) {
     const query = rest.slice(queryStart);
@@ -109,21 +119,21 @@ export const redactSource = (message: string, input: string): string => {
       if (value.length >= 8) hide(value, PLACEHOLDER);
     }
   }
-  const hidePassword = (info: string) => {
+  const hideUserInfo = (info: string) => {
     hide(`${info}@`, "");
     hide(info, "");
     const password = info.slice(info.indexOf(":") + 1);
-    if (password.length >= 3) hide(password, PLACEHOLDER);
+    hide(password, PLACEHOLDER);
   };
-  if (userInfo) hidePassword(userInfo);
+  if (userInfo) hideUserInfo(userInfo);
   if (source.opaque) {
     hide(source.raw, PLACEHOLDER);
     hide(source.raw.split(/[?#]/, 1)[0], PLACEHOLDER);
     const at = source.raw.lastIndexOf("@");
     if (at > 0) {
       const info = source.raw.slice(0, at);
-      hidePassword(info);
-      for (const piece of info.split(/[:/]/)) if (piece.length >= 3) hide(piece, PLACEHOLDER);
+      hideUserInfo(info);
+      for (const piece of info.split(/[:/]/)) hide(piece, PLACEHOLDER);
     }
   }
   for (const [value, replacement] of hidden.sort((a, b) => b[0].length - a[0].length)) {
