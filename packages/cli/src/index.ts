@@ -59,6 +59,7 @@ import type {
 import { isDaemonRunning, stopDaemon } from "./session/daemon.js";
 import { IMPORT_USAGE, parseFeedSource, redactSource, sourceLabel } from "./remote/source.js";
 import type { FeedSource } from "./remote/source.js";
+import { safeTerminalText } from "./output/safe-text.js";
 import { downloadFeed } from "./remote/download.js";
 
 import { realpathSync } from "node:fs";
@@ -947,9 +948,11 @@ const importSource = async (source: FeedSource) => {
   }
 };
 
+// The header and message may carry text from outside the CLI (a server's reason phrase, a local
+// path), so both are printed without escape sequences, controls or bidi characters.
 const importFailed = (label: string, message: string): never => {
-  console.error(`Import failed: ${label}`);
-  console.error(message);
+  console.error(`Import failed: ${safeTerminalText(label)}`);
+  console.error(safeTerminalText(message));
   process.exit(1);
 };
 
@@ -966,7 +969,7 @@ const commandImport = async (args: Args) => {
   }
   try {
     const metadata = await importSource(source);
-    console.log(`Imported ${metadata.fileName}`);
+    console.log(`Imported ${safeTerminalText(metadata.fileName)}`);
     console.log(
       `Stops: ${metadata.counts.stops}  Stations: ${metadata.counts.stations}  Pathways: ${metadata.counts.pathways}  Routes: ${metadata.counts.routes}`,
     );
@@ -1607,8 +1610,8 @@ const commandRouteBands = async (args: Args) => {
 const commandStatus = async () => {
   const dataset = await readDatasetState();
   const daemon = await isDaemonRunning();
-  console.log(`Dataset: ${dataset.fileName}`);
-  console.log(`Source: ${dataset.sourcePath}`);
+  console.log(`Dataset: ${safeTerminalText(dataset.fileName)}`);
+  console.log(`Source: ${safeTerminalText(dataset.sourcePath)}`);
   console.log(`DuckDB: ${dataset.dbPath}`);
   console.log(`Imported: ${dataset.importedAt}`);
   console.log(
