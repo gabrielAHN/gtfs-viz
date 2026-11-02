@@ -29,6 +29,10 @@ const objectSchemes: Record<string, "s3" | "r2"> = { s3: "s3", s3a: "s3", s3n: "
 // and printing them could rewrite the terminal.
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/g;
 
+// S3, R2 and MinIO bucket names never contain ":", "@", "%" or other punctuation, so anything else
+// between scheme:// and the first "/" may be credentials (an AWS secret key often contains "/").
+const BUCKET = /^[A-Za-z0-9._-]+$/;
+
 const credentialsRefused = () =>
   new Error(
     "URLs with embedded credentials are not supported. Remove the user name and password from the URL: use a pre-signed URL for HTTP(S), or a DuckDB secret for s3:// and r2:// objects.",
@@ -43,12 +47,40 @@ const splitUserInfo = (rest: string): { userInfo?: string; rest: string } => {
   return at === -1 ? { rest } : { userInfo: rest.slice(0, at), rest: rest.slice(at + 1) };
 };
 
-// The scheme plus everything before any query or fragment, without user info.
-export const sourceLabel = (input: string): string => {
+const isHttp = (scheme: string) => scheme === "http" || scheme === "https";
+
+const parsesAsUrl = (url: string) => {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+// A source split into its parts. It is opaque when only its scheme may be shown: an http(s) URL that
+// does not parse once any user info is removed, or another scheme whose authority is not a valid
+// bucket name. Either may hide credentials that are not recognisable as user info, such as a
+// password containing "/".
+const splitSource = (input: string) => {
   const match = SCHEME.exec(input);
-  if (!match) return path.basename(input);
-  const { rest } = splitUserInfo(input.slice(match[0].length));
-  return `${match[1].toLowerCase()}://${rest.split(/[?#]/, 1)[0]}`.replace(CONTROL_CHARACTERS, "\ufffd");
+  if (!match) return undefined;
+  const scheme = match[1].toLowerCase();
+  const raw = input.slice(match[0].length);
+  const { userInfo, rest } = splitUserInfo(raw);
+  const opaque = isHttp(scheme) ? !parsesAsUrl(`${scheme}://${rest}`) : !BUCKET.test(rest.split("/", 1)[0]);
+  return { scheme, raw, userInfo, rest, opaque };
+};
+
+const opaqueLabel = (scheme: string) => `${scheme}://…`;
+
+// The scheme plus everything before any query or fragment, without user info; only the scheme when
+// the source is opaque.
+export const sourceLabel = (input: string): string => {
+  const source = splitSource(input);
+  if (!source) return path.basename(input);
+  if (source.opaque) return opaqueLabel(source.scheme);
+  return `${source.scheme}://${source.rest.split(/[?#]/, 1)[0]}`.replace(CONTROL_CHARACTERS, "\ufffd");
 };
 
 // Shown instead of a long query value or a password found elsewhere in a message.
@@ -56,12 +88,14 @@ const PLACEHOLDER = "…";
 
 // Removes the raw source, its query/fragment (also percent-encoded) and its user info from a message.
 // Individual query values of 8+ characters (signatures, tokens) become a placeholder; shorter values
-// such as format=zip are left alone so ordinary words in the message stay intact.
+// such as format=zip are left alone so ordinary words in the message stay intact. For an opaque
+// source, everything after scheme:// is hidden too, and so is everything before its last "@" (the
+// likely user info), whole and piece by piece.
 export const redactSource = (message: string, input: string): string => {
-  const match = SCHEME.exec(input);
-  if (!match) return message;
+  const source = splitSource(input);
+  if (!source) return message;
   let redacted = message.split(input).join(sourceLabel(input));
-  const { userInfo, rest } = splitUserInfo(input.slice(match[0].length));
+  const { userInfo, rest } = source;
   const queryStart = rest.search(/[?#]/);
   const hidden: [string, string][] = [];
   const hide = (value: string, replacement: string) => {
@@ -75,11 +109,22 @@ export const redactSource = (message: string, input: string): string => {
       if (value.length >= 8) hide(value, PLACEHOLDER);
     }
   }
-  if (userInfo) {
-    hide(`${userInfo}@`, "");
-    hide(userInfo, "");
-    const password = userInfo.slice(userInfo.indexOf(":") + 1);
+  const hidePassword = (info: string) => {
+    hide(`${info}@`, "");
+    hide(info, "");
+    const password = info.slice(info.indexOf(":") + 1);
     if (password.length >= 3) hide(password, PLACEHOLDER);
+  };
+  if (userInfo) hidePassword(userInfo);
+  if (source.opaque) {
+    hide(source.raw, PLACEHOLDER);
+    hide(source.raw.split(/[?#]/, 1)[0], PLACEHOLDER);
+    const at = source.raw.lastIndexOf("@");
+    if (at > 0) {
+      const info = source.raw.slice(0, at);
+      hidePassword(info);
+      for (const piece of info.split(/[:/]/)) if (piece.length >= 3) hide(piece, PLACEHOLDER);
+    }
   }
   for (const [value, replacement] of hidden.sort((a, b) => b[0].length - a[0].length)) {
     if (value) redacted = redacted.split(value).join(replacement);
@@ -102,14 +147,18 @@ const fileNameFrom = (pathname: string) => {
   return decoded;
 };
 
-const parseHttp = (input: string, rest: string): FeedSource => {
+const parseHttp = (scheme: string, input: string, rest: string): FeedSource => {
   // Checked on the raw text before URL parsing, which would end the authority at "?" or "#".
   if (splitUserInfo(rest).userInfo !== undefined) throw credentialsRefused();
   let url: URL;
   try {
     url = new URL(input);
   } catch {
-    throw new Error(`Invalid URL: ${sourceLabel(input)}`);
+    // Nothing of the input is shown: it may hold credentials that are not recognisable as user
+    // info, such as a password containing "/".
+    throw new Error(
+      `Invalid URL: ${opaqueLabel(scheme)} could not be parsed. Check the host and port; never put a user name or password in the URL (use a pre-signed URL instead).`,
+    );
   }
   if (url.username || url.password) throw credentialsRefused();
   url.hash = "";
@@ -121,6 +170,13 @@ const parseObject = (scheme: string, secretType: "s3" | "r2", rest: string): Fee
   if (splitUserInfo(rest).userInfo !== undefined) throw credentialsRefused();
   const slash = rest.indexOf("/");
   const authority = slash === -1 ? rest : rest.slice(0, slash);
+  // Refused before any DuckDB call, without echoing the input: an invalid bucket such as
+  // "<key id>:<secret part>" is how credentials whose password contains "/" end up here.
+  if (authority && !BUCKET.test(authority)) {
+    throw new Error(
+      `Invalid bucket name in the ${scheme}:// source. Name one object as ${scheme}://<bucket>/<key>; put credentials in a DuckDB secret, never in the source.`,
+    );
+  }
   if (/[?#]/.test(rest)) {
     throw new Error(
       `${scheme}:// sources cannot carry a query string or fragment. Name the object as ${scheme}://<bucket>/<key> and configure credentials or endpoints with a DuckDB secret.`,
@@ -139,12 +195,12 @@ export const parseFeedSource = (input: string): FeedSource => {
   const scheme = match[1].toLowerCase();
   const rest = input.slice(match[0].length);
   const secretType = objectSchemes[scheme];
-  if ((scheme === "http" || scheme === "https" || secretType) && rest.search(CONTROL_CHARACTERS) !== -1) {
+  if ((isHttp(scheme) || secretType) && rest.search(CONTROL_CHARACTERS) !== -1) {
     throw new Error(
       `${scheme}:// sources cannot contain control characters such as tabs, newlines or escape sequences. Check how the source was quoted.`,
     );
   }
-  if (scheme === "http" || scheme === "https") return parseHttp(input, rest);
+  if (isHttp(scheme)) return parseHttp(scheme, input, rest);
   if (secretType) return parseObject(scheme, secretType, rest);
   throw new Error(`Unsupported import source scheme "${scheme}://". Use ${SUPPORTED_SOURCES}.`);
 };

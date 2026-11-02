@@ -127,6 +127,70 @@ test("a password containing ? or # is refused before parsing and never displayed
   }
 })
 
+// AWS secret keys often contain "/". Unencoded, the first "/" ends the authority, so the user info is
+// not recognisable: the s3/r2 bucket becomes "<key id>:<secret part>" and the http(s) URL fails to
+// parse. Neither may be requested or echoed: only "<scheme>://…" is ever shown.
+const SLASH_KEY_ID = "AKIAIOSFODNN7EXAMPLE"
+const SLASH_SECRET = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+const SLASH_FRAGMENTS = [SLASH_KEY_ID, "wJalrXUtnFEMI", "K7MDENG", "bPxRfiCYEXAMPLEKEY"]
+const SLASH_INPUTS = [
+  [`s3://${SLASH_KEY_ID}:${SLASH_SECRET}@bucket/path/sample.zip`, "s3://…", /Invalid bucket name in the s3:\/\/ source/],
+  [`s3a://${SLASH_KEY_ID}:${SLASH_SECRET}@bucket/path/sample.zip`, "s3a://…", /Invalid bucket name in the s3a:\/\/ source/],
+  [`s3n://${SLASH_KEY_ID}:${SLASH_SECRET}@bucket/missing.zip`, "s3n://…", /Invalid bucket name in the s3n:\/\/ source/],
+  [`r2://${SLASH_KEY_ID}:${SLASH_SECRET}@bucket/path/sample.zip`, "r2://…", /Invalid bucket name in the r2:\/\/ source/],
+  [`https://${SLASH_KEY_ID}:${SLASH_SECRET}@127.0.0.1:9/feeds/sample.zip`, "https://…", /^Invalid URL: https:\/\/…/],
+  [`http://${SLASH_KEY_ID}:${SLASH_SECRET}@127.0.0.1:9/feeds/sample.zip?sig=querysecret0123`, "http://…", /^Invalid URL: http:\/\/…/],
+]
+
+test("a password containing an unencoded / is refused before any request and never displayed", async (t) => {
+  const { parseFeedSource, sourceLabel, redactSource } = await loadSourceModule(t)
+  const noFragment = (text, context) => {
+    for (const leaked of SLASH_FRAGMENTS) assert.ok(!text.includes(leaked), `${leaked} leaked (${context}): ${text}`)
+  }
+  for (const [input, label, expected] of SLASH_INPUTS) {
+    assert.equal(sourceLabel(input), label, input)
+    assert.throws(() => parseFeedSource(input), (error) => {
+      assert.match(error.message, expected, input)
+      if (!input.startsWith("http")) {
+        assert.match(error.message, /<bucket>\/<key>/)
+        assert.match(error.message, /DuckDB secret/)
+      }
+      noFragment(error.message, input)
+      return true
+    }, input)
+    const rest = input.slice(input.indexOf("://") + 3)
+    for (const message of [
+      `Import failed: ${input}`,
+      `request to ${input} failed`,
+      `HTTP HEAD error on '/${encodeURI(rest).replaceAll(":", "%3A").replaceAll("@", "%40")}'`,
+      `HTTP HEAD error on '${encodeURIComponent(rest)}'`,
+      `No DuckDB secret matches ${input.split("?")[0]}.`,
+    ]) {
+      const redacted = redactSource(message, input)
+      noFragment(redacted, `${input} → ${message}`)
+    }
+    assert.equal(redactSource(`Import failed: ${input}`, input), `Import failed: ${label}`)
+  }
+})
+
+test("valid bucket names, @ in keys and ordinary hosts still parse", async (t) => {
+  const { parseFeedSource, sourceLabel } = await loadSourceModule(t)
+  for (const bucket of ["my-bucket", "my.bucket.name", "Legacy_Bucket", "b1"]) {
+    const source = parseFeedSource(`s3://${bucket}/gtfs/feed.zip`)
+    assert.equal(source.url, `s3://${bucket}/gtfs/feed.zip`)
+    assert.equal(sourceLabel(`s3://${bucket}/gtfs/feed.zip`), `s3://${bucket}/gtfs/feed.zip`)
+  }
+  assert.equal(parseFeedSource("r2://my-bucket/a/feed.zip").url, "r2://my-bucket/a/feed.zip")
+  assert.equal(parseFeedSource("s3://bucket/@team/feed.zip").sourcePath, "s3://bucket/@team/feed.zip")
+  assert.equal(sourceLabel("s3://bucket/@team/feed.zip"), "s3://bucket/@team/feed.zip")
+  for (const input of ["s3://bucket:9000/feed.zip", "s3://bu%63ket/feed.zip", "s3://bucket name/feed.zip"]) {
+    assert.throws(() => parseFeedSource(input), /Invalid bucket name in the s3:\/\/ source/, input)
+    assert.equal(sourceLabel(input), "s3://…", input)
+  }
+  assert.equal(sourceLabel("https://[::1]:8080/@x/feed.zip?sig=querysecret0123"), "https://[::1]:8080/@x/feed.zip")
+  assert.equal(sourceLabel("https://example.test:8443/feed.zip"), "https://example.test:8443/feed.zip")
+})
+
 test("an @ in the path or key is not user info", async (t) => {
   const { parseFeedSource, sourceLabel, redactSource } = await loadSourceModule(t)
   assert.equal(sourceLabel("https://host/@team/feed.zip?sig=querysecret0123"), "https://host/@team/feed.zip")

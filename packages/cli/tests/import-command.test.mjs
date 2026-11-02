@@ -2,7 +2,7 @@
 // fails to import, redacted failure headers, unchanged local-path errors, usage, help and hints.
 import assert from "node:assert/strict"
 import { spawn } from "node:child_process"
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises"
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises"
 import http from "node:http"
 import os from "node:os"
 import path from "node:path"
@@ -40,7 +40,11 @@ const setup = async (t) => {
   await writeFile(path.join(packageRoot, "package.json"), JSON.stringify({ name: "@gabrielahn/gtfs-viz-cli", version: "0.0.0-test", type: "module" }))
   const env = { ...process.env, HOME: home, TMPDIR: path.join(root, "t"), DUCKDB_BIN: path.join(root, "no-duckdb-needed") }
   await mkdir(env.TMPDIR)
-  const cli = (...args) => run(process.execPath, [path.join(packageRoot, "dist", "index.js"), ...args], { env, cwd: root })
+  // A trailing object argument overrides environment variables for that run.
+  const cli = (...args) => {
+    const overrides = typeof args.at(-1) === "object" ? args.pop() : {}
+    return run(process.execPath, [path.join(packageRoot, "dist", "index.js"), ...args], { env: { ...env, ...overrides }, cwd: root })
+  }
   return { root, home, cli, dataRoot: path.join(home, ".gtfs-viz-cli") }
 }
 
@@ -112,6 +116,43 @@ test("a password containing ? or # is refused before any request and never print
     for (const leaked of ["LEAKPART", "LEAKHASH", "LEAKNUM", "user:"]) assert.ok(!(result.stdout + result.stderr).includes(leaked), `${leaked}: ${result.stderr}`)
   }
   assert.equal(await readFile(statePath, "utf8"), '{"previous":"dataset"}')
+})
+
+// An AWS secret key with unencoded "/" is not recognisable as user info. The real CLI must refuse it
+// before any request or DuckDB run, leave the dataset alone and print no part of the key.
+test("a password containing an unencoded / is refused before any request or DuckDB run and never printed", async (t) => {
+  const env = await setup(t)
+  let requests = 0
+  const server = http.createServer((req, res) => { requests += 1; res.writeHead(404).end() })
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve))
+  t.after(() => new Promise((resolve) => server.close(resolve)))
+  const host = `127.0.0.1:${server.address().port}`
+  // A fake DuckDB that records every invocation and, like the real CLI, echoes the object URL on failure.
+  const invocations = path.join(env.root, "duckdb-invocations.txt")
+  const fakeDuckDb = path.join(env.root, "fake-duckdb.sh")
+  await writeFile(fakeDuckDb, `#!/bin/sh\necho invoked >> ${JSON.stringify(invocations)}\necho "HTTP Error: HTTP HEAD error checking '$*' (HTTP 404 Not Found)" >&2\nexit 1\n`)
+  await chmod(fakeDuckDb, 0o755)
+  const statePath = path.join(env.dataRoot, "current", "state.json")
+  await mkdir(path.dirname(statePath), { recursive: true })
+  await writeFile(statePath, '{"previous":"dataset"}')
+  const secret = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+  const fragments = ["AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI", "K7MDENG", "bPxRfiCYEXAMPLEKEY"]
+  for (const [input, label, expected] of [
+    [`s3://AKIAIOSFODNN7EXAMPLE:${secret}@bucket/path/sample.zip`, "s3://…", /Invalid bucket name/],
+    [`r2://AKIAIOSFODNN7EXAMPLE:${secret}@bucket/path/sample.zip`, "r2://…", /Invalid bucket name/],
+    [`https://AKIAIOSFODNN7EXAMPLE:${secret}@${host}/feeds/sample.zip`, "https://…", /Invalid URL/],
+    [`http://AKIAIOSFODNN7EXAMPLE:${secret}@${host}/feeds/sample.zip`, "http://…", /Invalid URL/],
+  ]) {
+    const result = await env.cli("import", input, { DUCKDB_BIN: fakeDuckDb })
+    assert.notEqual(result.code, 0, input)
+    assert.equal(requests, 0, `${input} was requested`)
+    assert.equal(await readFile(invocations, "utf8").catch(() => ""), "", `${input} started DuckDB`)
+    assert.ok(result.stderr.startsWith(`Import failed: ${label}\n`), result.stderr)
+    assert.match(result.stderr, expected)
+    for (const leaked of fragments) assert.ok(!(result.stdout + result.stderr).includes(leaked), `${leaked}: ${result.stderr}`)
+  }
+  assert.equal(await readFile(statePath, "utf8"), '{"previous":"dataset"}')
+  assert.deepEqual(await readdir(path.join(env.dataRoot, "downloads")).catch(() => []), [])
 })
 
 test("a remote source with control characters is refused without printing them", async (t) => {
