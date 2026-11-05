@@ -19,7 +19,7 @@ This repository holds the web app, the docs site and `@gtfs-viz/duckdb-client`. 
 - Compare trip schedules side-by-side across services
 - Pathfinding between station parts with traversal times
 - Export edited data back to GTFS CSV format
-- Dashboard for the [gtfs-tools](https://github.com/gabrielAHN/gtfs-tools) CLI, published with every release
+- Dashboard for the [gtfs-tools](https://github.com/gabrielAHN/gtfs-tools) CLI, which builds it from this repository as a git submodule
 
 ## Quick Start
 
@@ -41,15 +41,15 @@ gtfs-tools import /path/to/feed.zip
 gtfs-tools stations --name "Park"
 ```
 
-### Dashboard release asset
+### CLI dashboard
 
-Each GTFS Viz release `v<version>` attaches `gtfs-viz-dashboard.tar.gz` and `gtfs-viz-dashboard.tar.gz.sha256`: the web app built for CLI mode, with `dashboard/dashboard-manifest.json` (`name`, `version`, `commit`, `cliApi: 1`). gtfs-tools bundles a pinned, checksum-verified copy so its dashboard works offline. The `dashboard-latest` pre-release is rebuilt from every push to `main` for development. Build it locally with:
+gtfs-tools includes this repository as a git submodule and builds its dashboard from it, so the dashboard ships in the gtfs-tools npm package and works offline. GTFS Viz releases only tag and create the GitHub release. The build gtfs-tools runs is:
 
 ```bash
-yarn build:dashboard     # dist-dashboard/gtfs-viz-dashboard.tar.gz and .sha256
+yarn build:dashboard     # CLI-mode web app in packages/web/dist, with dashboard-manifest.json
 ```
 
-The archive is reproducible: the same build gives the same bytes ([scripts/package-dashboard.mjs](scripts/package-dashboard.mjs)).
+[scripts/dashboard-manifest.mjs](scripts/dashboard-manifest.mjs) writes `dashboard-manifest.json` (`name`, `version`, `commit`, `cliApi: 1`); the commit is `GTFS_VIZ_COMMIT` or `git rev-parse HEAD`.
 
 ### DuckDB Extension
 
@@ -64,7 +64,7 @@ packages/
   web/              React web application (DuckDB WASM, Deck.gl, TanStack); also the CLI dashboard
   docs/             Documentation site served at /docs/ (see packages/docs/README.md)
 scripts/
-  package-dashboard.mjs   Packs packages/web/dist into the dashboard release asset
+  dashboard-manifest.mjs  Writes the CLI dashboard manifest into packages/web/dist
 ```
 
 ## Development
@@ -76,7 +76,7 @@ yarn dev                   # Web app at localhost:5173, docs at localhost:5173/d
 yarn dev:docs              # Docs alone at localhost:4391/docs/
 yarn build:duckdb-client   # Build the thin extension client
 yarn build:lib             # Build standalone rendering library
-yarn build:dashboard       # CLI-mode web build packed into dist-dashboard/ (release asset)
+yarn build:dashboard       # CLI-mode web build + dashboard-manifest.json (what gtfs-tools bundles)
 yarn run check             # Check all packages
 yarn test                  # Consumer, rendering, and source/bundle boundary regressions
 ```
