@@ -1,17 +1,18 @@
-name: Release & Publish
+name: Release
 
+# A merged PR that bumps the root version (or a manual run) tags v<version>, creates the GitHub
+# release and attaches the dashboard asset that gabrielAHN/gtfs-tools pins. Every push to main also
+# refreshes the moving dashboard-latest pre-release (development only, never pinned).
 on:
   pull_request:
     types: [closed]
+    branches: [main]
+  push:
     branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
-
-concurrency:
-  group: release-main
-  cancel-in-progress: false
 
 jobs:
   version-bump:
@@ -33,19 +34,22 @@ jobs:
             exit 0
           fi
           PATCHES=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" \
-            --jq '.[] | select(.filename == "package.json" or .filename == "packages/cli/package.json") | .patch')
+            --jq '.[] | select(.filename == "package.json") | .patch')
           if grep -Eq '^\+[[:space:]]*"version":' <<< "$PATCHES"; then
             echo "release=true" >> "$GITHUB_OUTPUT"
             echo "#$PR bumps the version — releasing"
           else
             echo "release=false" >> "$GITHUB_OUTPUT"
-            echo "#$PR does not bump the version — skipping release and publish"
+            echo "#$PR does not bump the version — skipping the release"
           fi
 
   release:
     needs: version-bump
     if: needs.version-bump.outputs.release == 'true'
     runs-on: ubuntu-latest
+    concurrency:
+      group: release-main
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,7 +58,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          registry-url: "https://registry.npmjs.org"
+          cache: yarn
 
       - name: Get version
         id: version
@@ -124,32 +128,93 @@ jobs:
             });
             core.info(`Created release ${tag}`);
 
-      - name: Check if CLI version already published
-        id: npm_check
+      - name: Check for dashboard assets
+        id: assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
-          CLI_VERSION=$(node -p "require('./packages/cli/package.json').version")
-          PUBLISHED=$(npm view "@gabrielahn/gtfs-viz-cli@${CLI_VERSION}" version 2>/dev/null || echo "")
-          if [ -n "$PUBLISHED" ]; then
+          names=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          archive=false
+          checksum=false
+          if grep -qx 'gtfs-viz-dashboard.tar.gz' <<< "$names"; then archive=true; fi
+          if grep -qx 'gtfs-viz-dashboard.tar.gz.sha256' <<< "$names"; then checksum=true; fi
+          if [ "$archive" = true ] && [ "$checksum" = true ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "CLI $CLI_VERSION already on npm — skipping publish"
+            echo "$TAG already has the dashboard assets — skipping (pinned assets are never replaced)"
+          elif [ "$archive" = true ] || [ "$checksum" = true ]; then
+            echo "::error::$TAG has only one of gtfs-viz-dashboard.tar.gz and its .sha256. Pinned assets are never replaced automatically; delete the stray asset by hand and re-run."
+            exit 1
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "Will publish CLI $CLI_VERSION"
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Install dependencies
-        if: steps.npm_check.outputs.skip != 'true'
+        if: steps.assets.outputs.skip != 'true'
         run: yarn install --frozen-lockfile --ignore-engines
 
-      - name: Build all packages
-        if: steps.npm_check.outputs.skip != 'true'
-        run: yarn build
+      - name: Build and package the dashboard
+        if: steps.assets.outputs.skip != 'true'
+        run: |
+          yarn build:dashboard
+          node scripts/verify-dashboard.mjs --dir dist-dashboard \
+            --version "${{ steps.version.outputs.version }}" --commit "$(git rev-parse HEAD)"
 
-      - name: Publish CLI to npm
-        if: steps.npm_check.outputs.skip != 'true'
-        working-directory: packages/cli
-        run: npm publish --access public --tag latest
+      - name: Upload the dashboard to the release
+        if: steps.assets.outputs.skip != 'true'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" \
+            dist-dashboard/gtfs-viz-dashboard.tar.gz \
+            dist-dashboard/gtfs-viz-dashboard.tar.gz.sha256
+
+  dashboard-latest:
+    name: Update the dashboard-latest pre-release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: dashboard-latest
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: yarn
+
+      - run: yarn install --frozen-lockfile --ignore-engines
+
+      - name: Build and package the dashboard
+        run: |
+          yarn build:dashboard
+          node scripts/verify-dashboard.mjs --dir dist-dashboard \
+            --version "$(node -p "require('./package.json').version")" --commit "$GITHUB_SHA"
+
+      - name: Publish dashboard-latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Move the dashboard-latest tag to this commit, then replace the assets in place.
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/dashboard-latest" > /dev/null 2>&1; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/dashboard-latest" \
+              -f sha="$GITHUB_SHA" -F force=true > /dev/null
+          else
+            gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref=refs/tags/dashboard-latest -f sha="$GITHUB_SHA" > /dev/null
+          fi
+          title="main (development dashboard build)"
+          notes="Dashboard built from ${GITHUB_SHA} on main. Development only: it moves on every push and is never pinned by gtfs-tools releases."
+          if gh release view dashboard-latest --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release edit dashboard-latest --repo "$GITHUB_REPOSITORY" \
+              --prerelease --latest=false --title "$title" --notes "$notes"
+          else
+            gh release create dashboard-latest --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --prerelease --latest=false --title "$title" --notes "$notes"
+          fi
+          gh release upload dashboard-latest --repo "$GITHUB_REPOSITORY" --clobber \
+            dist-dashboard/gtfs-viz-dashboard.tar.gz \
+            dist-dashboard/gtfs-viz-dashboard.tar.gz.sha256

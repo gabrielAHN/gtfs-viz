@@ -30,6 +30,28 @@ jobs:
       - run: yarn run check
       - run: yarn test
 
+      # yarn build's web app is the CLI-mode build (no VITE_GTFS_EXTENSION_REPOSITORY), the same one
+      # release.yml publishes as gtfs-viz-dashboard.tar.gz for gabrielAHN/gtfs-tools.
+      - name: Package the dashboard release asset
+        run: |
+          version=$(node -p "require('./package.json').version")
+          commit=$(git rev-parse HEAD)
+          for out in dist-dashboard dist-dashboard-again; do
+            node scripts/package-dashboard.mjs --dist packages/web/dist --out "$out" \
+              --version "$version" --commit "$commit"
+          done
+          cmp dist-dashboard/gtfs-viz-dashboard.tar.gz dist-dashboard-again/gtfs-viz-dashboard.tar.gz
+          cat dist-dashboard/gtfs-viz-dashboard.tar.gz.sha256
+          (cd dist-dashboard && sha256sum -c gtfs-viz-dashboard.tar.gz.sha256)
+          node scripts/verify-dashboard.mjs --dir dist-dashboard --version "$version" --commit "$commit"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gtfs-viz-dashboard
+          path: dist-dashboard/
+          if-no-files-found: error
+          retention-days: 14
+
   extension-integration:
     name: GTFS DuckDB integration
     needs: build
