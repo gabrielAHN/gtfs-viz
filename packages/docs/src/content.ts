@@ -171,23 +171,24 @@ export const parts: Part[] = [
             ],
           },
           {
-            id: "dashboard-asset",
-            title: "Dashboard release asset",
+            id: "cli-dashboard",
+            title: "CLI dashboard",
             blocks: [
               {
                 type: "text",
-                text: "Each GTFS Viz release attaches `gtfs-viz-dashboard.tar.gz` and `gtfs-viz-dashboard.tar.gz.sha256`: the web app built for CLI mode, with `dashboard/dashboard-manifest.json` naming the version, the commit and the CLI API version. The GTFS Tools CLI bundles a pinned, checksum-verified copy, so its dashboard works offline.",
+                text: "The GTFS Tools CLI opens this web app as its dashboard. gtfs-tools includes gtfs-viz as a git submodule and builds the dashboard from it when it builds its npm package, so the dashboard works offline. `yarn build:dashboard` is the build it runs.",
               },
               {
                 type: "code",
                 lang: "bash",
-                code: "yarn build:dashboard   # dist-dashboard/gtfs-viz-dashboard.tar.gz and .sha256",
+                code: "yarn build:dashboard   # packages/web/dist with dashboard-manifest.json",
               },
               {
                 type: "list",
                 items: [
-                  "The archive is reproducible: sorted entries under `dashboard/`, zero timestamps and owners, no source maps.",
-                  "The `dashboard-latest` pre-release is rebuilt from every push to `main`, for development only.",
+                  "The app is built for CLI mode: the extension repository comes from the CLI, and docs links go to the public docs site.",
+                  "`dashboard-manifest.json` names the version, the commit and the CLI API version; gtfs-tools only bundles a dashboard with `cliApi: 1`.",
+                  "gtfs-tools moves to a newer GTFS Viz by moving its submodule pin.",
                 ],
               },
             ],
@@ -352,7 +353,7 @@ export const parts: Part[] = [
             blocks: [
               {
                 type: "text",
-                text: "Start a local session and open the GTFS Viz dashboard on the imported feed. `--url-only` prints the link instead. The dashboard is a pinned, checksum-verified copy of the GTFS Viz release asset bundled in the package, so it works offline.",
+                text: "Start a local session and open the GTFS Viz dashboard on the imported feed. `--url-only` prints the link instead. The dashboard is the GTFS Viz web app, built from the gtfs-viz submodule and bundled in the package, so it works offline.",
               },
               {
                 type: "code",
@@ -864,7 +865,7 @@ export const releases: Release[] = [
       },
       {
         area: "Dashboard",
-        text: "Bundles a pinned, checksum-verified GTFS Viz v1.6.0 dashboard that works offline",
+        text: "Bundles the GTFS Viz dashboard, built from the gtfs-viz submodule; it works offline",
       },
     ],
   },
@@ -878,13 +879,13 @@ export const releases: Release[] = [
     highlights: [
       {
         area: "Split",
-        text: "The CLI moves to gabrielAHN/gtfs-tools; GTFS Viz keeps the web app, docs and `duckdb-client`",
+        text: "The CLI moves to gtfs-tools, which builds the dashboard from this repo as a submodule",
       },
+      { area: "Packages", text: "GTFS Viz keeps the web app, the docs and `duckdb-client`" },
       {
         area: "Release",
-        text: "Releases attach `gtfs-viz-dashboard.tar.gz` and its `.sha256` for the CLI to pin",
+        text: "Releases only tag and create the GitHub release; nothing goes to npm",
       },
-      { area: "Release", text: "The `dashboard-latest` pre-release follows `main`" },
       { area: "Docs", text: "GTFS Tools CLI docs; the CLI page moves to `/docs/gtfs-tools/cli/`" },
     ],
   },
