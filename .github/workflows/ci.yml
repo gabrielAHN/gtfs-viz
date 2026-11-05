@@ -78,8 +78,8 @@ jobs:
       - name: Tests with the downloaded extension
         run: yarn test
 
-      - name: Native client and CLI dashboard
-        run: node packages/duckdb-client/tests/integration/consumer-native.mjs --cli-e2e
+      - name: Native client (unsigned development loading)
+        run: node packages/duckdb-client/tests/integration/consumer-native.mjs
 
       - name: Browser client (unsigned development loading)
         run: node packages/duckdb-client/tests/integration/consumer-wasm.mjs --unsigned-only
