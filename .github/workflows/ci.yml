@@ -30,27 +30,27 @@ jobs:
       - run: yarn run check
       - run: yarn test
 
-      # yarn build's web app is the CLI-mode build (no VITE_GTFS_EXTENSION_REPOSITORY), the same one
-      # release.yml publishes as gtfs-viz-dashboard.tar.gz for gabrielAHN/gtfs-tools.
-      - name: Package the dashboard release asset
-        run: |
-          version=$(node -p "require('./package.json').version")
-          commit=$(git rev-parse HEAD)
-          for out in dist-dashboard dist-dashboard-again; do
-            node scripts/package-dashboard.mjs --dist packages/web/dist --out "$out" \
-              --version "$version" --commit "$commit"
-          done
-          cmp dist-dashboard/gtfs-viz-dashboard.tar.gz dist-dashboard-again/gtfs-viz-dashboard.tar.gz
-          cat dist-dashboard/gtfs-viz-dashboard.tar.gz.sha256
-          (cd dist-dashboard && sha256sum -c gtfs-viz-dashboard.tar.gz.sha256)
-          node scripts/verify-dashboard.mjs --dir dist-dashboard --version "$version" --commit "$commit"
+      # gabrielAHN/gtfs-tools includes this repository as a git submodule and runs this same script
+      # to build its CLI dashboard: the CLI-mode web app plus packages/web/dist/dashboard-manifest.json.
+      - run: yarn build:dashboard
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: gtfs-viz-dashboard
-          path: dist-dashboard/
-          if-no-files-found: error
-          retention-days: 14
+      # Exactly name (the root package name + "-dashboard"), version, the checked-out commit, cliApi 1.
+      - name: Check the dashboard manifest
+        run: |
+          node --input-type=module -e '
+            import assert from "node:assert/strict"
+            import { execFileSync } from "node:child_process"
+            import { readFileSync } from "node:fs"
+            const pkg = JSON.parse(readFileSync("package.json", "utf8"))
+            const manifest = JSON.parse(readFileSync("packages/web/dist/dashboard-manifest.json", "utf8"))
+            console.log(manifest)
+            assert.deepEqual(manifest, {
+              name: pkg.name + "-dashboard",
+              version: pkg.version,
+              commit: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+              cliApi: 1,
+            })
+          '
 
   extension-integration:
     name: GTFS DuckDB integration
