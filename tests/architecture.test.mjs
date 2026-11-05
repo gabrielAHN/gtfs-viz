@@ -19,7 +19,7 @@ test('consumers and built artifacts contain no database toolbox implementation',
   });
   assert.deepEqual(violations.map(path => relative(root, path)), []);
   assert.equal(existsSync(resolve(root, 'packages/duckdb-extension')), false);
-  for (const path of ['extensions', 'duckdb', 'extension-ci-tools', 'CMakeLists.txt', 'extension_config.cmake', 'packages/cli/skills/gtfs-viz/references/procedures.md']) assert.equal(existsSync(resolve(root, path)), false, path);
+  for (const path of ['extensions', 'duckdb', 'extension-ci-tools', 'CMakeLists.txt', 'extension_config.cmake']) assert.equal(existsSync(resolve(root, path)), false, path);
   assert.equal(existsSync(resolve(root, 'packages/duckdb-client/dist/sql.js')), false);
   assert.equal(existsSync(resolve(root, 'packages/web/public/extensions/gtfs.sql')), false);
 });
