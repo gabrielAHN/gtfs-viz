@@ -71,14 +71,14 @@ scripts/
 
 ```bash
 yarn install --ignore-engines
-yarn build              # Build all (client -> lib -> web -> docs)
-yarn dev                # Web app at localhost:5173, docs at localhost:5173/docs/
-yarn dev:docs           # Docs alone at localhost:4391/docs/
-yarn build:client       # Build the thin extension client
-yarn build:lib          # Build standalone rendering library
-yarn build:dashboard    # CLI-mode web build packed into dist-dashboard/ (release asset)
-yarn run check          # Check all packages
-yarn test               # Consumer, rendering, and source/bundle boundary regressions
+yarn build                 # Build all (client -> lib -> web -> docs)
+yarn dev                   # Web app at localhost:5173, docs at localhost:5173/docs/
+yarn dev:docs              # Docs alone at localhost:4391/docs/
+yarn build:duckdb-client   # Build the thin extension client
+yarn build:lib             # Build standalone rendering library
+yarn build:dashboard       # CLI-mode web build packed into dist-dashboard/ (release asset)
+yarn run check             # Check all packages
+yarn test                  # Consumer, rendering, and source/bundle boundary regressions
 ```
 
 ## Deploy
