@@ -2,23 +2,23 @@
 
 All notable changes to GTFS Viz will be documented in this file.
 
-## [1.6.0] - 2026-11-02
-
-### Added
-- `gtfs-viz import` also takes an `http(s)://` URL or an `s3://`, `s3a://`, `s3n://` or `r2://` object. The feed is downloaded and checked before the current dataset changes, and the download is deleted afterwards, also on Ctrl-C or SIGTERM.
-- Bucket access goes through DuckDB secrets: a matching secret (including persistent ones), then AWS environment variables, profile or SSO through `credential_chain`, then an anonymous request. S3-compatible stores such as MinIO use a secret's `ENDPOINT`; `r2://` needs an R2 secret.
+## [1.6.0] - 2026-11-04
 
 ### Changed
-- The CLI installs the `gtfs` extension from the DuckDB community repository unless `GTFS_EXTENSION_REPOSITORY` names another repository. Community builds need a DuckDB v2.0.0 CLI.
-- DuckDB runs without `AI_AGENT`, so DuckDB 2.0's agent mode never changes its output.
+- The CLI moves to [gabrielAHN/gtfs-tools](https://github.com/gabrielAHN/gtfs-tools) and is published from there as `@gabrielahn/gtfs-tools` (command `gtfs-tools`). `@gabrielahn/gtfs-viz-cli` (command `gtfs-viz`) still installs the same CLI, on the same `~/.gtfs-viz-cli` data. This repository keeps the web app, the docs and `@gtfs-viz/duckdb-client`, and no longer publishes to npm.
+- The docs gain a GTFS Tools CLI part. The CLI page moves to `/docs/gtfs-tools/cli/` (the old `/docs/gtfs-viz/cli/` still opens it), and `/docs/agents/` describes the `gtfs-tools` agent skill (`npx skills add gabrielAHN/gtfs-tools`).
+- The browser import limit prompt and import errors point to the gtfs-tools CLI for full imports.
 
-### Security
-- URLs with a user name or password are refused. An `@` in an http(s) path must be written as `%40`, so a URL can't hide credentials in its path.
-- Saved datasets, status output and errors show a source only as parsed, without its query string or credentials. A refused source is shown as `<scheme>://…`.
-- `import` and `status` print text from outside the CLI, such as a server's reason phrase or a stored source, without escape sequences, control or bidi characters.
+### Added
+- Each release attaches `gtfs-viz-dashboard.tar.gz` and `gtfs-viz-dashboard.tar.gz.sha256`: the CLI-mode web app as a reproducible gzip ustar archive under `dashboard/`, with `dashboard/dashboard-manifest.json` (`name`, `version`, `commit`, `cliApi: 1`). gtfs-tools bundles a pinned, checksum-verified copy, so its dashboard works offline. `yarn build:dashboard` builds it locally.
+- A `dashboard-latest` pre-release is rebuilt from every push to `main`, for development.
+
+### Moved to gtfs-tools
+- The CLI work from PR #24 ships in [gtfs-tools 1.6.0](https://github.com/gabrielAHN/gtfs-tools/releases/tag/v1.6.0) instead: `import` from `http(s)://` URLs and `s3://`, `s3a://`, `s3n://` and `r2://` objects with bucket access through DuckDB secrets, the community repository as the default `gtfs` source, DuckDB run without `AI_AGENT`, and the credential, query-string and terminal-text hardening of displayed sources. See [gabrielAHN/gtfs-tools](https://github.com/gabrielAHN/gtfs-tools).
 
 ### Build notes
-- The extension integration job in CI runs on the DuckDB v2.0.0 CLI.
+- The extension integration job in CI runs on the DuckDB v2.0.0 CLI. Its native harness now drives `@gtfs-viz/duckdb-client` with the DuckDB CLI directly.
+- CI packages the dashboard on every pull request, checks that two runs give identical bytes and checks the `.sha256` line.
 
 ## [1.5.4] - 2026-09-29
 
