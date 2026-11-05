@@ -19,6 +19,7 @@ All notable changes to GTFS Viz will be documented in this file.
 ### Build notes
 - The extension integration job in CI runs on the DuckDB v2.0.0 CLI. Its native harness now drives `@gtfs-viz/duckdb-client` with the DuckDB CLI directly.
 - CI packages the dashboard on every pull request, checks that two runs give identical bytes and checks the `.sha256` line.
+- The release workflow builds and packages the dashboard in read-only jobs whose checkout keeps no token, and uploads the two assets from separate `contents: write` jobs that install nothing.
 
 ## [1.5.4] - 2026-09-29
 
