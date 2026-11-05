@@ -153,12 +153,22 @@ jobs:
         if: steps.assets.outputs.skip != 'true'
         run: yarn install --frozen-lockfile --ignore-engines
 
-      - name: Build and package the dashboard
+      # CLI mode takes the extension repository from the CLI's /dataset response, so the dashboard
+      # is built without VITE_GTFS_EXTENSION_REPOSITORY (same as yarn build:dashboard).
+      - name: Build the dashboard
         if: steps.assets.outputs.skip != 'true'
+        run: yarn build:duckdb-client && yarn build:lib && yarn build:web
+
+      - name: Package the dashboard
+        if: steps.assets.outputs.skip != 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          yarn build:dashboard
+          node scripts/package-dashboard.mjs --dist packages/web/dist --out dist-dashboard \
+            --version "$VERSION" --commit "$(git rev-parse HEAD)"
           node scripts/verify-dashboard.mjs --dir dist-dashboard \
-            --version "${{ steps.version.outputs.version }}" --commit "$(git rev-parse HEAD)"
+            --version "$VERSION" --commit "$(git rev-parse HEAD)"
+          (cd dist-dashboard && sha256sum -c gtfs-viz-dashboard.tar.gz.sha256)
 
       - name: Upload the dashboard to the release
         if: steps.assets.outputs.skip != 'true'
@@ -189,11 +199,16 @@ jobs:
 
       - run: yarn install --frozen-lockfile --ignore-engines
 
-      - name: Build and package the dashboard
+      - name: Build the dashboard
+        run: yarn build:duckdb-client && yarn build:lib && yarn build:web
+
+      - name: Package the dashboard
         run: |
-          yarn build:dashboard
-          node scripts/verify-dashboard.mjs --dir dist-dashboard \
-            --version "$(node -p "require('./package.json').version")" --commit "$GITHUB_SHA"
+          version=$(node -p "require('./package.json').version")
+          node scripts/package-dashboard.mjs --dist packages/web/dist --out dist-dashboard \
+            --version "$version" --commit "$GITHUB_SHA"
+          node scripts/verify-dashboard.mjs --dir dist-dashboard --version "$version" --commit "$GITHUB_SHA"
+          (cd dist-dashboard && sha256sum -c gtfs-viz-dashboard.tar.gz.sha256)
 
       - name: Publish dashboard-latest
         env:
