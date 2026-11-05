@@ -33,6 +33,7 @@
     "build:lib": "yarn workspace @gtfs-viz/lib run build",
     "test": "yarn build:client && node --test tests/*.test.mjs packages/duckdb-client/tests/*.test.mjs packages/lib/tests/*.test.mjs packages/web/tests/*.test.mjs",
     "build:web": "yarn workspace @gtfs-viz/web run build",
+    "build:dashboard": "yarn build:client && yarn build:lib && env -u VITE_GTFS_EXTENSION_REPOSITORY -u VITE_GTFS_ALLOW_UNSIGNED_EXTENSIONS yarn build:web && node scripts/package-dashboard.mjs --dist packages/web/dist --out dist-dashboard --version \"$npm_package_version\" --commit \"$(git rev-parse HEAD)\"",
     "build:docs": "yarn workspace @gtfs-viz/docs run build",
     "dev:docs": "yarn workspace @gtfs-viz/docs run dev",
     "start:docs": "yarn workspace @gtfs-viz/docs run start",

@@ -16,6 +16,7 @@ dist-ssr
 # Package build artifacts
 packages/*/dist/
 packages/*/.tsc-out/
+dist-dashboard/
 
 # Editor directories and files
 .vscode/*
