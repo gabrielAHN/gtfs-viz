@@ -30,6 +30,7 @@ import {
   groupFile,
   goals,
   intro,
+  movedPagePath,
   pageFile,
   pagePath,
   partById,
@@ -521,7 +522,7 @@ function HomePage() {
 
       <section className="space-y-4">
         <h2 className="text-4xl font-bold">Projects</h2>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           {parts.map((part) => (
             <div key={part.id} className="flex flex-col gap-3 rounded-lg border bg-card p-5">
               <div>
@@ -1351,11 +1352,17 @@ function MobileMenu({ current, location }: { current: string; location: string }
 
 export default function App() {
   const raw = usePathname()
-  const pathname = raw.endsWith("/") ? raw : `${raw}/`
+  const requested = raw.endsWith("/") ? raw : `${raw}/`
+  // A moved page (such as /docs/gtfs-viz/cli/) renders its new page and takes its new URL.
+  const moved = movedPagePath(requested)
+  const pathname = moved ?? requested
   const route = resolve(pathname)
   const current = route.kind === "page" ? pagePath(route.part.id, route.page.slug) : pathname
   const hash = useHash()
   const location = `${current}${hash}`
+  useEffect(() => {
+    if (moved) window.history.replaceState(null, "", `${moved}${window.location.hash}`)
+  }, [moved])
   useEffect(() => {
     document.title = titleFor(route)
   }, [route])

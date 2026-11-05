@@ -1,8 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { BiBookOpen, BiLogoGithub } from "react-icons/bi"
 import { isCliSession } from "@/lib/cli/isCliSession"
-
-const docsUrl = import.meta.env.VITE_GTFS_DOCS_URL || "/docs/"
+import { DOCS_URL } from "@/lib/links"
 
 export const GithubButton: React.FC = () => (
   <Button
@@ -16,7 +15,7 @@ export const GithubButton: React.FC = () => (
 export const DocsButton: React.FC = () =>
   isCliSession() ? null : (
     <Button variant={"icon"} asChild>
-      <a href={docsUrl} target="_blank" rel="noopener noreferrer" aria-label="Docs" title="Docs">
+      <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" aria-label="Docs" title="Docs">
         <BiBookOpen />
       </a>
     </Button>

@@ -1,6 +1,6 @@
 # @gtfs-viz/docs
 
-Documentation site for GTFS Tools (GTFS Viz and GTFS DuckDB), served at `/docs/` by the web app's deployment.
+Documentation site for GTFS Tools (GTFS Viz, the GTFS Tools CLI and GTFS DuckDB), served at `/docs/` by the web app's deployment. The CLI's code lives in [gabrielAHN/gtfs-tools](https://github.com/gabrielAHN/gtfs-tools); its docs stay here.
 
 It reuses the web app's theme, fonts and UI primitives from `packages/web` but imports none of its application code, and the web app only links to it. Both read the same saved theme, so light or dark mode carries between the app and the docs.
 
@@ -11,19 +11,20 @@ yarn build:docs    # packages/docs/dist
 yarn start:docs    # serves dist on $PORT (default 4173)
 ```
 
-Page content lives in `src/content.ts`. The home page explains the goal and links to the web app and both repositories. Each project has an overview page (`/docs/<part>/`) that says what it does, then its pages and releases:
+Page content lives in `src/content.ts`. The home page explains the goal and links to the web app and the three repositories. Each project has an overview page (`/docs/<part>/`) that says what it does, then its pages and releases:
 
-| Section     | Pages                                                                                   |
-| ----------- | --------------------------------------------------------------------------------------- |
-| GTFS Viz    | Overview, How it works, Web app, CLI, Releases                                          |
-| GTFS DuckDB | Overview, Usage, Functions (Import, Table functions, GTFS functions, Helpers), Releases |
-| AI agents   | Agent skill                                                                             |
-| Roadmap     | Upcoming features                                                                       |
+| Section        | Pages                                                                                   |
+| -------------- | --------------------------------------------------------------------------------------- |
+| GTFS Viz       | Overview, How it works, Web app, Releases                                               |
+| GTFS Tools CLI | Overview, CLI, Releases                                                                 |
+| GTFS DuckDB    | Overview, Usage, Functions (Import, Table functions, GTFS functions, Helpers), Releases |
+| AI agents      | Agent skill (`gtfs-tools`)                                                              |
+| Roadmap        | Upcoming features                                                                       |
 
-The sidebar nests every page's sections, the function groups and their categories, and each release. Selecting a page opens its sub-menu, and the releases list scrolls in place. On small screens the same menu opens from the menu button. Pages live at `/docs/<part>/<page>/` and function groups at `/docs/gtfs-duckdb/functions/<group>/`, where `#category-<id>` and `#<function>` open a category or a function. `src/functions.ts` lists the documented functions with an example and the columns each returns on the MBTA subway feed; functions that only serve GTFS Viz's maps (caches, map bounds, filter menus) are left out. `src/router.tsx` handles client-side navigation.
+The sidebar nests every page's sections, the function groups and their categories, and each release. Selecting a page opens its sub-menu, and the releases list scrolls in place. On small screens the same menu opens from the menu button. Pages live at `/docs/<part>/<page>/` and function groups at `/docs/gtfs-duckdb/functions/<group>/`, where `#category-<id>` and `#<function>` open a category or a function. `src/functions.ts` lists the documented functions with an example and the columns each returns on the MBTA subway feed; functions that only serve GTFS Viz's maps (caches, map bounds, filter menus) are left out. `src/router.tsx` handles client-side navigation. `movedPages` in `src/content.ts` keeps old URLs working: `/docs/gtfs-viz/cli/` renders the CLI page and replaces the address with `/docs/gtfs-tools/cli/`, and `gtfs-viz/cli.md` points to `gtfs-tools/cli.md`.
 
 `src/markdown.ts` renders the same content as markdown for agents. The build writes `llms.txt`, `llms-full.txt`, `index.md`, `agent-skill.md`, `upcoming.md`, `<part>.md`, `<part>/<page>.md`, `gtfs-duckdb/functions/<group>.md`, `<part>/releases.md` and `<part>/releases/<version>.md` next to `index.html`, and the dev server serves them too.
 
 ## Deployment
 
-The web service builds the docs and serves them from `dist/docs` (root `railpack.json` and `Caddyfile`), so the app is at `/` and the docs at `/docs/` on the same domain. The app's Docs button opens `/docs/` in a new tab unless `VITE_GTFS_DOCS_URL` points elsewhere; CLI dashboards never show it.
+The web service builds the docs and serves them from `dist/docs` (root `railpack.json` and `Caddyfile`), so the app is at `/` and the docs at `/docs/` on the same domain. `yarn build:deploy` builds the app with `VITE_GTFS_DOCS_URL=/docs/` (unless it is already set), so the app's Docs button opens `/docs/` in a new tab. Other builds, including `yarn build:dashboard` (the CLI dashboard that gtfs-tools builds from its gtfs-viz submodule), link to the public docs site; CLI dashboards never show the Docs button.

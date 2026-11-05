@@ -11,6 +11,7 @@ import {
   groupFile,
   goals,
   intro,
+  movedPages,
   pageFile,
   pagePath,
   partFile,
@@ -182,6 +183,19 @@ export function upcomingMarkdown() {
   ].join("\n")
 }
 
+export function movedMarkdown(moved: (typeof movedPages)[number]) {
+  const part = parts.find((item) => item.id === moved.part)!
+  const page = part.pages.find((item) => item.slug === moved.slug)!
+  return [
+    `# ${part.name}: ${page.title} (moved)`,
+    "",
+    `This page moved from ${docsBase}${moved.from}/ to ${pagePath(moved.part, moved.slug)}.`,
+    "",
+    `- Markdown: ${docsBase}${pageFile(moved.part, moved.slug)}`,
+    "",
+  ].join("\n")
+}
+
 export function releaseMarkdown(release: Release) {
   const part = parts.find((item) => item.id === release.repo)!
   const pr = pullRequest(release)
@@ -339,6 +353,7 @@ export function markdownFiles(): Record<string, string> {
       functionGroups.map((group) => [groupFile(group.id), groupMarkdown(group)]),
     ),
     ...Object.fromEntries(parts.map((part) => [`${part.id}/releases.md`, releasesMarkdown(part)])),
+    ...Object.fromEntries(movedPages.map((moved) => [`${moved.from}.md`, movedMarkdown(moved)])),
     ...Object.fromEntries(
       parts.flatMap((part) =>
         part.pages.map((page) => [pageFile(part.id, page.slug), pageMarkdown(part, page)]),

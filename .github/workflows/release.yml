@@ -1,5 +1,8 @@
-name: Release & Publish
+name: Release
 
+# A merged PR that bumps the root version (or a manual run) tags v<version> and creates the GitHub
+# release. Releases carry no assets: gabrielAHN/gtfs-tools builds the CLI dashboard from this
+# repository, which it includes as a git submodule. Nothing is installed or published to npm here.
 on:
   pull_request:
     types: [closed]
@@ -7,11 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-
-concurrency:
-  group: release-main
-  cancel-in-progress: false
+  contents: read
 
 jobs:
   version-bump:
@@ -33,28 +32,35 @@ jobs:
             exit 0
           fi
           PATCHES=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" \
-            --jq '.[] | select(.filename == "package.json" or .filename == "packages/cli/package.json") | .patch')
+            --jq '.[] | select(.filename == "package.json") | .patch')
           if grep -Eq '^\+[[:space:]]*"version":' <<< "$PATCHES"; then
             echo "release=true" >> "$GITHUB_OUTPUT"
             echo "#$PR bumps the version — releasing"
           else
             echo "release=false" >> "$GITHUB_OUTPUT"
-            echo "#$PR does not bump the version — skipping release and publish"
+            echo "#$PR does not bump the version — skipping the release"
           fi
 
   release:
+    name: Tag and create the release
     needs: version-bump
     if: needs.version-bump.outputs.release == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: release-main
+      cancel-in-progress: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          registry-url: "https://registry.npmjs.org"
 
       - name: Get version
         id: version
@@ -123,33 +129,3 @@ jobs:
               make_latest: "true",
             });
             core.info(`Created release ${tag}`);
-
-      - name: Check if CLI version already published
-        id: npm_check
-        run: |
-          CLI_VERSION=$(node -p "require('./packages/cli/package.json').version")
-          PUBLISHED=$(npm view "@gabrielahn/gtfs-viz-cli@${CLI_VERSION}" version 2>/dev/null || echo "")
-          if [ -n "$PUBLISHED" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "CLI $CLI_VERSION already on npm — skipping publish"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "Will publish CLI $CLI_VERSION"
-          fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Install dependencies
-        if: steps.npm_check.outputs.skip != 'true'
-        run: yarn install --frozen-lockfile --ignore-engines
-
-      - name: Build all packages
-        if: steps.npm_check.outputs.skip != 'true'
-        run: yarn build
-
-      - name: Publish CLI to npm
-        if: steps.npm_check.outputs.skip != 'true'
-        working-directory: packages/cli
-        run: npm publish --access public --tag latest
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

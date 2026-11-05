@@ -24,10 +24,19 @@ test('client is independent and explicit, with one query per lifecycle operation
 test('repository must be explicit, HTTP(S), unambiguous, and credential-free', async () => {
   const { createExtensionClient } = await clientModule();
   const queries = [];
-  for (const repository of ['', 'community', 'file:///tmp/extensions', 'ftp://host/ext', ' https://host', 'https://host\n', 'https://u:p@host', 'https://host/ext?q=x', 'https://host/ext#hash', 'https://host/\\evil', 'https://']) {
+  for (const repository of ['', 'Community', 'community ', 'file:///tmp/extensions', 'ftp://host/ext', ' https://host', 'https://host\n', 'https://u:p@host', 'https://host/ext?q=x', 'https://host/ext#hash', 'https://host/\\evil', 'https://']) {
     assert.throws(() => createExtensionClient({ query: async sql => queries.push(sql) }, { repository }), /repository/i, String(repository));
   }
   assert.deepEqual(queries, []);
+});
+
+test('the community repository installs by its keyword, not as a string literal', async () => {
+  const { createExtensionClient } = await clientModule();
+  const queries = [];
+  const client = createExtensionClient({ query: async sql => { queries.push(sql); } }, { repository: 'community' });
+  await client.install();
+  await client.load();
+  assert.deepEqual(queries, ['INSTALL gtfs FROM community', 'LOAD gtfs']);
 });
 
 test('repository literals are escaped and captured before caller mutation', async () => {

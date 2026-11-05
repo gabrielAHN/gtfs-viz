@@ -1,11 +1,12 @@
 export const repos = {
   viz: "https://github.com/gabrielAHN/gtfs-viz",
+  tools: "https://github.com/gabrielAHN/gtfs-tools",
   duckdb: "https://github.com/gabrielAHN/gtfs-duckdb",
   app: "/",
 }
 
 export const intro =
-  "Open-source tools to explore, fix and publish GTFS transit feeds. GTFS Viz is the app you use; GTFS DuckDB is the engine inside it that any DuckDB can load."
+  "Open-source tools to explore, fix and publish GTFS transit feeds. GTFS Viz is the app you use, the GTFS Tools CLI does the same from a terminal or an AI agent, and GTFS DuckDB is the engine inside both that any DuckDB can load."
 
 export const goals = [
   {
@@ -14,7 +15,7 @@ export const goals = [
   },
   {
     title: "Ready for AI",
-    body: "Every action is also a CLI command with JSON output. The agent skill lets an AI agent audit a feed, turn a service alert into edits and export the result.",
+    body: "Every action is also a GTFS Tools CLI command with JSON output. The agent skill lets an AI agent audit a feed, turn a service alert into edits and export the result.",
   },
   {
     title: "Scalable in the cloud",
@@ -43,7 +44,7 @@ export type DocPage = {
 }
 
 export type Part = {
-  id: "gtfs-viz" | "gtfs-duckdb"
+  id: "gtfs-viz" | "gtfs-tools" | "gtfs-duckdb"
   name: string
   tagline: string
   repo: string
@@ -63,19 +64,20 @@ export const parts: Part[] = [
     name: "GTFS Viz",
     tagline: "Explore and edit GTFS feeds",
     repo: repos.viz,
-    summary: "A web app and CLI to explore, fix and export GTFS feeds.",
+    summary:
+      "A web app to explore, fix and export GTFS feeds. It is also the dashboard of the GTFS Tools CLI.",
     does: [
-      "Opens a GTFS zip in the browser or from a terminal",
+      "Opens a GTFS zip in the browser",
       "Shows stations, pathways, routes and trips on maps and tables",
       "Edits stations, pathways, trips, stop times and calendars",
       "Exports the edited feed as GTFS files",
-      "Gives AI agents the same commands through the CLI and an agent skill",
+      "Publishes its dashboard build with each release for the GTFS Tools CLI",
     ],
     pages: [
       {
         slug: "how-it-works",
         title: "How it works",
-        summary: "One dataset, two ways in: the web app and the CLI.",
+        summary: "One dataset, two ways in: the web app and the GTFS Tools CLI's dashboard.",
         sections: [
           {
             id: "overview",
@@ -93,8 +95,9 @@ export const parts: Part[] = [
                     body: "DuckDB-WASM in the browser. Upload a zip and work on maps and tables. Nothing is uploaded to a server.",
                   },
                   {
-                    title: "CLI",
-                    body: "Native DuckDB on your machine. Import once, then query, edit, export or open the web dashboard on the same database.",
+                    title: "CLI dashboard",
+                    body: "The same app opened by the `gtfs-tools` CLI on a feed it imported into native DuckDB. Queries go to the CLI's local API instead of DuckDB-WASM.",
+                    href: doc("gtfs-tools", "cli", "#dashboard"),
                   },
                 ],
               },
@@ -109,7 +112,7 @@ export const parts: Part[] = [
                 items: [
                   {
                     title: "Import",
-                    body: "`PRAGMA gtfs_import` reads every GTFS file in the feed. The CLI passes its extract folder; the web app registers the zip's files and passes `''`.",
+                    body: "`PRAGMA gtfs_import` reads every GTFS file in the feed. The web app registers the zip's files and passes `''`; the CLI passes its extract folder.",
                   },
                   {
                     title: "Build",
@@ -117,7 +120,7 @@ export const parts: Part[] = [
                   },
                   {
                     title: "Explore",
-                    body: "Every page and command calls extension functions such as `get_station_info` or `find_shortest_path`.",
+                    body: "Every page calls extension functions such as `get_station_info` or `find_shortest_path`.",
                   },
                   {
                     title: "Edit",
@@ -144,13 +147,8 @@ export const parts: Part[] = [
                     href: doc("gtfs-viz", "web"),
                   },
                   {
-                    title: "packages/cli",
-                    body: "`@gabrielahn/gtfs-viz-cli` and the bundled `gtfs-viz` agent skill.",
-                    href: doc("gtfs-viz", "cli"),
-                  },
-                  {
                     title: "packages/duckdb-client",
-                    body: "Installs and loads the extension and imports feeds with `gtfs_import` for the web app and the CLI. It has no SQL of its own.",
+                    body: "Installs and loads the extension and imports feeds with `gtfs_import` for the web app. It has no SQL of its own.",
                     href: doc("gtfs-duckdb", "usage", "#install"),
                   },
                   {
@@ -158,6 +156,39 @@ export const parts: Part[] = [
                     body: "Rendering: route bands, compared-trip lanes and the deck.gl route-shape layer.",
                     href: doc("gtfs-viz", "web", "#pages"),
                   },
+                  {
+                    title: "packages/docs",
+                    body: "This site, with the GTFS Viz, GTFS Tools CLI and GTFS DuckDB docs.",
+                    href: "/docs/",
+                  },
+                  {
+                    title: "gtfs-tools",
+                    body: "The CLI and its agent skill live in their own repository, gabrielAHN/gtfs-tools.",
+                    href: doc("gtfs-tools", "cli"),
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            id: "cli-dashboard",
+            title: "CLI dashboard",
+            blocks: [
+              {
+                type: "text",
+                text: "The GTFS Tools CLI opens this web app as its dashboard. gtfs-tools includes gtfs-viz as a git submodule and builds the dashboard from it when it builds its npm package, so the dashboard works offline. `yarn build:dashboard` is the build it runs.",
+              },
+              {
+                type: "code",
+                lang: "bash",
+                code: "yarn build:dashboard   # packages/web/dist with dashboard-manifest.json",
+              },
+              {
+                type: "list",
+                items: [
+                  "The app is built for CLI mode: the extension repository comes from the CLI, and docs links go to the public docs site.",
+                  "`dashboard-manifest.json` names the version, the commit and the CLI API version; gtfs-tools only bundles a dashboard with `cliApi: 1`.",
+                  "gtfs-tools moves to a newer GTFS Viz by moving its submodule pin.",
                 ],
               },
             ],
@@ -239,6 +270,23 @@ export const parts: Part[] = [
           },
         ],
       },
+    ],
+  },
+  {
+    id: "gtfs-tools",
+    name: "GTFS Tools CLI",
+    tagline: "GTFS feeds from a terminal",
+    repo: repos.tools,
+    summary:
+      "The `gtfs-tools` CLI imports a GTFS feed into native DuckDB, queries, edits and exports it, and opens the GTFS Viz dashboard on it.",
+    does: [
+      "Imports a GTFS zip from a path, an `https://` URL or an `s3://` or `r2://` object",
+      "Lists and filters stations, stops, routes, trips and calendars, with JSON output",
+      "Edits trips, stop times, calendars, stations and pathways, and exports the feed",
+      "Opens the GTFS Viz dashboard on the imported feed, bundled for offline use",
+      "Teaches AI agents the same commands through the `gtfs-tools` agent skill",
+    ],
+    pages: [
       {
         slug: "cli",
         title: "CLI",
@@ -251,12 +299,21 @@ export const parts: Part[] = [
             blocks: [
               {
                 type: "text",
-                text: "Needs Node 22 and the DuckDB CLI with the `spatial` extension.",
+                text: "Needs Node 22 and the DuckDB CLI with the `spatial` extension. The CLI is developed in gabrielAHN/gtfs-tools and published as `@gabrielahn/gtfs-tools` (command `gtfs-tools`).",
               },
               {
                 type: "code",
                 lang: "bash",
-                code: "npm install -g @gabrielahn/gtfs-viz-cli\ngtfs-viz version\ngtfs-viz update --check",
+                code: "npm install -g @gabrielahn/gtfs-tools\ngtfs-tools version\ngtfs-tools update --check",
+              },
+              {
+                type: "text",
+                text: "`@gabrielahn/gtfs-viz-cli` (command `gtfs-viz`) still installs the same CLI. Both commands share `~/.gtfs-viz-cli`, the daemon and the environment variables, so a feed imported with one opens with the other. Each package owns only its own command, so both can be installed at once.",
+              },
+              {
+                type: "code",
+                lang: "bash",
+                code: "npm install -g @gabrielahn/gtfs-viz-cli\ngtfs-viz version",
               },
             ],
           },
@@ -267,7 +324,7 @@ export const parts: Part[] = [
               {
                 type: "code",
                 lang: "bash",
-                code: "gtfs-viz import /absolute/path/to/feed.zip\ngtfs-viz status\ngtfs-viz tables",
+                code: "gtfs-tools import /absolute/path/to/feed.zip\ngtfs-tools import https://example.com/gtfs/feed.zip\ngtfs-tools import s3://my-bucket/gtfs/feed.zip\ngtfs-tools status\ngtfs-tools tables",
               },
               {
                 type: "text",
@@ -286,7 +343,7 @@ export const parts: Part[] = [
               {
                 type: "code",
                 lang: "bash",
-                code: 'gtfs-viz stations --name "Park" --data\ngtfs-viz station "Park Street" --data\ngtfs-viz station_pathways "Park Street" --data\ngtfs-viz routes --type Subway --format json\ngtfs-viz trips --route Red --data\ngtfs-viz trip canonical-Red-C1-0 --data\ngtfs-viz calendar --data\ngtfs-viz query --sql "SELECT stop_name, exit_count FROM get_station_info(\'place-pktrm\')"',
+                code: 'gtfs-tools stations --name "Park" --data\ngtfs-tools station "Park Street" --data\ngtfs-tools station_pathways "Park Street" --data\ngtfs-tools routes --type Subway --format json\ngtfs-tools trips --route Red --data\ngtfs-tools trip canonical-Red-C1-0 --data\ngtfs-tools calendar --data\ngtfs-tools query --sql "SELECT stop_name, exit_count FROM get_station_info(\'place-pktrm\')"',
               },
             ],
           },
@@ -296,12 +353,12 @@ export const parts: Part[] = [
             blocks: [
               {
                 type: "text",
-                text: "Start a local session and open the web app on the imported feed. `--url-only` prints the link instead.",
+                text: "Start a local session and open the GTFS Viz dashboard on the imported feed. `--url-only` prints the link instead. The dashboard is the GTFS Viz web app, built from the gtfs-viz submodule and bundled in the package, so it works offline.",
               },
               {
                 type: "code",
                 lang: "bash",
-                code: "gtfs-viz view --view stations/map\ngtfs-viz trip canonical-Red-C1-0 --compare canonical-Red-C1-1 --url-only\ngtfs-viz stop",
+                code: "gtfs-tools view --view stations/map\ngtfs-tools trip canonical-Red-C1-0 --compare canonical-Red-C1-1 --url-only\ngtfs-tools stop",
               },
             ],
           },
@@ -316,7 +373,7 @@ export const parts: Part[] = [
               {
                 type: "code",
                 lang: "bash",
-                code: 'gtfs-viz update_trip --trip-id canonical-Red-C1-0 --headsign "Alewife Express"\ngtfs-viz remove_stops --trip canonical-Red-C1-0 --stops "Davis,Porter"\ngtfs-viz reroute --trip <trip_id> --via <donor_trip_id> --from "<station>" --to "<station>"\ngtfs-viz apply changeset.json\ngtfs-viz edits --data',
+                code: 'gtfs-tools update_trip --trip-id canonical-Red-C1-0 --headsign "Alewife Express"\ngtfs-tools remove_stops --trip canonical-Red-C1-0 --stops "Davis,Porter"\ngtfs-tools reroute --trip <trip_id> --via <donor_trip_id> --from "<station>" --to "<station>"\ngtfs-tools apply changeset.json\ngtfs-tools edits --data',
               },
             ],
           },
@@ -327,7 +384,7 @@ export const parts: Part[] = [
               {
                 type: "code",
                 lang: "bash",
-                code: "gtfs-viz export --output ./edited-feed\ngtfs-viz export --output ./edited-feed --no-pathways",
+                code: "gtfs-tools export --output ./edited-feed\ngtfs-tools export --output ./edited-feed --no-pathways",
               },
               {
                 type: "text",
@@ -346,7 +403,7 @@ export const parts: Part[] = [
               {
                 type: "code",
                 lang: "bash",
-                code: "gtfs-viz route-bands --data\ngtfs-viz route-bands --status --data",
+                code: "gtfs-tools route-bands --data\ngtfs-tools route-bands --status --data",
               },
             ],
           },
@@ -358,9 +415,9 @@ export const parts: Part[] = [
                 type: "table",
                 head: ["Command", "Effect"],
                 rows: [
-                  ["`gtfs-viz stop`", "Stop the dashboard session"],
-                  ["`gtfs-viz restart`", "Stop the session and remove the local import"],
-                  ["`gtfs-viz clean`", "Stop the daemon and delete `~/.gtfs-viz-cli/`"],
+                  ["`gtfs-tools stop`", "Stop the dashboard session"],
+                  ["`gtfs-tools restart`", "Stop the session and remove the local import"],
+                  ["`gtfs-tools clean`", "Stop the daemon and delete `~/.gtfs-viz-cli/`"],
                 ],
               },
             ],
@@ -400,7 +457,7 @@ export const parts: Part[] = [
                 type: "table",
                 head: ["Build", "DuckDB", "Platforms"],
                 rows: [
-                  ["Native", "1.5.4", "Linux amd64/arm64, macOS amd64/arm64, Windows amd64/MinGW"],
+                  ["Native", "2.0.0", "Linux amd64/arm64, macOS amd64/arm64, Windows amd64/MinGW"],
                   ["WASM", "1.4.3", "`wasm_eh`, `wasm_mvp`"],
                 ],
               },
@@ -412,12 +469,12 @@ export const parts: Part[] = [
             blocks: [
               {
                 type: "text",
-                text: "Until it is in the DuckDB community repository, install from a repository URL. The `spatial` extension is required.",
+                text: "Native builds install from the DuckDB community repository and need DuckDB 2.0.0. The `spatial` extension is required. The browser build for DuckDB-WASM 1.4.3 installs from a repository URL, such as the `/extensions/` path GTFS Viz serves.",
               },
               {
                 type: "code",
                 lang: "sql",
-                code: "INSTALL spatial;\nLOAD spatial;\nINSTALL gtfs FROM '<repository>';\nLOAD gtfs;",
+                code: "INSTALL spatial;\nLOAD spatial;\nINSTALL gtfs FROM community;\nLOAD gtfs;",
               },
             ],
           },
@@ -525,28 +582,35 @@ export const agentPage: DocPage = {
   slug: "agents",
   title: "Agent skill",
   summary:
-    "The `gtfs-viz` agent skill teaches an AI agent to drive the GTFS Viz CLI. Here is what it covers, by category.",
+    "The `gtfs-tools` agent skill teaches an AI agent to drive the GTFS Tools CLI. Here is what it covers, by category.",
   sections: [
     {
       id: "install",
       title: "Install",
       blocks: [
-        { type: "code", lang: "bash", code: "npx skills add gabrielAHN/gtfs-viz" },
-        { type: "text", text: "Or install it from the CLI for one agent:" },
+        { type: "code", lang: "bash", code: "npx skills add gabrielAHN/gtfs-tools" },
+        {
+          type: "text",
+          text: "The skill now ships with gabrielAHN/gtfs-tools and replaces `npx skills add gabrielAHN/gtfs-viz`; GTFS Viz no longer contains a skill. Installing `@gabrielahn/gtfs-tools` also installs it, or install it for one agent:",
+        },
         {
           type: "code",
           lang: "bash",
-          code: "npm install -g @gabrielahn/gtfs-viz-cli\ngtfs-viz install-skill anthropic\ngtfs-viz install-skill --list-providers",
+          code: "npm install -g @gabrielahn/gtfs-tools\ngtfs-tools install-skill anthropic\ngtfs-tools install-skill --list-providers",
         },
         {
           type: "table",
           head: ["Provider", "Agents", "Installs to"],
           rows: [
-            ["`anthropic`", "Claude Code", "`~/.claude/skills/gtfs-viz`"],
-            ["`openai`", "Codex", "`~/.codex/skills/gtfs-viz`"],
-            ["`google`", "Gemini CLI", "`~/.gemini/skills/gtfs-viz`"],
-            ["`generic`", "Agents that read the shared folder", "`~/.agents/skills/gtfs-viz`"],
+            ["`anthropic`", "Claude Code", "`~/.claude/skills/gtfs-tools`"],
+            ["`openai`", "Codex", "`~/.codex/skills/gtfs-tools`"],
+            ["`google`", "Gemini CLI", "`~/.gemini/skills/gtfs-tools`"],
+            ["`generic`", "Agents that read the shared folder", "`~/.agents/skills/gtfs-tools`"],
           ],
+        },
+        {
+          type: "text",
+          text: "The skill runs `gtfs-tools` (or `gtfs-viz` if you installed `@gabrielahn/gtfs-viz-cli`; same CLI).",
         },
       ],
     },
@@ -569,10 +633,14 @@ export const agentPage: DocPage = {
               type: "table",
               head: ["Task", "Command"],
               rows: [
-                ["Import a feed", "`gtfs-viz import /abs/path/feed.zip`"],
-                ["Check the loaded feed", "`gtfs-viz status`"],
-                ["Update the CLI", "`gtfs-viz update`"],
-                ["Help for one command", "`gtfs-viz h <command>`"],
+                ["Import a feed", "`gtfs-tools import /abs/path/feed.zip`"],
+                [
+                  "Import from a URL or bucket",
+                  "`gtfs-tools import https://example.com/gtfs/feed.zip` or `s3://my-bucket/gtfs/feed.zip`",
+                ],
+                ["Check the loaded feed", "`gtfs-tools status`"],
+                ["Update the CLI", "`gtfs-tools update`"],
+                ["Help for one command", "`gtfs-tools h <command>`"],
               ],
             },
           ],
@@ -586,12 +654,12 @@ export const agentPage: DocPage = {
               type: "table",
               head: ["Task", "Command"],
               rows: [
-                ["Filter stations", "`gtfs-viz stations --pathways no --data`"],
-                ["Look up a station", '`gtfs-viz station "Park Street" --data`'],
-                ["Station pathways", '`gtfs-viz station_pathways "Park Street" --data`'],
-                ["Routes and one route", "`gtfs-viz routes --type Subway --data`"],
-                ["A trip's stop times", "`gtfs-viz trip canonical-Red-C1-0 --data`"],
-                ["Calendars and shapes", "`gtfs-viz calendar --data`"],
+                ["Filter stations", "`gtfs-tools stations --pathways no --data`"],
+                ["Look up a station", '`gtfs-tools station "Park Street" --data`'],
+                ["Station pathways", '`gtfs-tools station_pathways "Park Street" --data`'],
+                ["Routes and one route", "`gtfs-tools routes --type Subway --data`"],
+                ["A trip's stop times", "`gtfs-tools trip canonical-Red-C1-0 --data`"],
+                ["Calendars and shapes", "`gtfs-tools calendar --data`"],
               ],
             },
           ],
@@ -608,13 +676,16 @@ export const agentPage: DocPage = {
               type: "table",
               head: ["Task", "Command"],
               rows: [
-                ["Times between station parts", '`gtfs-viz station_routes "South Station" --data`'],
+                [
+                  "Times between station parts",
+                  '`gtfs-tools station_routes "South Station" --data`',
+                ],
                 [
                   "Fastest entrance to exit",
-                  '`gtfs-viz station_shortest_route "South Station" --data`',
+                  '`gtfs-tools station_shortest_route "South Station" --data`',
                 ],
-                ["Build route line bands", "`gtfs-viz route-bands`"],
-                ["Run SQL", '`gtfs-viz query --sql "SELECT * FROM StationsTable"`'],
+                ["Build route line bands", "`gtfs-tools route-bands`"],
+                ["Run SQL", '`gtfs-tools query --sql "SELECT * FROM StationsTable"`'],
               ],
             },
           ],
@@ -631,21 +702,24 @@ export const agentPage: DocPage = {
               type: "table",
               head: ["Task", "Command"],
               rows: [
-                ["Add a pathway", "`gtfs-viz add_connection --from A --to B --traversal-time 45`"],
+                [
+                  "Add a pathway",
+                  "`gtfs-tools add_connection --from A --to B --traversal-time 45`",
+                ],
                 [
                   "Add a station part",
-                  "`gtfs-viz add_node --stop-id ID --lat .. --lon .. --parent-station ID`",
+                  "`gtfs-tools add_node --stop-id ID --lat .. --lon .. --parent-station ID`",
                 ],
                 [
                   "Change a trip",
-                  '`gtfs-viz update_trip --trip-id canonical-Red-C1-0 --headsign "Express"`',
+                  '`gtfs-tools update_trip --trip-id canonical-Red-C1-0 --headsign "Express"`',
                 ],
-                ["Skip stops", '`gtfs-viz remove_stops --trip ID --stops "Park Street"`'],
+                ["Skip stops", '`gtfs-tools remove_stops --trip ID --stops "Park Street"`'],
                 [
                   "Run a trip via another route",
-                  "`gtfs-viz reroute --trip ID --via DONOR --from A --to B`",
+                  "`gtfs-tools reroute --trip ID --via DONOR --from A --to B`",
                 ],
-                ["Many edits at once", "`gtfs-viz apply changeset.json`"],
+                ["Many edits at once", "`gtfs-tools apply changeset.json`"],
               ],
             },
             {
@@ -667,10 +741,10 @@ export const agentPage: DocPage = {
               type: "table",
               head: ["Task", "Command"],
               rows: [
-                ["Dashboard link", "`gtfs-viz view --view stations/map --url-only`"],
-                ["Review pending edits", "`gtfs-viz edits --url-only`"],
-                ["Export GTFS files", "`gtfs-viz export --output ./out`"],
-                ["Remove local data", "`gtfs-viz clean`"],
+                ["Dashboard link", "`gtfs-tools view --view stations/map --url-only`"],
+                ["Review pending edits", "`gtfs-tools edits --url-only`"],
+                ["Export GTFS files", "`gtfs-tools export --output ./out`"],
+                ["Remove local data", "`gtfs-tools clean`"],
               ],
             },
           ],
@@ -686,7 +760,7 @@ export const agentPage: DocPage = {
           items: [
             "Use absolute paths and quote paths with spaces.",
             "Return the printed dashboard link unless the user asked for `--data`.",
-            "Check the loaded feed with `gtfs-viz status`; feeds expire after 7 days.",
+            "Check the loaded feed with `gtfs-tools status`; feeds expire after 7 days.",
           ],
         },
       ],
@@ -705,6 +779,22 @@ export type Release = {
 }
 
 export const releases: Release[] = [
+  {
+    repo: "gtfs-duckdb",
+    version: "1.0.2",
+    title: "Community extension",
+    date: "2026-11-02",
+    status: "Released",
+    pr: 7,
+    highlights: [
+      { area: "Install", text: "`INSTALL gtfs FROM community` installs the signed build" },
+      {
+        area: "Build",
+        text: "Native DuckDB 2.0.0 binaries; browser builds stay on DuckDB-WASM 1.4.3",
+      },
+      { area: "Extension", text: "Same 96 functions as 1.0.1" },
+    ],
+  },
   {
     repo: "gtfs-duckdb",
     version: "1.0.1",
@@ -747,6 +837,56 @@ export const releases: Release[] = [
         text: "Explicit `gtfs_prepare`, `gtfs_init` and `gtfs_refresh` lifecycle",
       },
       { area: "Build", text: "Native DuckDB 1.5.4 and DuckDB-WASM 1.4.3 binaries" },
+    ],
+  },
+  {
+    repo: "gtfs-tools",
+    version: "1.5.4",
+    title: "Moved from GTFS Viz",
+    date: "2026-11-04",
+    status: "Released",
+    pr: 1,
+    highlights: [
+      {
+        area: "Move",
+        text: "The CLI moves from gabrielAHN/gtfs-viz to `@gabrielahn/gtfs-tools`, command `gtfs-tools`",
+      },
+      {
+        area: "Compatibility",
+        text: "`@gabrielahn/gtfs-viz-cli` still installs the same CLI as `gtfs-viz`, on the same data",
+      },
+      {
+        area: "Import",
+        text: "`import` takes an `https://` URL or an `s3://` or `r2://` object; buckets use DuckDB secrets",
+      },
+      {
+        area: "Extension",
+        text: "Installs `gtfs` from the DuckDB community repository by default",
+      },
+      {
+        area: "Dashboard",
+        text: "Bundles the GTFS Viz dashboard, built from the gtfs-viz submodule; it works offline",
+      },
+    ],
+  },
+  {
+    repo: "gtfs-viz",
+    version: "1.6.0",
+    title: "CLI moves to gtfs-tools",
+    date: "2026-11-04",
+    status: "Released",
+    pr: 25,
+    highlights: [
+      {
+        area: "Split",
+        text: "The CLI moves to gtfs-tools, which builds the dashboard from this repo as a submodule",
+      },
+      { area: "Packages", text: "GTFS Viz keeps the web app, the docs and `duckdb-client`" },
+      {
+        area: "Release",
+        text: "Releases only tag and create the GitHub release; nothing goes to npm",
+      },
+      { area: "Docs", text: "GTFS Tools CLI docs; the CLI page moves to `/docs/gtfs-tools/cli/`" },
     ],
   },
   {
@@ -880,7 +1020,13 @@ export const releases: Release[] = [
   },
 ]
 
-export const repoUrl = (repo: Release["repo"]) => (repo === "gtfs-viz" ? repos.viz : repos.duckdb)
+const repoUrls: Record<Release["repo"], string> = {
+  "gtfs-viz": repos.viz,
+  "gtfs-tools": repos.tools,
+  "gtfs-duckdb": repos.duckdb,
+}
+
+export const repoUrl = (repo: Release["repo"]) => repoUrls[repo]
 
 export const releasesFor = (id: Part["id"]) => releases.filter((release) => release.repo === id)
 
@@ -905,6 +1051,17 @@ export const partFile = (id: Part["id"]) => `${id}.md`
 export const groupFile = (group: string) => `gtfs-duckdb/functions/${group}.md`
 
 export const agentPath = `${docsBase}agents/`
+
+// Pages that moved between parts. The old URL renders the new page and is replaced in the address
+// bar; the old markdown file points to the new one.
+export const movedPages: { from: string; part: Part["id"]; slug: string }[] = [
+  { from: "gtfs-viz/cli", part: "gtfs-tools", slug: "cli" },
+]
+
+export const movedPagePath = (pathname: string) => {
+  const moved = movedPages.find((page) => `${docsBase}${page.from}/` === pathname)
+  return moved ? pagePath(moved.part, moved.slug) : undefined
+}
 
 export const agentFile = "agent-skill.md"
 

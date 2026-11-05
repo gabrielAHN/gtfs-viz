@@ -30,6 +30,28 @@ jobs:
       - run: yarn run check
       - run: yarn test
 
+      # gabrielAHN/gtfs-tools includes this repository as a git submodule and runs this same script
+      # to build its CLI dashboard: the CLI-mode web app plus packages/web/dist/dashboard-manifest.json.
+      - run: yarn build:dashboard
+
+      # Exactly name (the root package name + "-dashboard"), version, the checked-out commit, cliApi 1.
+      - name: Check the dashboard manifest
+        run: |
+          node --input-type=module -e '
+            import assert from "node:assert/strict"
+            import { execFileSync } from "node:child_process"
+            import { readFileSync } from "node:fs"
+            const pkg = JSON.parse(readFileSync("package.json", "utf8"))
+            const manifest = JSON.parse(readFileSync("packages/web/dist/dashboard-manifest.json", "utf8"))
+            console.log(manifest)
+            assert.deepEqual(manifest, {
+              name: pkg.name + "-dashboard",
+              version: pkg.version,
+              commit: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+              cliApi: 1,
+            })
+          '
+
   extension-integration:
     name: GTFS DuckDB integration
     needs: build
@@ -60,15 +82,15 @@ jobs:
           gh run download "$run_id" --repo "$EXTENSION_REPOSITORY" --name gtfs-unsigned-development-repository --dir "$GTFS_STAGED_REPOSITORY"
           cat "$GTFS_STAGED_REPOSITORY/manifest.json"
 
-      - name: Install DuckDB CLI v1.5.4 and spatial
+      - name: Install DuckDB CLI v2.0.0, spatial, httpfs and aws
         run: |
           mkdir -p build/duckdb-cli
-          curl -fsSL -o build/duckdb-cli/cli.zip https://github.com/duckdb/duckdb/releases/download/v1.5.4/duckdb_cli-linux-amd64.zip
-          unzip -q build/duckdb-cli/cli.zip -d build/duckdb-cli
+          curl -fsSL -o build/duckdb-cli/cli.tar.gz https://github.com/duckdb/duckdb/releases/download/v2.0.0/duckdb-cli-linux-amd64.tar.gz
+          tar -xzf build/duckdb-cli/cli.tar.gz -C build/duckdb-cli
           echo "$GITHUB_WORKSPACE/build/duckdb-cli" >> "$GITHUB_PATH"
           echo "GTFS_DEPENDENCY_CACHE=$HOME/.duckdb/extensions" >> "$GITHUB_ENV"
-          "$DUCKDB_BIN" :memory: -c "INSTALL spatial; SELECT version(); PRAGMA platform;"
-          gunzip -c "$GTFS_STAGED_REPOSITORY/v1.5.4/linux_amd64/gtfs.duckdb_extension.gz" > build/gtfs.duckdb_extension
+          "$DUCKDB_BIN" :memory: -c "INSTALL spatial; INSTALL httpfs; INSTALL aws; SELECT version(); PRAGMA platform;"
+          gunzip -c "$GTFS_STAGED_REPOSITORY/v2.0.0/linux_amd64/gtfs.duckdb_extension.gz" > build/gtfs.duckdb_extension
           echo "GTFS_EXTENSION=$GITHUB_WORKSPACE/build/gtfs.duckdb_extension" >> "$GITHUB_ENV"
 
       - run: yarn install --frozen-lockfile --ignore-engines
@@ -78,8 +100,8 @@ jobs:
       - name: Tests with the downloaded extension
         run: yarn test
 
-      - name: Native client and CLI dashboard
-        run: node packages/duckdb-client/tests/integration/consumer-native.mjs --cli-e2e
+      - name: Native client (unsigned development loading)
+        run: node packages/duckdb-client/tests/integration/consumer-native.mjs
 
       - name: Browser client (unsigned development loading)
         run: node packages/duckdb-client/tests/integration/consumer-wasm.mjs --unsigned-only

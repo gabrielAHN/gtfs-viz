@@ -2,7 +2,6 @@
   "files": [],
   "references": [
     { "path": "packages/procedures" },
-    { "path": "packages/web" },
-    { "path": "packages/cli" }
+    { "path": "packages/web" }
   ]
 }

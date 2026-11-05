@@ -1,6 +1,6 @@
 {
   "name": "gtfs-viz",
-  "version": "1.5.4",
+  "version": "1.6.0",
   "private": true,
   "description": "Lightweight GTFS data visualizer and editor",
   "keywords": [
@@ -26,25 +26,18 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:web": "yarn workspace @gtfs-viz/web run dev",
-    "build": "yarn build:client && yarn build:lib && yarn build:web && yarn build:docs && rm -rf dist && cp -r packages/web/dist dist && cp -r packages/docs/dist dist/docs && yarn build:cli",
-    "build:deploy": "vp run @gtfs-viz/duckdb-client#build && vp run @gtfs-viz/lib#build && VITE_GTFS_EXTENSION_REPOSITORY=/extensions VITE_GTFS_ALLOW_UNSIGNED_EXTENSIONS=true vp run @gtfs-viz/web#build && vp run @gtfs-viz/docs#build && rm -rf dist && cp -r packages/web/dist dist && cp -r packages/docs/dist dist/docs && node scripts/extension-artifacts.mjs --out dist/extensions",
+    "build": "yarn build:duckdb-client && yarn build:lib && yarn build:web && yarn build:docs && rm -rf dist && cp -r packages/web/dist dist && cp -r packages/docs/dist dist/docs",
+    "build:deploy": "vp run @gtfs-viz/duckdb-client#build && vp run @gtfs-viz/lib#build && VITE_GTFS_EXTENSION_REPOSITORY=/extensions VITE_GTFS_ALLOW_UNSIGNED_EXTENSIONS=true VITE_GTFS_DOCS_URL=${VITE_GTFS_DOCS_URL:-/docs/} vp run @gtfs-viz/web#build && vp run @gtfs-viz/docs#build && rm -rf dist && cp -r packages/web/dist dist && cp -r packages/docs/dist dist/docs && node scripts/extension-artifacts.mjs --out dist/extensions",
     "preview:deploy": "node scripts/preview-deploy.mjs",
-    "build:client": "yarn workspace @gtfs-viz/duckdb-client run build",
+    "build:duckdb-client": "yarn workspace @gtfs-viz/duckdb-client run build",
     "build:lib": "yarn workspace @gtfs-viz/lib run build",
-    "test": "yarn build:client && node --test tests/*.test.mjs packages/duckdb-client/tests/*.test.mjs packages/lib/tests/*.test.mjs packages/web/tests/*.test.mjs packages/cli/tests/*.test.mjs",
+    "test": "yarn build:duckdb-client && node --test tests/*.test.mjs packages/duckdb-client/tests/*.test.mjs packages/lib/tests/*.test.mjs packages/web/tests/*.test.mjs",
     "build:web": "yarn workspace @gtfs-viz/web run build",
-    "build:cli": "yarn workspace @gabrielahn/gtfs-viz-cli run build",
+    "build:dashboard": "yarn build:duckdb-client && yarn build:lib && env -u VITE_GTFS_EXTENSION_REPOSITORY -u VITE_GTFS_ALLOW_UNSIGNED_EXTENSIONS -u VITE_GTFS_DOCS_URL yarn build:web && node scripts/dashboard-manifest.mjs --dist packages/web/dist",
     "build:docs": "yarn workspace @gtfs-viz/docs run build",
     "dev:docs": "yarn workspace @gtfs-viz/docs run dev",
     "start:docs": "yarn workspace @gtfs-viz/docs run start",
-    "cli": "node packages/cli/dist/index.js",
-    "cli:install-local": "yarn build && npm install -g ./packages/cli",
-    "cli:install-skill": "gtfs-viz install-skill",
-    "cli:link": "yarn build && yarn workspace @gabrielahn/gtfs-viz-cli link",
-    "cli:pack": "yarn build && npm pack ./packages/cli",
-    "cli:publish": "yarn build && npm publish ./packages/cli",
-    "cli:publish-dry": "yarn build && npm publish ./packages/cli --dry-run",
-    "check": "yarn workspace @gtfs-viz/lib run check && yarn workspace @gtfs-viz/duckdb-client run check && yarn workspace @gtfs-viz/web run check && yarn workspace @gabrielahn/gtfs-viz-cli run check && yarn workspace @gtfs-viz/docs run check",
+    "check": "yarn workspace @gtfs-viz/lib run check && yarn workspace @gtfs-viz/duckdb-client run check && yarn workspace @gtfs-viz/web run check && yarn workspace @gtfs-viz/docs run check",
     "preview": "yarn workspace @gtfs-viz/web run preview",
     "postinstall": "node scripts/fix-duckdb-sourcemaps.mjs",
     "version": "echo v$(node -p \"require('./package.json').version\")",
@@ -54,6 +47,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
+    "esbuild": "^0.28.0",
     "typescript": "~5.6.2"
   },
   "resolutions": {
