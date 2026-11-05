@@ -844,6 +844,7 @@ export const releases: Release[] = [
     title: "Moved from GTFS Viz",
     date: "2026-11-04",
     status: "Released",
+    pr: 1,
     highlights: [
       {
         area: "Move",
@@ -873,7 +874,7 @@ export const releases: Release[] = [
     title: "CLI moves to gtfs-tools",
     date: "2026-11-04",
     status: "Released",
-    pr: 24,
+    pr: 25,
     highlights: [
       {
         area: "Split",
