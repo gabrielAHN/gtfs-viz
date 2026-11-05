@@ -53,7 +53,7 @@ The archive is reproducible: the same build gives the same bytes ([scripts/packa
 
 ### DuckDB Extension
 
-Database functions come from the separate [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) extension, which the web app downloads and loads (`INSTALL gtfs FROM <repository>; LOAD gtfs;`). The web app installs from `VITE_GTFS_EXTENSION_REPOSITORY`; without it, the browser needs an already-loaded compatible extension. In CLI mode the dashboard takes the repository from the CLI's `/dataset` response (`community` or an HTTP(S) URL). The web app links to the docs at `/docs/` (override with `VITE_GTFS_DOCS_URL`); the CLI dashboard never shows the link. See [configuration](packages/duckdb-client/README.md).
+Database functions come from the separate [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) extension, which the web app downloads and loads (`INSTALL gtfs FROM <repository>; LOAD gtfs;`). The web app installs from `VITE_GTFS_EXTENSION_REPOSITORY`; without it, the browser needs an already-loaded compatible extension. In CLI mode the dashboard takes the repository from the CLI's `/dataset` response (`community` or an HTTP(S) URL). The web app links to the public docs site (override with `VITE_GTFS_DOCS_URL`), so the links also work in the CLI dashboard, which the gtfs-tools daemon serves on its own port; `yarn build:deploy` and `yarn dev` serve the docs next to the app and link to `/docs/`. The CLI dashboard never shows the Docs button. See [configuration](packages/duckdb-client/README.md).
 
 ## Project Structure
 

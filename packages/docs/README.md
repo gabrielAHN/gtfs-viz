@@ -27,4 +27,4 @@ The sidebar nests every page's sections, the function groups and their categorie
 
 ## Deployment
 
-The web service builds the docs and serves them from `dist/docs` (root `railpack.json` and `Caddyfile`), so the app is at `/` and the docs at `/docs/` on the same domain. The app's Docs button opens `/docs/` in a new tab unless `VITE_GTFS_DOCS_URL` points elsewhere; CLI dashboards never show it.
+The web service builds the docs and serves them from `dist/docs` (root `railpack.json` and `Caddyfile`), so the app is at `/` and the docs at `/docs/` on the same domain. `yarn build:deploy` builds the app with `VITE_GTFS_DOCS_URL=/docs/` (unless it is already set), so the app's Docs button opens `/docs/` in a new tab. Other builds, including the CLI dashboard asset, link to the public docs site; CLI dashboards never show the Docs button.

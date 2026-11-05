@@ -7,7 +7,7 @@ All notable changes to GTFS Viz will be documented in this file.
 ### Changed
 - The CLI moves to [gabrielAHN/gtfs-tools](https://github.com/gabrielAHN/gtfs-tools) and is published from there as `@gabrielahn/gtfs-tools` (command `gtfs-tools`). `@gabrielahn/gtfs-viz-cli` (command `gtfs-viz`) still installs the same CLI, on the same `~/.gtfs-viz-cli` data. This repository keeps the web app, the docs and `@gtfs-viz/duckdb-client`, and no longer publishes to npm.
 - The docs gain a GTFS Tools CLI part. The CLI page moves to `/docs/gtfs-tools/cli/` (the old `/docs/gtfs-viz/cli/` still opens it), and `/docs/agents/` describes the `gtfs-tools` agent skill (`npx skills add gabrielAHN/gtfs-tools`).
-- The browser import limit prompt and import errors point to the gtfs-tools CLI for full imports.
+- The browser import limit prompt and import errors point to the gtfs-tools CLI for full imports. The app links to the public docs site, so the CLI page and Docs links also open the docs from the CLI dashboard.
 
 ### Added
 - Each release attaches `gtfs-viz-dashboard.tar.gz` and `gtfs-viz-dashboard.tar.gz.sha256`: the CLI-mode web app as a reproducible gzip ustar archive under `dashboard/`, with `dashboard/dashboard-manifest.json` (`name`, `version`, `commit`, `cliApi: 1`). gtfs-tools bundles a pinned, checksum-verified copy, so its dashboard works offline. `yarn build:dashboard` builds it locally.

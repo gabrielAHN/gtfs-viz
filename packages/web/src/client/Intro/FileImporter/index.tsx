@@ -32,13 +32,11 @@ import setupGTFSData from "@/lib/gtfs-ingestion"
 import { resetProceduresFlag } from "@/lib/duckdb/DataFetching/pathways/fetchStationPathways"
 import { resetStationInfoProceduresFlag } from "@/lib/duckdb/DataFetching/fetchStationInfoData"
 import { postCliStatus, resolveCliLaunchTarget } from "@/lib/cli"
+import { CLI_DOCS_URL } from "@/lib/links"
 
 import ExampleDatasets from "./ExampleDatasets"
 import UploadFile from "./UploadFile"
 
-// Full imports go to the gtfs-tools CLI (gabrielAHN/gtfs-tools); its page stays in these docs.
-const DOCS_URL = import.meta.env.VITE_GTFS_DOCS_URL || "/docs/"
-const CLI_DOCS_URL = `${DOCS_URL.replace(/\/?$/, "/")}gtfs-tools/cli/`
 const CLI_INSTALL_COMMAND = "npm install -g @gabrielahn/gtfs-tools"
 
 type ImportPromptState = {
