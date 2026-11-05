@@ -15,7 +15,7 @@ export const goals = [
   },
   {
     title: "Ready for AI",
-    body: "Every action is also a `gtfs-tools` command with JSON output. The agent skill lets an AI agent audit a feed, turn a service alert into edits and export the result.",
+    body: "Every action is also a GTFS Tools CLI command with JSON output. The agent skill lets an AI agent audit a feed, turn a service alert into edits and export the result.",
   },
   {
     title: "Scalable in the cloud",

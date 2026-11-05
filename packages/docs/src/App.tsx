@@ -522,7 +522,7 @@ function HomePage() {
 
       <section className="space-y-4">
         <h2 className="text-4xl font-bold">Projects</h2>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           {parts.map((part) => (
             <div key={part.id} className="flex flex-col gap-3 rounded-lg border bg-card p-5">
               <div>
