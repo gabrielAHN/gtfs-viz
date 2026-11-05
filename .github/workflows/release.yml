@@ -175,9 +175,12 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Checkout
+      # Build from the tag itself, not the triggering commit, so a concurrent run can never attach a
+      # dashboard built from a different commit than the release it uploads to.
+      - name: Checkout the release tag
         uses: actions/checkout@v4
         with:
+          ref: refs/tags/${{ needs.release.outputs.tag }}
           persist-credentials: false
 
       - name: Setup Node.js
