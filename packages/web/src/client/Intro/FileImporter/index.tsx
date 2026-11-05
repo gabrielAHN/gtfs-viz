@@ -36,7 +36,10 @@ import { postCliStatus, resolveCliLaunchTarget } from "@/lib/cli"
 import ExampleDatasets from "./ExampleDatasets"
 import UploadFile from "./UploadFile"
 
-const CLI_INSTALL_URL = "https://www.npmjs.com/package/@gabrielahn/gtfs-viz-cli"
+// Full imports go to the gtfs-tools CLI (gabrielAHN/gtfs-tools); its page stays in these docs.
+const DOCS_URL = import.meta.env.VITE_GTFS_DOCS_URL || "/docs/"
+const CLI_DOCS_URL = `${DOCS_URL.replace(/\/?$/, "/")}gtfs-tools/cli/`
+const CLI_INSTALL_COMMAND = "npm install -g @gabrielahn/gtfs-tools"
 
 type ImportPromptState = {
   file: File
@@ -695,7 +698,7 @@ export default function FileImporter() {
           logger.error("Failed to prepare reduced import options:", planError)
           setErrorTitle(title)
           setErrorMessage(
-            `${message}\n\nBrowser memory ran out, and GTFS Viz could not prepare reduced options. Use the CLI for the full dataset.`,
+            `${message}\n\nBrowser memory ran out, and GTFS Viz could not prepare reduced options. Use the gtfs-tools CLI (${CLI_INSTALL_COMMAND}) for the full dataset.`,
           )
         }
       }
@@ -801,14 +804,15 @@ export default function FileImporter() {
                         {" "}
                         Use the{" "}
                         <a
-                          href={CLI_INSTALL_URL}
+                          href={CLI_DOCS_URL}
                           target="_blank"
                           rel="noreferrer"
                           className="font-semibold underline"
                         >
-                          CLI install
+                          gtfs-tools CLI
                         </a>{" "}
-                        for the full dataset.
+                        (<code className="font-mono">{CLI_INSTALL_COMMAND}</code>) for the full
+                        dataset.
                       </>
                     )}
                   </p>
@@ -841,13 +845,14 @@ export default function FileImporter() {
                   {importPrompt.reason} Use the recommended file set or choose fewer files. Need
                   everything? Use the{" "}
                   <a
-                    href={CLI_INSTALL_URL}
+                    href={CLI_DOCS_URL}
                     target="_blank"
                     rel="noreferrer"
                     className="font-semibold underline"
                   >
-                    CLI install.
+                    gtfs-tools CLI
                   </a>
+                  : <code className="font-mono">{CLI_INSTALL_COMMAND}</code>.
                 </p>
                 <p className="text-xs text-yellow-700 dark:text-yellow-300">
                   Selected: {promptSelectedFileCount} files.
