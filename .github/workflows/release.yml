@@ -1,28 +1,16 @@
 name: Release
 
-# A merged PR that bumps the root version (or a manual run) tags v<version>, creates the GitHub
-# release and attaches the dashboard asset that gabrielAHN/gtfs-tools pins. Every push to main also
-# refreshes the moving dashboard-latest pre-release (development only, never pinned).
-#
-# Dependencies are installed and the dashboard is built only in contents: read jobs, whose checkout
-# keeps no token (persist-credentials: false). They hand the two asset files to the contents: write
-# jobs as an artifact; those jobs install nothing and only call the GitHub API.
+# A merged PR that bumps the root version (or a manual run) tags v<version> and creates the GitHub
+# release. Releases carry no assets: gabrielAHN/gtfs-tools builds the CLI dashboard from this
+# repository, which it includes as a git submodule. Nothing is installed or published to npm here.
 on:
   pull_request:
     types: [closed]
-    branches: [main]
-  push:
     branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
-
-# dashboard-latest is built and published by two jobs, so push runs queue as a whole and publish in
-# push order. Every other run gets a group of its own; its release job queues on release-main.
-concurrency:
-  group: ${{ github.event_name == 'push' && 'dashboard-latest' || format('release-run-{0}', github.run_id) }}
-  cancel-in-progress: false
 
 jobs:
   version-bump:
@@ -63,10 +51,6 @@ jobs:
     concurrency:
       group: release-main
       cancel-in-progress: false
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      tag: ${{ steps.version.outputs.tag }}
-      skip-dashboard: ${{ steps.assets.outputs.skip }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -145,184 +129,3 @@ jobs:
               make_latest: "true",
             });
             core.info(`Created release ${tag}`);
-
-      - name: Check for dashboard assets
-        id: assets
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.version.outputs.tag }}
-        run: |
-          names=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
-          archive=false
-          checksum=false
-          if grep -qx 'gtfs-viz-dashboard.tar.gz' <<< "$names"; then archive=true; fi
-          if grep -qx 'gtfs-viz-dashboard.tar.gz.sha256' <<< "$names"; then checksum=true; fi
-          if [ "$archive" = true ] && [ "$checksum" = true ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "$TAG already has the dashboard assets — skipping (pinned assets are never replaced)"
-          elif [ "$archive" = true ] || [ "$checksum" = true ]; then
-            echo "::error::$TAG has only one of gtfs-viz-dashboard.tar.gz and its .sha256. Pinned assets are never replaced automatically; delete the stray asset by hand and re-run."
-            exit 1
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-
-  release-dashboard-build:
-    name: Build the release dashboard
-    needs: release
-    if: needs.release.outputs.skip-dashboard != 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      # Build from the tag itself, not the triggering commit, so a concurrent run can never attach a
-      # dashboard built from a different commit than the release it uploads to.
-      - name: Checkout the release tag
-        uses: actions/checkout@v4
-        with:
-          ref: refs/tags/${{ needs.release.outputs.tag }}
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile --ignore-engines
-
-      # CLI mode takes the extension repository from the CLI's /dataset response, so the dashboard
-      # is built without VITE_GTFS_EXTENSION_REPOSITORY (same as yarn build:dashboard).
-      - name: Build the dashboard
-        run: yarn build:duckdb-client && yarn build:lib && yarn build:web
-
-      - name: Package the dashboard
-        env:
-          VERSION: ${{ needs.release.outputs.version }}
-        run: |
-          node scripts/package-dashboard.mjs --dist packages/web/dist --out dist-dashboard \
-            --version "$VERSION" --commit "$(git rev-parse HEAD)"
-          node scripts/verify-dashboard.mjs --dir dist-dashboard \
-            --version "$VERSION" --commit "$(git rev-parse HEAD)"
-          (cd dist-dashboard && sha256sum -c gtfs-viz-dashboard.tar.gz.sha256)
-
-      - name: Hand the assets to the upload job
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-dashboard
-          path: |
-            dist-dashboard/gtfs-viz-dashboard.tar.gz
-            dist-dashboard/gtfs-viz-dashboard.tar.gz.sha256
-          if-no-files-found: error
-          retention-days: 7
-
-  release-dashboard-upload:
-    name: Upload the dashboard to the release
-    needs: [release, release-dashboard-build]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download the assets
-        uses: actions/download-artifact@v4
-        with:
-          name: release-dashboard
-          path: dist-dashboard
-
-      - name: Upload the dashboard to the release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.release.outputs.tag }}
-        run: |
-          (cd dist-dashboard && sha256sum -c gtfs-viz-dashboard.tar.gz.sha256)
-          # Another run may have uploaded the pair while this one was building: skip, as the release
-          # job does. Pinned assets are never replaced (no --clobber).
-          names=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
-          if grep -qx 'gtfs-viz-dashboard.tar.gz' <<< "$names" &&
-            grep -qx 'gtfs-viz-dashboard.tar.gz.sha256' <<< "$names"; then
-            echo "$TAG already has the dashboard assets — skipping (pinned assets are never replaced)"
-            exit 0
-          fi
-          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" \
-            dist-dashboard/gtfs-viz-dashboard.tar.gz \
-            dist-dashboard/gtfs-viz-dashboard.tar.gz.sha256
-
-  dashboard-latest-build:
-    name: Build the dashboard-latest asset
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: yarn
-
-      - run: yarn install --frozen-lockfile --ignore-engines
-
-      - name: Build the dashboard
-        run: yarn build:duckdb-client && yarn build:lib && yarn build:web
-
-      - name: Package the dashboard
-        run: |
-          version=$(node -p "require('./package.json').version")
-          node scripts/package-dashboard.mjs --dist packages/web/dist --out dist-dashboard \
-            --version "$version" --commit "$GITHUB_SHA"
-          node scripts/verify-dashboard.mjs --dir dist-dashboard --version "$version" --commit "$GITHUB_SHA"
-          (cd dist-dashboard && sha256sum -c gtfs-viz-dashboard.tar.gz.sha256)
-
-      - name: Hand the assets to the publish job
-        uses: actions/upload-artifact@v4
-        with:
-          name: dashboard-latest
-          path: |
-            dist-dashboard/gtfs-viz-dashboard.tar.gz
-            dist-dashboard/gtfs-viz-dashboard.tar.gz.sha256
-          if-no-files-found: error
-          retention-days: 7
-
-  dashboard-latest:
-    name: Update the dashboard-latest pre-release
-    needs: dashboard-latest-build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download the assets
-        uses: actions/download-artifact@v4
-        with:
-          name: dashboard-latest
-          path: dist-dashboard
-
-      - name: Publish dashboard-latest
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          (cd dist-dashboard && sha256sum -c gtfs-viz-dashboard.tar.gz.sha256)
-          # Move the dashboard-latest tag to this commit, then replace the assets in place.
-          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/dashboard-latest" > /dev/null 2>&1; then
-            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/dashboard-latest" \
-              -f sha="$GITHUB_SHA" -F force=true > /dev/null
-          else
-            gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref=refs/tags/dashboard-latest -f sha="$GITHUB_SHA" > /dev/null
-          fi
-          title="main (development dashboard build)"
-          notes="Dashboard built from ${GITHUB_SHA} on main. Development only: it moves on every push and is never pinned by gtfs-tools releases."
-          if gh release view dashboard-latest --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            gh release edit dashboard-latest --repo "$GITHUB_REPOSITORY" \
-              --prerelease --latest=false --title "$title" --notes "$notes"
-          else
-            gh release create dashboard-latest --repo "$GITHUB_REPOSITORY" --verify-tag \
-              --prerelease --latest=false --title "$title" --notes "$notes"
-          fi
-          gh release upload dashboard-latest --repo "$GITHUB_REPOSITORY" --clobber \
-            dist-dashboard/gtfs-viz-dashboard.tar.gz \
-            dist-dashboard/gtfs-viz-dashboard.tar.gz.sha256
