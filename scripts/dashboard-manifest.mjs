@@ -9,7 +9,7 @@
 // "commit": <40-hex>, "cliApi": 1}. The commit is GTFS_VIZ_COMMIT when set and non-empty, else
 // `git rev-parse HEAD` in this repository (also inside a submodule checkout).
 import { execFileSync } from "node:child_process"
-import { readFileSync } from "node:fs"
+import { readFileSync, realpathSync } from "node:fs"
 import { stat, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -19,17 +19,31 @@ const MANIFEST_NAME = "dashboard-manifest.json"
 const CLI_API = 1
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 
+const git = (args) =>
+  execFileSync("git", args, {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim()
+
 function commitFromGit() {
+  let top
+  let head
   try {
-    return execFileSync("git", ["rev-parse", "HEAD"], {
-      cwd: repoRoot,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    }).trim()
+    top = git(["rev-parse", "--show-toplevel"])
+    head = git(["rev-parse", "HEAD"])
   } catch (error) {
     const detail = error.stderr?.toString().trim() || error.message
     throw new Error(`cannot read the commit with git rev-parse HEAD in ${repoRoot}: ${detail}`)
   }
+  // A copy of this repository without its own .git inside another repository would otherwise record
+  // that repository's commit.
+  if (realpathSync(top) !== realpathSync(repoRoot)) {
+    throw new Error(
+      `${repoRoot} is not the root of its own git checkout (git found ${top}); set GTFS_VIZ_COMMIT`,
+    )
+  }
+  return head
 }
 
 function resolveCommit() {

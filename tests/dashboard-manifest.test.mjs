@@ -2,7 +2,7 @@
 import assert from "node:assert/strict"
 import { spawnSync } from "node:child_process"
 import { existsSync } from "node:fs"
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises"
+import { copyFile, mkdir, mkdtemp, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import test from "node:test"
@@ -38,4 +38,44 @@ test("--dist is required", () => {
   const result = run([], { GTFS_VIZ_COMMIT: "c".repeat(40) })
   assert.notEqual(result.status, 0)
   assert.match(result.stderr, /--dist <dir>/)
+})
+
+test("a copy without its own .git inside another repository does not record that repository's commit", async () => {
+  const outer = await mkdtemp(path.join(os.tmpdir(), "gtfs-viz-outer-"))
+  const git = (args) => spawnSync("git", args, { cwd: outer, encoding: "utf8" })
+  git(["init", "-q"])
+  git([
+    "-c",
+    "user.name=t",
+    "-c",
+    "user.email=t@localhost",
+    "commit",
+    "-q",
+    "--allow-empty",
+    "-m",
+    "outer",
+  ])
+  const copy = path.join(outer, "vendor", "gtfs-viz")
+  await mkdir(path.join(copy, "scripts"), { recursive: true })
+  await copyFile(script, path.join(copy, "scripts", "dashboard-manifest.mjs"))
+  await writeFile(
+    path.join(copy, "package.json"),
+    JSON.stringify({ name: "gtfs-viz", version: "1.6.0" }),
+  )
+  const dist = await builtDist()
+  const copied = (env) =>
+    spawnSync(
+      process.execPath,
+      [path.join(copy, "scripts", "dashboard-manifest.mjs"), "--dist", dist],
+      {
+        encoding: "utf8",
+        cwd: copy,
+        env: { ...process.env, ...env },
+      },
+    )
+  const refused = copied({ GTFS_VIZ_COMMIT: "" })
+  assert.notEqual(refused.status, 0)
+  assert.match(refused.stderr, /not the root of its own git checkout/)
+  assert.equal(existsSync(path.join(dist, "dashboard-manifest.json")), false)
+  assert.equal(copied({ GTFS_VIZ_COMMIT: "c".repeat(40) }).status, 0, "GTFS_VIZ_COMMIT still works")
 })
