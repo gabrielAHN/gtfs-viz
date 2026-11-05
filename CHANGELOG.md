@@ -13,7 +13,7 @@ All notable changes to GTFS Viz will be documented in this file.
 - `yarn build:dashboard` builds the CLI-mode web app into `packages/web/dist` and writes `dashboard-manifest.json` (`name`, `version`, `commit`, `cliApi: 1`) next to it. gtfs-tools includes gtfs-viz as a git submodule and runs this build, so the dashboard ships in its npm package and works offline.
 
 ### Moved to gtfs-tools
-- The CLI work from PR #24 ships in [gtfs-tools 1.6.0](https://github.com/gabrielAHN/gtfs-tools/releases/tag/v1.6.0) instead: `import` from `http(s)://` URLs and `s3://`, `s3a://`, `s3n://` and `r2://` objects with bucket access through DuckDB secrets, the community repository as the default `gtfs` source, DuckDB run without `AI_AGENT`, and the credential, query-string and terminal-text hardening of displayed sources. See [gabrielAHN/gtfs-tools](https://github.com/gabrielAHN/gtfs-tools).
+- The CLI work from PR #24 ships in [gtfs-tools 1.5.4](https://github.com/gabrielAHN/gtfs-tools/releases/tag/v1.5.4) instead: `import` from `http(s)://` URLs and `s3://`, `s3a://`, `s3n://` and `r2://` objects with bucket access through DuckDB secrets, the community repository as the default `gtfs` source, DuckDB run without `AI_AGENT`, and the credential, query-string and terminal-text hardening of displayed sources. See [gabrielAHN/gtfs-tools](https://github.com/gabrielAHN/gtfs-tools).
 
 ### Build notes
 - The extension integration job in CI runs on the DuckDB v2.0.0 CLI. Its native harness now drives `@gtfs-viz/duckdb-client` with the DuckDB CLI directly.

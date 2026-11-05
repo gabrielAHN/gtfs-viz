@@ -841,7 +841,7 @@ export const releases: Release[] = [
   },
   {
     repo: "gtfs-tools",
-    version: "1.6.0",
+    version: "1.5.4",
     title: "Moved from GTFS Viz",
     date: "2026-11-04",
     status: "Released",
