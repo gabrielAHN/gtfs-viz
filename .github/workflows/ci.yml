@@ -34,7 +34,7 @@ jobs:
       # to build its CLI dashboard: the CLI-mode web app plus packages/web/dist/dashboard-manifest.json.
       - run: yarn build:dashboard
 
-      # Exactly name (the root package name + "-dashboard"), version, the checked-out commit, cliApi 1.
+      # Exactly name (the root package name + "-dashboard"), the checked-out commit and cliApi 1; no version.
       - name: Check the dashboard manifest
         run: |
           node --input-type=module -e '
@@ -46,7 +46,6 @@ jobs:
             console.log(manifest)
             assert.deepEqual(manifest, {
               name: pkg.name + "-dashboard",
-              version: pkg.version,
               commit: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
               cliApi: 1,
             })

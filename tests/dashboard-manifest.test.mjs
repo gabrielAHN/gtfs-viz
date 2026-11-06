@@ -58,10 +58,7 @@ test("a copy without its own .git inside another repository does not record that
   const copy = path.join(outer, "vendor", "gtfs-viz")
   await mkdir(path.join(copy, "scripts"), { recursive: true })
   await copyFile(script, path.join(copy, "scripts", "dashboard-manifest.mjs"))
-  await writeFile(
-    path.join(copy, "package.json"),
-    JSON.stringify({ name: "gtfs-viz", version: "1.6.0" }),
-  )
+  await writeFile(path.join(copy, "package.json"), JSON.stringify({ name: "gtfs-viz" }))
   const dist = await builtDist()
   const copied = (env) =>
     spawnSync(

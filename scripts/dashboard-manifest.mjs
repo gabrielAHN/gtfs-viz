@@ -5,11 +5,11 @@
 //
 //   node scripts/dashboard-manifest.mjs --dist packages/web/dist
 //
-// The manifest is {"name": "gtfs-viz-dashboard", "version": <root package.json version>,
-// "commit": <40-hex>, "cliApi": 1}. The commit is GTFS_VIZ_COMMIT when set and non-empty, else
+// The manifest is {"name": "gtfs-viz-dashboard", "commit": <40-hex>, "cliApi": 1}. gtfs-viz has no
+// versions, so the commit identifies the build: GTFS_VIZ_COMMIT when set and non-empty, else
 // `git rev-parse HEAD` in this repository (also inside a submodule checkout).
 import { execFileSync } from "node:child_process"
-import { readFileSync, realpathSync } from "node:fs"
+import { realpathSync } from "node:fs"
 import { stat, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -70,12 +70,7 @@ async function main() {
     throw new Error(`${index} not found: build the web app first (yarn build:dashboard)`)
   }
 
-  const { version } = JSON.parse(readFileSync(path.join(repoRoot, "package.json"), "utf8"))
-  if (typeof version !== "string" || version === "") {
-    throw new Error(`${path.join(repoRoot, "package.json")} has no version`)
-  }
-
-  const manifest = { name: "gtfs-viz-dashboard", version, commit: resolveCommit(), cliApi: CLI_API }
+  const manifest = { name: "gtfs-viz-dashboard", commit: resolveCommit(), cliApi: CLI_API }
   const target = path.join(dist, MANIFEST_NAME)
   await writeFile(target, `${JSON.stringify(manifest, null, 2)}\n`)
   console.log(`wrote ${target}: ${JSON.stringify(manifest)}`)
