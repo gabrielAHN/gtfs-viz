@@ -27,6 +27,7 @@ import {
   docsBase,
   functionsPath,
   githubRelease,
+  hasReleases,
   groupFile,
   goals,
   intro,
@@ -94,6 +95,7 @@ function resolve(pathname: string): Route {
     return group ? { kind: "group", part, group } : { kind: "missing" }
   }
   if (segments[1] === "releases") {
+    if (!hasReleases(part.id)) return { kind: "missing" }
     if (segments.length === 2) return { kind: "releases", part }
     const release = releasesFor(part.id).find((item) => releaseSlug(item) === segments[2])
     return release && segments.length === 3
@@ -416,7 +418,7 @@ function partNav(part: Part): NavItem[] {
         ? functionGroups.map((group) => ({ to: functionsPath(group.id), label: group.title }))
         : []),
     ]),
-    { to: releasesPath(part.id), label: "Releases" },
+    ...(hasReleases(part.id) ? [{ to: releasesPath(part.id), label: "Releases" }] : []),
   ]
 }
 
@@ -1104,16 +1106,20 @@ function partTree(part: Part): TreeNode[] {
       const to = pagePath(part.id, page.slug)
       return { to, label: page.title, children: pageChildren(to, page) }
     }),
-    {
-      to: releasesPath(part.id),
-      label: "Releases",
-      scroll: true,
-      children: releasesFor(part.id).map((release) => ({
-        to: releasePath(release),
-        label: versionLabel(release),
-        hint: release.title,
-      })),
-    },
+    ...(hasReleases(part.id)
+      ? [
+          {
+            to: releasesPath(part.id),
+            label: "Releases",
+            scroll: true,
+            children: releasesFor(part.id).map((release) => ({
+              to: releasePath(release),
+              label: versionLabel(release),
+              hint: release.title,
+            })),
+          },
+        ]
+      : []),
   ]
 }
 
