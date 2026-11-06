@@ -762,9 +762,7 @@ export type Release = {
   date: string
   status: "Released" | "In review"
   pr?: number
-  // CLI releases made before the CLI moved to gtfs-tools: their pull request is in gabrielAHN/gtfs-viz.
-  // Their GitHub releases are on gtfs-tools, like every other gtfs-tools release.
-  releasedFrom?: "gtfs-viz"
+  // gtfs-tools highlights are labelled with the CHANGELOG category they come from.
   highlights: { area: string; text: string }[]
 }
 
@@ -832,49 +830,48 @@ export const releases: Release[] = [
   {
     repo: "gtfs-tools",
     version: "1.5.5",
-    title: "One npm package",
+    title: "Only gtfs-tools",
     date: "2026-11-05",
     status: "Released",
     pr: 2,
     highlights: [
       {
-        area: "Install",
-        text: "`@gabrielahn/gtfs-tools` is the only package; the compatibility package is removed",
+        area: "Changed",
+        text: "The dashboard manifest no longer needs a `version`; messages show its commit",
       },
-      { area: "npm", text: "The CLI's former npm name is deprecated and points here" },
-      {
-        area: "Dashboard",
-        text: "Accepts dashboard manifests without a version; messages show the commit",
-      },
+      { area: "Removed", text: "Messages, `--version` and `update` only name `gtfs-tools`" },
+      { area: "Removed", text: "The agent skill names only `gtfs-tools`" },
     ],
   },
   {
     repo: "gtfs-tools",
     version: "1.5.4",
-    title: "Moved from GTFS Viz",
+    title: "Remote imports",
     date: "2026-11-05",
     status: "Released",
     pr: 1,
     highlights: [
       {
-        area: "Move",
-        text: "The CLI moves from gabrielAHN/gtfs-viz to `@gabrielahn/gtfs-tools`, command `gtfs-tools`",
-      },
-      {
-        area: "Import",
+        area: "Added",
         text: "`import` takes an `https://` URL or an `s3://` or `r2://` object; buckets use DuckDB secrets",
       },
+      { area: "Changed", text: "The command and the agent skill are `gtfs-tools`" },
       {
-        area: "Extension",
+        area: "Changed",
         text: "Calls GTFS DuckDB instead of bundled SQL, and imports feeds with `gtfs_import`",
       },
+      { area: "Changed", text: "Installs `gtfs` from the DuckDB community repository by default" },
       {
-        area: "Extension",
-        text: "Installs `gtfs` from the DuckDB community repository by default",
+        area: "Changed",
+        text: "The bundled dashboard is built from GTFS Viz as a git submodule; it works offline",
       },
       {
-        area: "Dashboard",
-        text: "Bundles the GTFS Viz dashboard, built from the gtfs-viz submodule; it works offline",
+        area: "Fixed",
+        text: "A dashboard daemon left by an older version is replaced, so the dashboard opens after an upgrade",
+      },
+      {
+        area: "Security",
+        text: "URLs with credentials are refused; sources are shown without query strings",
       },
     ],
   },
@@ -884,12 +881,10 @@ export const releases: Release[] = [
     title: "Route bands",
     date: "2026-09-16",
     status: "Released",
-    pr: 19,
-    releasedFrom: "gtfs-viz",
     highlights: [
-      { area: "CLI", text: "`route-bands` builds parallel route-line bands for the dashboard" },
-      { area: "CLI", text: "Updates keep imported feeds and sessions" },
-      { area: "CLI", text: "Spatial SQL runs in one DuckDB process" },
+      { area: "Added", text: "`route-bands` builds parallel route-line bands for the dashboard" },
+      { area: "Changed", text: "Installs and updates keep imported feeds and sessions" },
+      { area: "Fixed", text: "Spatial SQL runs in one DuckDB process" },
     ],
   },
   {
@@ -898,11 +893,9 @@ export const releases: Release[] = [
     title: "Reroute deep links",
     date: "2026-08-24",
     status: "Released",
-    pr: 18,
-    releasedFrom: "gtfs-viz",
     highlights: [
-      { area: "CLI", text: "`reroute --trip` opens a trip in the reroute form" },
-      { area: "CLI", text: "Applying a reroute returns to the edited trip" },
+      { area: "Added", text: "`reroute --trip` opens a trip in the reroute form" },
+      { area: "Fixed", text: "Applying a reroute returns to the edited trip" },
     ],
   },
   {
@@ -911,12 +904,10 @@ export const releases: Release[] = [
     title: "Trip and calendar editing",
     date: "2026-08-24",
     status: "Released",
-    pr: 17,
-    releasedFrom: "gtfs-viz",
     highlights: [
-      { area: "CLI", text: "Trip, stop-time and calendar edits with batch `apply`" },
-      { area: "CLI", text: "`reroute`, `remove_stops`, `truncate_trip` and `split_trip`" },
-      { area: "CLI", text: "`version`, `update` and `install-skill` for each AI provider" },
+      { area: "Added", text: "Trip, stop-time and calendar edits with batch `apply`" },
+      { area: "Added", text: "`reroute`, `remove_stops`, `truncate_trip` and `split_trip`" },
+      { area: "Added", text: "`version`, `update` and `install-skill` for each AI provider" },
     ],
   },
   {
@@ -925,11 +916,9 @@ export const releases: Release[] = [
     title: "Trips, calendars and shapes",
     date: "2026-07-22",
     status: "Released",
-    pr: 16,
-    releasedFrom: "gtfs-viz",
     highlights: [
-      { area: "CLI", text: "`trips`, `trip`, `calendar` and `shapes` commands" },
-      { area: "CLI", text: "`import` starts a dashboard session" },
+      { area: "Added", text: "`trips`, `trip`, `calendar` and `shapes` commands" },
+      { area: "Changed", text: "`import` starts a dashboard session" },
     ],
   },
   {
@@ -938,25 +927,25 @@ export const releases: Release[] = [
     title: "Routes commands",
     date: "2026-06-15",
     status: "Released",
-    pr: 15,
-    releasedFrom: "gtfs-viz",
     highlights: [
       {
-        area: "CLI",
+        area: "Added",
         text: "`routes` and `route` commands with `--service`, `--trip` and `--compare`",
       },
-      { area: "CLI", text: "Commands open the dashboard by default; `--data` prints a table" },
-      { area: "CLI", text: "Help for each command and view, such as `routes service -h`" },
+      { area: "Added", text: "Help for each command and view, such as `routes service -h`" },
+      { area: "Changed", text: "Commands open the dashboard by default; `--data` prints a table" },
     ],
   },
   {
     repo: "gtfs-tools",
     version: "1.3.2",
-    title: "Bundled extension SQL",
+    title: "DuckDB errors",
     date: "2026-05-04",
     status: "Released",
-    releasedFrom: "gtfs-viz",
-    highlights: [{ area: "CLI", text: "The extension SQL is embedded; nothing else to install" }],
+    highlights: [
+      { area: "Changed", text: "The extension SQL is embedded; nothing else to install" },
+      { area: "Fixed", text: "DuckDB errors printed on stderr are reported as errors" },
+    ],
   },
   {
     repo: "gtfs-tools",
@@ -964,25 +953,29 @@ export const releases: Release[] = [
     title: "GTFS DuckDB extension",
     date: "2026-05-01",
     status: "Released",
-    releasedFrom: "gtfs-viz",
     highlights: [
-      { area: "CLI", text: "Loads the GTFS DuckDB extension package instead of SQL procedures" },
-      { area: "Skills", text: "The skill's reference files move to `references/`" },
+      {
+        area: "Changed",
+        text: "Loads the GTFS DuckDB extension package instead of SQL procedures",
+      },
+      { area: "Changed", text: "The skill's reference files move to `references/`" },
+      {
+        area: "Security",
+        text: "The dashboard's SQL and navigate endpoints require the session ID",
+      },
     ],
   },
   {
     repo: "gtfs-tools",
     version: "1.3.0",
-    title: "First npm release",
+    title: "First release",
     date: "2026-05-01",
     status: "Released",
-    pr: 12,
-    releasedFrom: "gtfs-viz",
     highlights: [
-      { area: "Install", text: "Published to npm under the CLI's former npm name" },
-      { area: "CLI", text: "Pathway and station-part editing, and `export` to GTFS files" },
-      { area: "CLI", text: "Station and stop filters, `examples` and `clean`" },
-      { area: "Skills", text: "Agent skill installed with `install-skill`" },
+      { area: "Added", text: "Imports a GTFS zip into DuckDB and opens a browser dashboard" },
+      { area: "Added", text: "Pathway and station-part editing, and `export` to GTFS files" },
+      { area: "Added", text: "Station and stop filters, `examples` and `clean`" },
+      { area: "Added", text: "Agent skill installed with `install-skill`" },
     ],
   },
 ]
@@ -1032,9 +1025,8 @@ export const releaseFile = (release: Release) =>
 
 export type MovedPage = { from: string; to: string; title: string }
 
-// GTFS Viz release pages that existed before GTFS Viz dropped its versions. Each opens the GTFS
-// Tools CLI release of the same version, which holds the CLI changes it shipped, or else the GTFS
-// Tools CLI release list.
+// GTFS Viz release pages that existed before GTFS Viz dropped its versions. Versions belong to
+// their own repository, so each opens the GTFS Viz page, not a GTFS Tools release.
 const formerVizReleases = [
   "1.6.0",
   "1.5.4",
@@ -1049,20 +1041,17 @@ const formerVizReleases = [
   "1.0.0",
 ]
 
-const formerVizRelease = (version: string): MovedPage => {
-  const release = releasesFor("gtfs-tools").find((item) => item.version === version)
-  return {
-    from: `gtfs-viz/releases/v${version}`,
-    to: release ? releaseFile(release).replace(/\.md$/, "") : "gtfs-tools/releases",
-    title: release ? `GTFS Tools CLI v${version}` : "GTFS Tools CLI releases",
-  }
-}
+const formerVizRelease = (version: string): MovedPage => ({
+  from: `gtfs-viz/releases/v${version}`,
+  to: "gtfs-viz",
+  title: "GTFS Viz",
+})
 
 // Pages that moved. The old URL renders the new page and is replaced in the address bar; the old
 // markdown file points to the new one. `from` and `to` are paths under the docs root.
 export const movedPages: MovedPage[] = [
   { from: "gtfs-viz/cli", to: "gtfs-tools/cli", title: "GTFS Tools CLI: CLI" },
-  { from: "gtfs-viz/releases", to: "gtfs-tools/releases", title: "GTFS Tools CLI releases" },
+  { from: "gtfs-viz/releases", to: "gtfs-viz", title: "GTFS Viz" },
   ...formerVizReleases.map(formerVizRelease),
 ]
 
@@ -1111,17 +1100,9 @@ export const upcoming = {
   ] as UpcomingFeature[],
 }
 
-// The repository a release was made from: gtfs-viz for CLI releases from before the move.
-const releaseRepo = (release: Release) => release.releasedFrom ?? release.repo
-
 export const pullRequest = (release: Release) =>
   release.pr
-    ? {
-        href: `${repoUrl(releaseRepo(release))}/pull/${release.pr}`,
-        label: release.releasedFrom
-          ? `${release.releasedFrom} PR #${release.pr}`
-          : `PR #${release.pr}`,
-      }
+    ? { href: `${repoUrl(release.repo)}/pull/${release.pr}`, label: `PR #${release.pr}` }
     : undefined
 
 export const githubRelease = (release: Release) =>
