@@ -20,7 +20,7 @@ Notable changes to GTFS Viz: the web app, the docs site, `@gtfs-viz/duckdb-clien
 - yarn 1 ignores a workspace without a version, so the web app and the docs are no longer yarn workspaces. Their dependencies move to the root `package.json`, and the root scripts run them. `@gtfs-viz/duckdb-client` and `@gtfs-viz/lib` stay workspaces at version `0.0.0`, which yarn needs to link them.
 - `dashboard-manifest.json` is `{name, commit, cliApi: 1}`: the commit identifies the dashboard build, and there is no `version`. CI checks the new shape.
 - The docs list the gtfs-tools releases under GTFS Tools. GTFS Viz has no releases page.
-- The docs only describe `@gabrielahn/gtfs-tools` and the `gtfs-tools` command.
+- The docs describe gtfs-tools only by its current name.
 
 ## 2026-11-04
 
@@ -31,9 +31,9 @@ Notable changes to GTFS Viz: the web app, the docs site, `@gtfs-viz/duckdb-clien
 ### Changed
 
 - This repository keeps the web app, the docs and `@gtfs-viz/duckdb-client`. [gtfs-tools](https://github.com/gabrielAHN/gtfs-tools) has its own repository and builds its dashboard from this one as a git submodule.
-- The docs gain GTFS Tools pages and the `gtfs-tools` agent skill install (`npx skills add gabrielAHN/gtfs-tools`); older links open the new pages.
+- The docs gain GTFS Tools pages and an agent skill page; older links open the new pages.
 - The browser import limit prompt and import errors point to gtfs-tools for full imports. The app links to the public docs site, so Docs links also work from the gtfs-tools dashboard.
-- The extension integration job in CI runs on DuckDB v2.0.0. Its native harness drives `@gtfs-viz/duckdb-client` with DuckDB directly.
+- The extension integration job in CI runs on the DuckDB v2.0.0 command-line shell, which its native harness drives through `@gtfs-viz/duckdb-client`.
 - CI runs `yarn build:dashboard` on every pull request and checks its manifest.
 
 ## 2026-09-29
@@ -71,7 +71,7 @@ Notable changes to GTFS Viz: the web app, the docs site, `@gtfs-viz/duckdb-clien
 ### Changed
 
 - Corridor processing is faster and uses less peak memory, persisted band data is smaller, route cleanup is deferred from import, and large feeds load with persistent storage and a controlled in-memory fallback.
-- Builds need Node 22.
+- Builds need Node 22, and the native test harnesses need the DuckDB command-line shell with the `spatial` extension.
 
 ## 2026-08-24
 
@@ -171,7 +171,7 @@ Notable changes to GTFS Viz: the web app, the docs site, `@gtfs-viz/duckdb-clien
 
 ### Changed
 
-- The stops view shows only stops and stops of unknown type, excluding stations, platforms and entrances.
+- The stops view shows only stops and stops of unknown type, excluding stations, platforms and entrances, consistently across dropdowns and data views.
 - Form inputs are disabled while a change is saving.
 - Routing uses TanStack Router, the DuckDB hooks move to `src/lib/duckdb`, and the Vite and TypeScript configuration is updated.
 - Comments are removed across the codebase, except IMPORTANT, WARNING and NOTE.

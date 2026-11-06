@@ -48,3 +48,7 @@ test("every CHANGELOG section uses the shared categories, in order, with bullet 
     }
   }
 })
+
+test("the GTFS Viz CHANGELOG describes the web app and docs, with no CLI or npm wording", () => {
+  assert.doesNotMatch(changelog, /\bCLI\b|\bnpm\b|gtfs-viz-cli/i)
+})
