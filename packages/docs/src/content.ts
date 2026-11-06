@@ -836,7 +836,8 @@ export const releases: Release[] = [
     version: "1.5.5",
     title: "One npm package",
     date: "2026-11-05",
-    status: "In review",
+    status: "Released",
+    pr: 2,
     highlights: [
       {
         area: "Install",
