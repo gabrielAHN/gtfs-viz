@@ -43,13 +43,13 @@ gtfs-tools stations --name "Park"
 
 ### CLI dashboard
 
-gtfs-tools includes this repository as a git submodule and builds its dashboard from it, so the dashboard ships in the gtfs-tools npm package and works offline. GTFS Viz releases only tag and create the GitHub release. The build gtfs-tools runs is:
+gtfs-tools includes this repository as a git submodule and builds its dashboard from it, so the dashboard ships in the gtfs-tools npm package and works offline. The build gtfs-tools runs is:
 
 ```bash
 yarn build:dashboard     # CLI-mode web app in packages/web/dist, with dashboard-manifest.json
 ```
 
-[scripts/dashboard-manifest.mjs](scripts/dashboard-manifest.mjs) writes `dashboard-manifest.json` (`name`, `version`, `commit`, `cliApi: 1`); the commit is `GTFS_VIZ_COMMIT` or `git rev-parse HEAD`.
+[scripts/dashboard-manifest.mjs](scripts/dashboard-manifest.mjs) writes `dashboard-manifest.json` (`name`, `commit`, `cliApi: 1`); the commit is `GTFS_VIZ_COMMIT` or `git rev-parse HEAD`.
 
 ### DuckDB Extension
 
@@ -80,6 +80,8 @@ yarn build:dashboard       # CLI-mode web build + dashboard-manifest.json (what 
 yarn run check             # Check all packages
 yarn test                  # Consumer, rendering, and source/bundle boundary regressions
 ```
+
+GTFS Viz has no versions and makes no releases: `main` deploys, and [CHANGELOG.md](CHANGELOG.md) is dated. The web app and the docs are apps of the root package, which holds their dependencies; run them through the root scripts above. Only `@gtfs-viz/duckdb-client` and `@gtfs-viz/lib` are yarn workspaces, at version `0.0.0` because yarn 1 ignores a workspace without one.
 
 ## Deploy
 

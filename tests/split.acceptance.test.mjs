@@ -43,10 +43,8 @@ test("dashboard-manifest writes the CLI-mode manifest into a built dist", async 
     env: { ...process.env, GTFS_VIZ_COMMIT: commit },
   })
   assert.equal(result.status, 0, result.stderr)
-  const version = JSON.parse(read("package.json")).version
   assert.deepEqual(JSON.parse(await readFile(path.join(dist, "dashboard-manifest.json"), "utf8")), {
     name: "gtfs-viz-dashboard",
-    version,
     commit,
     cliApi: 1,
   })
@@ -80,18 +78,38 @@ test("build:dashboard builds the CLI-mode web app and writes its manifest", () =
   assert.doesNotMatch(script, /package-dashboard|dist-dashboard/)
 })
 
-test("releases only tag and create the GitHub release: no dashboard asset, no npm", () => {
-  for (const gone of ["scripts/package-dashboard.mjs", "scripts/verify-dashboard.mjs", "tests/package-dashboard.test.mjs"]) {
+// gtfs-viz is the web app, the docs and duckdb-client. It is deployed from main and has no versions: no release
+// workflow, no tags created, no version fields or version headings. The CLI and its history live in gtfs-tools.
+test("gtfs-viz has no versions and no release workflow", () => {
+  for (const gone of [".github/workflows/release.yml", "scripts/version.sh", "scripts/package-dashboard.mjs", "scripts/verify-dashboard.mjs"]) {
     assert.equal(existsSync(path.join(root, gone)), false, gone)
   }
-  const release = read(".github/workflows/release.yml")
-  assert.doesNotMatch(release, /gtfs-viz-dashboard|dashboard-latest|package-dashboard|npm publish|upload-artifact/)
-  assert.match(release, /refs\/tags\/|createRef|git tag/)
-  assert.match(release, /createRelease|gh release create/)
+  const pkg = JSON.parse(read("package.json"))
+  assert.equal(pkg.version, undefined, "root package.json has no version")
+  for (const name of Object.keys(pkg.scripts)) assert.doesNotMatch(name, /^(version|release)(:|$)/, name)
+  for (const app of ["packages/web/package.json", "packages/docs/package.json"]) {
+    assert.equal(JSON.parse(read(app)).version, undefined, `${app} has no version`)
+  }
+  const changelog = read("CHANGELOG.md")
+  assert.doesNotMatch(changelog, /^## \[?v?\d+\.\d+\.\d+/m, "CHANGELOG sections are dated, not versioned")
+  const docs = read("packages/docs/src/content.ts")
+  assert.doesNotMatch(docs, /repo: "gtfs-viz"/, "the docs release list has no gtfs-viz versions")
   const ci = read(".github/workflows/ci.yml")
   assert.doesNotMatch(ci, /--cli-e2e|packages\/cli|package-dashboard|gtfs-viz-dashboard/)
   assert.match(ci, /build:dashboard/)
   assert.match(ci, /dashboard-manifest\.json/)
+})
+
+test("the retired npm package and the CLI's history are gone from gtfs-viz", () => {
+  const mentions = spawnSync(
+    "git",
+    ["grep", "-n", "-i", "gabrielahn/gtfs-viz-cli", "--", ":!tests/split.acceptance.test.mjs"],
+    { cwd: root, encoding: "utf8" },
+  ).stdout
+  assert.equal(mentions, "", "no mention of @gabrielahn/gtfs-viz-cli")
+  const changelog = read("CHANGELOG.md")
+  assert.doesNotMatch(changelog, /packages\/cli|npm (publish|install)|`gtfs-viz (import|update|install-skill)/, "CLI history lives in gtfs-tools")
+  assert.match(changelog, /github\.com\/gabrielAHN\/gtfs-tools/)
 })
 
 test("docs and the web app point CLI users to gtfs-tools", () => {
@@ -99,16 +117,12 @@ test("docs and the web app point CLI users to gtfs-tools", () => {
   assert.match(docs, /@gabrielahn\/gtfs-tools/)
   assert.match(docs, /https:\/\/github\.com\/gabrielAHN\/gtfs-tools/)
   assert.match(docs, /~\/\.claude\/skills\/gtfs-tools/)
-  assert.match(docs, /@gabrielahn\/gtfs-viz-cli/, "docs say the old package still works")
+  assert.match(docs, /repo: "gtfs-tools",\s*version: "1\.3\.0"/, "the CLI's releases are listed under gtfs-tools")
   assert.doesNotMatch(docs, /packages\/cli/)
-  assert.doesNotMatch(docs, /gtfs-viz-dashboard\.tar\.gz|dashboard-latest|release asset/i, "no dashboard release asset anymore")
+  assert.doesNotMatch(docs, /gtfs-viz-dashboard\.tar\.gz|dashboard-latest|release asset/i)
   assert.match(docs, /submodule/i, "docs say gtfs-tools builds the dashboard from gtfs-viz as a submodule")
-  for (const doc of ["README.md", "CHANGELOG.md"]) {
-    const top = read(doc).split(/\n## \[1\.5/)[0]
-    assert.doesNotMatch(top, /gtfs-viz-dashboard\.tar\.gz|dashboard-latest/, doc)
-  }
   assert.match(read("packages/web/src/client/Intro/FileImporter/index.tsx"), /gtfs-tools/)
   const readme = read("README.md")
   assert.match(readme, /github\.com\/gabrielAHN\/gtfs-tools/)
-  assert.doesNotMatch(readme, /packages\/cli/)
+  assert.doesNotMatch(readme, /packages\/cli|gtfs-viz-dashboard\.tar\.gz|dashboard-latest/)
 })

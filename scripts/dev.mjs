@@ -4,8 +4,8 @@ import { spawn } from "node:child_process"
 const webEnv = { ...process.env, VITE_GTFS_DOCS_URL: process.env.VITE_GTFS_DOCS_URL || "/docs/" }
 
 const children = [
-  spawn("yarn", ["workspace", "@gtfs-viz/docs", "run", "dev"], { stdio: "inherit" }),
-  spawn("yarn", ["workspace", "@gtfs-viz/web", "run", "dev"], { stdio: "inherit", env: webEnv }),
+  spawn("yarn", ["--cwd", "packages/docs", "run", "dev"], { stdio: "inherit" }),
+  spawn("yarn", ["--cwd", "packages/web", "run", "dev"], { stdio: "inherit", env: webEnv }),
 ]
 
 const stop = (code) => {

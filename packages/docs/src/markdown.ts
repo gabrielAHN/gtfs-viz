@@ -9,6 +9,7 @@ import {
   functionsPath,
   githubRelease,
   groupFile,
+  hasReleases,
   goals,
   intro,
   movedPages,
@@ -25,7 +26,7 @@ import {
   repos,
   versionLabel,
 } from "./content"
-import type { Block, DocPage, Part, Release, Section } from "./content"
+import type { Block, DocPage, MovedPage, Part, Release, Section } from "./content"
 import { functionGroups, functions, internalCount } from "./functions"
 import type { FunctionGroup, GtfsFunction } from "./functions"
 
@@ -183,15 +184,13 @@ export function upcomingMarkdown() {
   ].join("\n")
 }
 
-export function movedMarkdown(moved: (typeof movedPages)[number]) {
-  const part = parts.find((item) => item.id === moved.part)!
-  const page = part.pages.find((item) => item.slug === moved.slug)!
+export function movedMarkdown(moved: MovedPage) {
   return [
-    `# ${part.name}: ${page.title} (moved)`,
+    `# ${moved.title} (moved)`,
     "",
-    `This page moved from ${docsBase}${moved.from}/ to ${pagePath(moved.part, moved.slug)}.`,
+    `This page moved from ${docsBase}${moved.from}/ to ${docsBase}${moved.to}/.`,
     "",
-    `- Markdown: ${docsBase}${pageFile(moved.part, moved.slug)}`,
+    `- Markdown: ${docsBase}${moved.to}.md`,
     "",
   ].join("\n")
 }
@@ -241,7 +240,9 @@ const pageLinks = (part: Part) => [
         )
       : []),
   ]),
-  `- [Releases](${docsBase}${part.id}/releases.md): every release, each with its own file`,
+  ...(hasReleases(part.id)
+    ? [`- [Releases](${docsBase}${part.id}/releases.md): every release, each with its own file`]
+    : []),
 ]
 
 export function partMarkdown(part: Part) {
@@ -352,7 +353,11 @@ export function markdownFiles(): Record<string, string> {
     ...Object.fromEntries(
       functionGroups.map((group) => [groupFile(group.id), groupMarkdown(group)]),
     ),
-    ...Object.fromEntries(parts.map((part) => [`${part.id}/releases.md`, releasesMarkdown(part)])),
+    ...Object.fromEntries(
+      parts
+        .filter((part) => hasReleases(part.id))
+        .map((part) => [`${part.id}/releases.md`, releasesMarkdown(part)]),
+    ),
     ...Object.fromEntries(movedPages.map((moved) => [`${moved.from}.md`, movedMarkdown(moved)])),
     ...Object.fromEntries(
       parts.flatMap((part) =>
