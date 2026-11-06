@@ -762,11 +762,9 @@ export type Release = {
   date: string
   status: "Released" | "In review"
   pr?: number
-  // CLI releases made before the CLI moved to gtfs-tools: their pull request and GitHub release
-  // are in gabrielAHN/gtfs-viz.
+  // CLI releases made before the CLI moved to gtfs-tools: their pull request is in gabrielAHN/gtfs-viz.
+  // Their GitHub releases are on gtfs-tools, like every other gtfs-tools release.
   releasedFrom?: "gtfs-viz"
-  // false for a version that only went to npm, with no GitHub release.
-  tagged?: boolean
   highlights: { area: string; text: string }[]
 }
 
@@ -958,7 +956,6 @@ export const releases: Release[] = [
     date: "2026-05-04",
     status: "Released",
     releasedFrom: "gtfs-viz",
-    tagged: false,
     highlights: [{ area: "CLI", text: "The extension SQL is embedded; nothing else to install" }],
   },
   {
@@ -968,7 +965,6 @@ export const releases: Release[] = [
     date: "2026-05-01",
     status: "Released",
     releasedFrom: "gtfs-viz",
-    tagged: false,
     highlights: [
       { area: "CLI", text: "Loads the GTFS DuckDB extension package instead of SQL procedures" },
       { area: "Skills", text: "The skill's reference files move to `references/`" },
@@ -1129,6 +1125,6 @@ export const pullRequest = (release: Release) =>
     : undefined
 
 export const githubRelease = (release: Release) =>
-  release.status === "Released" && release.tagged !== false
-    ? `${repoUrl(releaseRepo(release))}/releases/tag/v${release.version}`
+  release.status === "Released"
+    ? `${repoUrl(release.repo)}/releases/tag/v${release.version}`
     : undefined
