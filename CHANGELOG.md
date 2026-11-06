@@ -2,7 +2,7 @@
 
 Notable changes to GTFS Viz: the web app, the docs site, `@gtfs-viz/duckdb-client` and `@gtfs-viz/lib`. GTFS Viz has no versions; it deploys from `main`, so each section is the date a change landed. Each section lists its changes under Added, Changed, Removed, Fixed and Security.
 
-The CLI is [GTFS Tools](https://github.com/gabrielAHN/gtfs-tools), which has its own changelog.
+[GTFS Tools](https://github.com/gabrielAHN/gtfs-tools) has its own changelog.
 
 ## 2026-11-06
 
@@ -19,21 +19,21 @@ The CLI is [GTFS Tools](https://github.com/gabrielAHN/gtfs-tools), which has its
 - GTFS Viz has no versions: no `version` in the root, web or docs `package.json`, no release workflow and no tags. It deploys from `main`, and this changelog is dated.
 - yarn 1 ignores a workspace without a version, so the web app and the docs are no longer yarn workspaces. Their dependencies move to the root `package.json`, and the root scripts run them. `@gtfs-viz/duckdb-client` and `@gtfs-viz/lib` stay workspaces at version `0.0.0`, which yarn needs to link them.
 - `dashboard-manifest.json` is `{name, commit, cliApi: 1}`: the commit identifies the dashboard build, and there is no `version`. CI checks the new shape.
-- The docs list the CLI's releases under GTFS Tools CLI. GTFS Viz has no releases page.
+- The docs list the gtfs-tools releases under GTFS Tools. GTFS Viz has no releases page.
 - The docs only describe `@gabrielahn/gtfs-tools` and the `gtfs-tools` command.
 
 ## 2026-11-04
 
 ### Added
 
-- `yarn build:dashboard` builds the CLI-mode web app into `packages/web/dist` and writes `dashboard-manifest.json` next to it. gtfs-tools runs this build in its submodule, so the dashboard ships with the CLI and works offline.
+- `yarn build:dashboard` builds the web app as the gtfs-tools dashboard into `packages/web/dist` and writes `dashboard-manifest.json` next to it. gtfs-tools runs this build in its submodule, so its dashboard works offline.
 
 ### Changed
 
-- The CLI moves to [gabrielAHN/gtfs-tools](https://github.com/gabrielAHN/gtfs-tools), which builds its dashboard from this repository as a git submodule. This repository keeps the web app, the docs and `@gtfs-viz/duckdb-client`.
-- The docs gain a GTFS Tools CLI part. The CLI page moves to `/docs/gtfs-tools/cli/` (the old `/docs/gtfs-viz/cli/` still opens it), and `/docs/agents/` describes the `gtfs-tools` agent skill (`npx skills add gabrielAHN/gtfs-tools`).
-- The browser import limit prompt and import errors point to the gtfs-tools CLI for full imports. The app links to the public docs site, so the CLI page and Docs links also open the docs from the CLI dashboard.
-- The extension integration job in CI runs on the DuckDB v2.0.0 CLI. Its native harness drives `@gtfs-viz/duckdb-client` with the DuckDB CLI directly.
+- This repository keeps the web app, the docs and `@gtfs-viz/duckdb-client`. [gtfs-tools](https://github.com/gabrielAHN/gtfs-tools) has its own repository and builds its dashboard from this one as a git submodule.
+- The docs gain GTFS Tools pages and the `gtfs-tools` agent skill install (`npx skills add gabrielAHN/gtfs-tools`); older links open the new pages.
+- The browser import limit prompt and import errors point to gtfs-tools for full imports. The app links to the public docs site, so Docs links also work from the gtfs-tools dashboard.
+- The extension integration job in CI runs on DuckDB v2.0.0. Its native harness drives `@gtfs-viz/duckdb-client` with DuckDB directly.
 - CI runs `yarn build:dashboard` on every pull request and checks its manifest.
 
 ## 2026-09-29
