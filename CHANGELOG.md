@@ -63,7 +63,7 @@ Pull request: [#20](https://github.com/gabrielAHN/gtfs-viz/pull/20)
 - `yarn preview:deploy` runs the deploy build locally.
 - GitHub Actions build, check and test every change and run the integration suite against the latest GTFS DuckDB build.
 
-## 2026-09-15
+## 2026-09-16
 
 Pull request: [#19](https://github.com/gabrielAHN/gtfs-viz/pull/19)
 
