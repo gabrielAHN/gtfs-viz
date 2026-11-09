@@ -1,8 +1,16 @@
 # Changelog
 
-Notable changes to GTFS Viz: the web app, the docs site, `@gtfs-viz/duckdb-client` and `@gtfs-viz/lib`. GTFS Viz has no versions; it deploys from `main`, so each section is the date a change landed.
+Notable changes to GTFS Viz: the web app, the docs site, `@gtfs-viz/duckdb-client` and `@gtfs-viz/lib`. GTFS Viz has no versions; it deploys from `main`, so each section is the date a change landed. Each section lists its changes under Added, Changed, Removed, Fixed and Security.
 
-The CLI lives in [gabrielAHN/gtfs-tools](https://github.com/gabrielAHN/gtfs-tools), and its whole history, including the releases made from this repository, is in the [gtfs-tools CHANGELOG](https://github.com/gabrielAHN/gtfs-tools/blob/main/CHANGELOG.md).
+[GTFS Tools](https://github.com/gabrielAHN/gtfs-tools) has its own changelog.
+
+## 2026-11-06
+
+### Changed
+
+- The docs' GTFS Tools releases link only to gtfs-tools pull requests and releases, and their highlights are labelled with the gtfs-tools CHANGELOG categories.
+- Old GTFS Viz release pages (`/docs/gtfs-viz/releases/…`) open the GTFS Viz page.
+- Every section of this changelog uses the same categories.
 
 ## 2026-11-05
 
@@ -11,101 +19,69 @@ The CLI lives in [gabrielAHN/gtfs-tools](https://github.com/gabrielAHN/gtfs-tool
 - GTFS Viz has no versions: no `version` in the root, web or docs `package.json`, no release workflow and no tags. It deploys from `main`, and this changelog is dated.
 - yarn 1 ignores a workspace without a version, so the web app and the docs are no longer yarn workspaces. Their dependencies move to the root `package.json`, and the root scripts run them. `@gtfs-viz/duckdb-client` and `@gtfs-viz/lib` stay workspaces at version `0.0.0`, which yarn needs to link them.
 - `dashboard-manifest.json` is `{name, commit, cliApi: 1}`: the commit identifies the dashboard build, and there is no `version`. CI checks the new shape.
-- The docs list the CLI's releases under GTFS Tools CLI, from its first npm release on. Those made from this repository link to their pull requests and GitHub releases here. GTFS Viz has no releases page; `/docs/gtfs-viz/releases/` and its old release pages open the GTFS Tools CLI releases.
-- The docs only describe `@gabrielahn/gtfs-tools` and the `gtfs-tools` command.
+- The docs list the gtfs-tools releases under GTFS Tools. GTFS Viz has no releases page.
+- The docs describe gtfs-tools only by its current name.
 
 ## 2026-11-04
 
-Pull request: [#25](https://github.com/gabrielAHN/gtfs-viz/pull/25)
+### Added
+
+- `yarn build:dashboard` builds the web app as the gtfs-tools dashboard into `packages/web/dist` and writes `dashboard-manifest.json` next to it. gtfs-tools runs this build in its submodule, so its dashboard works offline.
 
 ### Changed
 
-- The CLI moves to [gabrielAHN/gtfs-tools](https://github.com/gabrielAHN/gtfs-tools), which builds its dashboard from this repository as a git submodule. This repository keeps the web app, the docs and `@gtfs-viz/duckdb-client`.
-- The docs gain a GTFS Tools CLI part. The CLI page moves to `/docs/gtfs-tools/cli/` (the old `/docs/gtfs-viz/cli/` still opens it), and `/docs/agents/` describes the `gtfs-tools` agent skill (`npx skills add gabrielAHN/gtfs-tools`).
-- The browser import limit prompt and import errors point to the gtfs-tools CLI for full imports. The app links to the public docs site, so the CLI page and Docs links also open the docs from the CLI dashboard.
-
-### Added
-
-- `yarn build:dashboard` builds the CLI-mode web app into `packages/web/dist` and writes `dashboard-manifest.json` next to it. gtfs-tools runs this build in its submodule, so the dashboard ships with the CLI and works offline.
-
-### Build notes
-
-- The extension integration job in CI runs on the DuckDB v2.0.0 CLI. Its native harness drives `@gtfs-viz/duckdb-client` with the DuckDB CLI directly.
+- This repository keeps the web app, the docs and `@gtfs-viz/duckdb-client`. [gtfs-tools](https://github.com/gabrielAHN/gtfs-tools) has its own repository and builds its dashboard from this one as a git submodule.
+- The docs gain GTFS Tools pages and an agent skill page; older links open the new pages.
+- The browser import limit prompt and import errors point to gtfs-tools for full imports. The app links to the public docs site, so Docs links also work from the gtfs-tools dashboard.
+- The extension integration job in CI runs on the DuckDB v2.0.0 command-line shell, which its native harness drives through `@gtfs-viz/duckdb-client`.
 - CI runs `yarn build:dashboard` on every pull request and checks its manifest.
 
 ## 2026-09-29
-
-Pull request: [#20](https://github.com/gabrielAHN/gtfs-viz/pull/20)
-
-### Changed
-
-- Load the separate [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) extension instead of bundling the SQL toolbox; `@gtfs-viz/duckdb-client` installs and loads it, and rendering lives in `@gtfs-viz/lib`.
-- Import feeds in the web app with the extension's `gtfs_import` pragma.
-- Serve the app, the docs at `/docs/` and the GTFS DuckDB browser build at `/extensions/` from one deployment.
-- An unconfigured extension repository shows an actionable error, with no silent fallback.
 
 ### Added
 
 - GTFS Tools docs with project pages, the function reference, agent skill categories, releases and upcoming features, each page also as markdown.
 - A Docs button in the header, intro and footer.
-- Share the light or dark theme between the app and the docs.
-
-### Fixed
-
-- Reopen a browser session by loading the extension instead of rebuilding the dataset.
-- Opening the stations table before selecting a row no longer crashes.
-- The import page is centered on small screens.
-
-### Build notes
-
-- Use Node 22.
-- `yarn install --frozen-lockfile --ignore-engines`, then `yarn build`, `yarn test` and `yarn run check`.
+- The light or dark theme is shared between the app and the docs.
 - `yarn preview:deploy` runs the deploy build locally.
-- GitHub Actions build, check and test every change and run the integration suite against the latest GTFS DuckDB build.
-
-## 2026-09-16
-
-Pull request: [#19](https://github.com/gabrielAHN/gtfs-viz/pull/19)
-
-### Added
-
-- Render overlapping routes as parallel bands, with stable lane assignment through shared corridors, and a **Separate Route(s)** map toggle.
-- Render compared trips in lanes using their GTFS shape geometry, with a stop-to-stop fallback.
-- Build route bands on demand with the DuckDB corridor macros.
-- Ship the reusable deck.gl route-shape layer from `@gtfs-viz/lib/deckgl`.
 
 ### Changed
 
-- Reduce corridor-processing time and peak memory, shrink persisted band data, defer route cleanup from import, and improve large-feed loading with persistent storage and controlled in-memory fallback.
+- The app loads the separate [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) extension instead of bundling the SQL toolbox; `@gtfs-viz/duckdb-client` installs and loads it, and rendering lives in `@gtfs-viz/lib`.
+- The web app imports feeds with the extension's `gtfs_import` pragma.
+- One deployment serves the app, the docs at `/docs/` and the GTFS DuckDB browser build at `/extensions/`.
+- An unconfigured extension repository shows an actionable error, with no silent fallback.
+- GitHub Actions build, check and test every change and run the integration suite against the latest GTFS DuckDB build.
 
-### Build notes
+### Fixed
 
-- Use Node 22.
-- Install dependencies with `yarn install --frozen-lockfile --ignore-engines`.
-- Build all packages with `yarn build`.
-- Run package checks with `yarn run check`.
-- Corridor and DuckDB profile tests live in the [GTFS DuckDB](https://github.com/gabrielAHN/gtfs-duckdb) repository.
-- Run all route renderer and native bridge tests:
+- Reopening a browser session loads the extension instead of rebuilding the dataset.
+- Opening the stations table before selecting a row no longer crashes.
+- The import page is centered on small screens.
 
-  ```sh
-  node --test \
-    packages/web/tests/route-fan.test.mjs \
-    packages/web/tests/route-render.test.mjs \
-    packages/web/tests/native-route-bands.test.mjs
-  ```
+## 2026-09-16
 
-- Native test harnesses require the DuckDB CLI with the spatial extension installed.
+### Added
+
+- Overlapping routes render as parallel bands, with stable lane assignment through shared corridors, and a **Separate Route(s)** map toggle.
+- Compared trips render in lanes using their GTFS shape geometry, with a stop-to-stop fallback.
+- Route bands are built on demand with the DuckDB corridor macros.
+- The reusable deck.gl route-shape layer ships from `@gtfs-viz/lib/deckgl`.
+
+### Changed
+
+- Corridor processing is faster and uses less peak memory, persisted band data is smaller, route cleanup is deferred from import, and large feeds load with persistent storage and a controlled in-memory fallback.
+- Builds need Node 22, and the native test harnesses need the DuckDB command-line shell with the `spatial` extension.
 
 ## 2026-08-24
-
-Pull requests: [#17](https://github.com/gabrielAHN/gtfs-viz/pull/17), [#18](https://github.com/gabrielAHN/gtfs-viz/pull/18)
 
 ### Added
 
 - Trip rerouting: replace a section of a trip with another route's stop pattern between shared boundary stations, with replacement times fitted to the trip.
 - Timetable and map previews that highlight possible and completed reroutes.
 - Edits & Export review of reroutes, skipped stops, schedule changes, service changes and combined edits, in table and map comparison views, with per-category revert.
-- Table pagination, the selected trip and the reroute form state are kept in the URL.
+- Table pagination is kept in the URL.
+- The selected trip and the reroute form state are kept in the URL.
 
 ### Changed
 
@@ -114,8 +90,6 @@ Pull requests: [#17](https://github.com/gabrielAHN/gtfs-viz/pull/17), [#18](http
 - Applying a reroute uses the shared form-processing overlay and returns to the edited trip.
 
 ## 2026-07-22
-
-Pull request: [#16](https://github.com/gabrielAHN/gtfs-viz/pull/16)
 
 ### Added
 
@@ -131,8 +105,6 @@ Pull request: [#16](https://github.com/gabrielAHN/gtfs-viz/pull/16)
 
 ## 2026-06-15
 
-Pull request: [#15](https://github.com/gabrielAHN/gtfs-viz/pull/15)
-
 ### Added
 
 - Route map and table with type and name filters, and editing from popups.
@@ -147,8 +119,6 @@ Pull request: [#15](https://github.com/gabrielAHN/gtfs-viz/pull/15)
 - Large feeds load one shape per route, downsampled, and route shapes load per selected route.
 
 ## 2026-05-01
-
-Pull request: [#12](https://github.com/gabrielAHN/gtfs-viz/pull/12)
 
 ### Added
 
@@ -168,8 +138,6 @@ Pull request: [#12](https://github.com/gabrielAHN/gtfs-viz/pull/12)
 
 ## 2026-04-03
 
-Pull request: [#8](https://github.com/gabrielAHN/gtfs-viz/pull/8)
-
 ### Added
 
 - Pathways Flow with nested Column and Radial views.
@@ -186,8 +154,6 @@ Pull request: [#8](https://github.com/gabrielAHN/gtfs-viz/pull/8)
 
 ## 2026-02-19
 
-Pull request: [#7](https://github.com/gabrielAHN/gtfs-viz/pull/7)
-
 ### Added
 
 - Station and stop maps on DuckDB-WASM, pathway visualization and station editing.
@@ -199,99 +165,45 @@ Pull request: [#7](https://github.com/gabrielAHN/gtfs-viz/pull/7)
 ## 2024-02-16
 
 ### Added
-- **Station/Stop Type Management**
-  - Upgrade stops to stations with type validation
-  - Downgrade stations to stops with automatic child handling
-  - Coordinate validation (lat/lon required for all operations)
-  - Parent-child management (automatically detach children during downgrade)
-  - Auto-navigation after upgrade/downgrade operations
 
-- **Enhanced Export System**
-  - Visual change indicators (🆕 New, 🗑️ Deleted, 🔻 Downgraded, 🔗 Detached)
-  - Inline original value comparison when clicking rows
-  - Detect station downgrades with affected parts count
-  - Show detached parts when parent station is downgraded
-  - Parent station column added to export table
-  - Navigate from export to source item in map/table view
-  - Highlight changed fields in yellow for easy comparison
-
-- **Stops Route Filtering**
-  - Filter stops route to only show "Stop" and "Unknown/Null" types
-  - Exclude stations, platforms, and entrances from stops view
-  - Consistent filtering across all dropdowns and data views
-
-- **Form UX Improvements**
-  - Disable all form inputs during async operations
-  - Visual feedback during mutations
-  - Prevent user input conflicts during data modifications
-
-### Fixed
-- **GTFS Import Errors**
-  - Handle CSV files missing optional columns (parent_station, location_type, wheelchair_boarding)
-  - Add ALTER TABLE statements to create missing columns with defaults
-  - Restructure SQL with CTE pattern to avoid column reference errors
-  - Validate CSV structure before import
-
-- **Data Integrity**
-  - NOT NULL constraint errors by validating coordinates before operations
-  - Parent station handling during downgrades (set to null)
-  - Proper status tracking for all edit operations
+- Upgrade stops to stations and downgrade stations to stops, with type and coordinate validation, automatic detaching of child stops and navigation to the result.
+- Export change indicators (new, deleted, downgraded, detached), inline comparison with original values, highlighted changed fields, a parent station column and links back to the edited item.
 
 ### Changed
-- **Code Quality**
-  - Removed comments from 184 files across codebase
-  - Self-documenting code with clear naming
-  - Kept only essential keywords (IMPORTANT, WARNING, NOTE) in lib/extensions
 
-- **Infrastructure**
-  - Migrated to TanStack Router for type-safe routing
-  - Reorganized hooks from src/hooks/DuckdbCalls to src/lib/duckdb
-  - Updated build configuration (Vite, TypeScript)
-  - Simplified Railway deployment (consolidated into railpack.json)
-  - Added health check endpoint (/health) with 100s timeout
-  - Added restart policy (ON_FAILURE, max 3 retries)
+- The stops view shows only stops and stops of unknown type, excluding stations, platforms and entrances, consistently across dropdowns and data views.
+- Form inputs are disabled while a change is saving.
+- Routing uses TanStack Router, the DuckDB hooks move to `src/lib/duckdb`, and the Vite and TypeScript configuration is updated.
+- Comments are removed across the codebase, except IMPORTANT, WARNING and NOTE.
+- The README describes the project, features and tech stack, and a short DEPLOYMENT.md explains the deploy.
+- Railway deploys from one `railpack.json`, with a `/health` check (100 s timeout), restart on failure (up to 3 retries), long-term asset caching, security headers and gzip.
 
-- **Documentation**
-  - Updated README with project description and features
-  - Added tech stack documentation
-  - Created streamlined DEPLOYMENT.md (65 lines)
-  - Added deployment workflow explanation
+### Fixed
 
-### Deployment
-- Railway deployment simplified with single railpack.json configuration
-- Health checks enabled for monitoring
-- Asset optimization with long-term caching
-- Security headers configured (XSS, clickjacking protection)
-- Gzip compression enabled
+- GTFS imports handle CSV files missing optional columns (`parent_station`, `location_type`, `wheelchair_boarding`) and validate the CSV structure first.
+- Edits validate coordinates first, so they no longer fail on NOT NULL constraints; a downgrade clears its children's parent station, and every edit records its status.
 
 ## 2024-01-15
 
 ### Added
-- GitHub funding configuration
-- Community support setup for open source contributions
-- Sponsorship options enabled
+
+- GitHub funding configuration and sponsorship options.
 
 ## 2023-12-01
 
 ### Added
-- Complete application rewrite with modern stack
-- Browser-based GTFS file processing with DuckDB WASM
-- Interactive map visualization with Deck.gl
-- Dual view (table and map) for stations and stops
-- Station component management (entrances, exits, platforms, pathways)
-- Pathway visualization and pathfinding
-- Edit stations and stops with form interface
-- Export edited data back to GTFS format
 
-### Technology Stack
-- React + TypeScript
-- DuckDB WASM for in-browser SQL database
-- Deck.gl for WebGL-powered mapping
-- TanStack Query for data management
-- Shadcn UI components
+- Browser-based GTFS processing with DuckDB-WASM.
+- Interactive maps with deck.gl, and table and map views of stations and stops.
+- Station parts (entrances, exits, platforms, pathways), pathway visualization and pathfinding.
+- Station and stop editing with forms, and export of the edited data as GTFS.
+
+### Changed
+
+- The app is rewritten with React, TypeScript, DuckDB-WASM, deck.gl, TanStack Query and shadcn/ui.
 
 ## 2023-06-01
 
 ### Added
-- Initial release of GTFS Viz
-- Basic GTFS visualization features
+
+- First release of GTFS Viz, with basic GTFS visualization.
